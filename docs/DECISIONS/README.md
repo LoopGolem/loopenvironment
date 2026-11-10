@@ -9,6 +9,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0003](0003-open-source-and-licensing.md) | Open development and Apache-2.0 for original work | Accepted |
 | [0004](0004-desktop-and-human-observation.md) | Real GUI, semantic-first control, human observation | Accepted |
 | [0005](0005-security-and-transport.md) | Permissioned bridge, transport independence, local-first | Accepted |
+| [0006](0006-mandatory-agent-mediation.md) | Mandatory LoopBridge mediation and agent isolation | Accepted |
 
 ## ADR workflow
 

@@ -14,7 +14,7 @@ No application is required to be rewritten for the OS, and we do not claim unive
 
 A windowed Linux session can run with a virtual display and no physical monitor. The compositor and graphical applications still render their content as needed. Disabling a live viewer avoids continuous video capture, encoding and transmission; it **does not** make graphical rendering free.
 
-A human may later attach a viewer and see the current session. View-only and interactive access must be distinct grants.
+A human may later attach a viewer and see the current session. Remote view-only access and interactive remote takeover are distinct capabilities with separate grants. The former shares approved pixels. The latter requires an authorized remote human to preempt agent input and control the same session.
 
 ## Control arbitration
 
@@ -58,4 +58,4 @@ The OS cannot guarantee that a click or text entry resulted in a valid business 
 
 ## Proof criteria
 
-A practical demonstration should show authorized UI inspection/control, a denied operation, a visual attachment, a user takeover, and a successful state refresh after the handoff. This is a **design acceptance target**, not an existing feature.
+The M1 demonstration should show authorized UI inspection and control, a denied operation, a view-only attachment, local human takeover on the same session and a state refresh after handoff. A remote view-only attachment paired with local input demonstrates observation and local takeover only. Interactive remote takeover needs a separate proof of authorization, preemption and revocation over the remote input path. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof) · [ADR 0004](DECISIONS/0004-desktop-and-human-observation.md)

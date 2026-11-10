@@ -4,7 +4,7 @@ Scope: **LoopEnvironment only** — an independent open-source Linux-based opera
 
 ## Current project phase
 
-Documentation-first M0. No buildable OS, distribution image, selected compositor, stable API or deployed bridge exists. Do not invent completed functionality or add placeholder implementation solely to suggest progress.
+M0 foundation and M0.5 feasibility research are documented. M1.1 — Semantic Feasibility is the next planned experiment. No buildable OS, distribution image, selected compositor, stable API or deployed bridge exists. Do not invent completed functionality or add placeholder implementation solely to suggest progress.
 
 ## Non-negotiable product boundaries
 

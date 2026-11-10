@@ -9,12 +9,14 @@ LoopEnvironment targets AI-controlled graphical workflows, which may touch docum
 Assets: user files, credentials/session cookies, screenshots, accessibility text, application state, browser/email data, authorized input control, event logs, system integrity, and network access.
 
 Boundaries:
-- Untrusted agent/client ↔ LoopBridge authenticated endpoint.
+- Isolated untrusted agent/client ↔ LoopBridge authenticated endpoint, the mandatory path to the graphical session for external agents.
 - LoopBridge ↔ user graphical session and accessibility/compositor adapters.
 - User session ↔ OS privileges and protected devices.
 - Virtual guest ↔ host (network, shared folders, clipboard, devices, secrets).
-- Human observer ↔ agent-controlled session and other observers.
+- Human observer ↔ agent-controlled session and other observers. View-only access and remote interactive takeover have separate grants.
 - Software image/update process ↔ upstream package sources and signing keys.
+
+An external agent runs outside the graphical session's trusted execution context, even when it runs on the same machine. Administrative processes, trusted session applications and local human control have separate trust boundaries. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md)
 
 ## Threat examples
 
@@ -41,6 +43,7 @@ Boundaries:
 8. **Confidential transport.** Remote use requires encryption and strong authentication; VM loopback binding alone is not a trust policy.
 9. **Defense in depth.** OS sandboxing, filesystem permissions, network policy, and VM isolation complement rather than replace Bridge authorization.
 10. **Supply-chain transparency.** Verify upstream artifacts, maintain source and license manifests, and plan signed, rollback-capable OS releases.
+11. **Mandatory mediation and OS isolation.** Block untrusted agents from direct access to compositor IPC, Wayland or X11, AT-SPI, the session D-Bus, and input and capture interfaces or devices, including access inherited from another process. Enforce this separation independently of Bridge socket authentication and deny agent access to the session where the separation cannot be enforced. The isolation mechanism and its effectiveness remain to be validated.
 
 ## Agent permissions are not human consent
 
@@ -53,10 +56,12 @@ Private host↔guest communication must be authenticated. Host shared folders ca
 ## Required verification before broad exposure
 
 - Authentication and authorization negative tests, including same-user unauthorized clients.
+- Direct-access denial from the isolated agent context, including with a valid Bridge grant. Check compositor and display sockets, accessibility and session buses, input and capture paths and inherited access.
 - Session isolation and concurrent-observer/control-lease tests.
 - Stale-element, race-condition, focus-stealing and disconnect handling.
 - Screenshot/accessibility redaction and logging tests.
 - Remote exposure, TLS/identity, pairing and revocation tests before enabling remote mode.
+- Separate tests for remote view-only access and interactive remote takeover. Verify that takeover requires its own grant and preempts agent input in the same session. A remote viewer plus local human takeover provides evidence for viewing and local takeover only.
 - Dependency, update, boot-image integrity, and reproducibility checks.
 - Threat-model review for actual Wayland/portal/accessibility implementations.
 

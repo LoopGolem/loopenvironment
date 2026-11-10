@@ -28,7 +28,7 @@ LoopEnvironment does **not** bundle an AI model or require a particular agent ve
 
 ## LoopBridge: the native agent interface
 
-**LoopBridge is part of LoopEnvironment itself.** It mediates authorized observation and control of the desktop:
+**LoopBridge is part of LoopEnvironment itself.** It is the required access path to the graphical session for external agents, including agents running locally in an isolated context. It mediates authorized observation and control of the desktop:
 
 - Discover sessions, windows, focus, geometry, and available accessible elements.
 - Query semantic roles, labels, states, and supported actions where applications expose them.
@@ -63,9 +63,9 @@ LoopBridge is not a privileged universal backdoor. The design assumes explicit i
 
 ## Project status
 
-**Current phase: M0 — documentation and design.** There is no runnable build to install yet.
+**M0.5 — feasibility research complete.** The [study recommendations](docs/research/M0_5_RECOMMENDATIONS.md) identify candidates for experiments. [ADR 0006](docs/DECISIONS/0006-mandatory-agent-mediation.md) records the accepted agent isolation requirement.
 
-The next objective is a small, reproducible proof of concept on an existing Linux graphical session. An authorized external client must be able to enumerate a window, inspect accessible elements, perform an allowed action, observe a resulting event, and let a human view or reclaim the session. Only after this works will we invest in a customized operating-system image.
+**Next: M1.1 — Semantic Feasibility.** The first planned experiment will correlate one real window with its accessible tree and verify the result of a semantic action on an existing Linux graphical session. Later M1 experiments will verify authorized access from an isolated agent, view-only observation and local human takeover before image work begins.
 
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
