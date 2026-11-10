@@ -2,7 +2,7 @@
 
 **Status:** architecture contract and exploratory protocol design; there is no implemented API.
 
-LoopBridge belongs to LoopEnvironment. External agents must access the graphical session through its authorized contract on physical hardware and in virtual machines. Each client receives only the permissions granted to its identity.
+LoopBridge belongs to LoopEnvironment. External agents and remote human controllers must access the graphical session through its authorized contract on physical hardware and in virtual machines. Physical keyboard/mouse input follows the same trusted session policy through compositor/input integration, not necessarily through per-event RPC. Each external client receives only the permissions granted to its identity. See [Product definition](PRODUCT_DEFINITION.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
 
 ## Agent isolation
 

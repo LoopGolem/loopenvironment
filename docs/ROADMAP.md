@@ -16,7 +16,7 @@ This roadmap tracks completed and planned milestones. The desktop proof is the g
 
 **Deliverables:** [Linux foundation study](research/M0_5_LINUX_FOUNDATION.md), [LoopBridge feasibility study](research/M0_5_LOOPBRIDGE_FEASIBILITY.md) and [recommendations and experiment gates](research/M0_5_RECOMMENDATIONS.md).
 
-The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) records mandatory LoopBridge mediation and agent isolation as architectural requirements whose enforcement still needs validation.
+The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) requires agent isolation; [ADR 0007](DECISIONS/0007-unified-input-mediation.md) establishes unified remote and physical input mediation. The [product definition](PRODUCT_DEFINITION.md) describes their scope. Enforcement remains unvalidated.
 
 ## M1 — Agent-native desktop proof
 
@@ -30,6 +30,7 @@ The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-ma
 5. Deny an unauthorized command and report the denial. Verify that the isolated agent cannot bypass LoopBridge through direct session interfaces.
 6. Attach a view-only human observer and demonstrate safe interruption or takeover through a separate local human input path on the same session. Interactive remote takeover requires a separate demonstration.
 7. Document one application with missing semantic metadata and the safe visual fallback.
+8. Qualify the compositor/input-policy boundary for physical and remote control, including preemption and a safe failure/recovery path, as a separate bounded experiment.
 
 **Gate:** reproducible demo, limitations, tests and a written security assessment. If compositor/accessibility restrictions block this, document the blocker and compare one bounded alternative rather than endlessly changing the stack.
 

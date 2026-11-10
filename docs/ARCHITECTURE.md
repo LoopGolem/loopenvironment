@@ -43,7 +43,7 @@ This is an **intent**, not a selected dependency stack. Wayland, AT-SPI, D-Bus, 
 - Bootable OS with predictable user/session lifecycle.
 - Real graphical session, compatible with conventional Linux applications.
 - Support for virtual displays and observing the session when requested.
-- Normal desktop use must remain possible even if LoopBridge is stopped.
+- Preserve trusted local operation/recovery even if the Bridge client endpoint fails, without granting unmediated access to external agents. Exact input-policy failure and recovery behavior requires qualification.
 - Treat application rendering, capture, encoding, and video delivery as distinct costs.
 
 ### LoopBridge
@@ -75,7 +75,7 @@ The agent contract is independent of transport, though latency, disconnection an
 - Sessions and seats must have stable identifiers within a connection/restart scope; clients must not assume global permanence.
 - Only the owning authorized session is exposed.
 - Reading accessible state, viewing pixels, sending input, launching processes, and accessing files are separate capabilities.
-- Human intervention must be explicit, observable, and able to preempt agent input.
+- Human intervention must be explicit, observable, and able to preempt agent input. Remote human controllers pass through LoopBridge and physical keyboard/mouse input follows trusted session arbitration policy.
 - Changes in focus, window lifetime, or permissions must invalidate stale targets or return a safe conflict/error.
 
 ## Expected data flow

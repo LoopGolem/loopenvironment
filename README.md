@@ -12,7 +12,9 @@ LoopEnvironment takes a different approach: **agents are first-class operators o
 
 A person may run LoopEnvironment on physical hardware or in a virtual machine, watch an agent work, intervene, or use the system directly. A visible display is optional for observation, not a prerequisite for the operating session.
 
-LoopEnvironment does **not** bundle an AI model or require a particular agent vendor. It is an operating environment, not the agent's reasoning engine.
+LoopEnvironment does **not** bundle an AI model or require a particular agent vendor. It is an operating environment, not the agent's reasoning engine. It is intended as a complete Linux computer, including ordinary applications and user-written programs.
+
+**Input mediation is an OS requirement:** external agent and remote human controls use LoopBridge, while physical keyboard and mouse input follows the same trusted session arbitration policy. This is a design target, not implemented behavior.
 
 ## What makes it different?
 
@@ -71,6 +73,7 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 ## Documentation
 
+- [Product definition and authority model](docs/PRODUCT_DEFINITION.md)
 - [Vision and boundaries](docs/VISION.md)
 - [System architecture](docs/ARCHITECTURE.md)
 - [LoopBridge API and transport design](docs/LOOPBRIDGE.md)

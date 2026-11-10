@@ -16,6 +16,10 @@ A windowed Linux session can run with a virtual display and no physical monitor.
 
 A human may later attach a viewer and see the current session. Remote view-only access and interactive remote takeover are distinct capabilities with separate grants. The former shares approved pixels. The latter requires an authorized remote human to preempt agent input and control the same session.
 
+## Unified input mediation
+
+External agents and remote human controllers must use authorized LoopBridge capabilities. Physical keyboard and mouse input must be subject to the same session arbitration policy through trusted compositor/input enforcement; per-event synchronous RPC is not required. Recovery must be trusted and must not become an agent bypass. See [Product definition](PRODUCT_DEFINITION.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md). These are requirements, not implemented mechanisms.
+
 ## Control arbitration
 
 The initial proposed model is **single active input controller per graphical session**, while multiple authorized observers may exist:
