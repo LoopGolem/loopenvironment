@@ -2,7 +2,11 @@
 
 **Status:** architecture contract and exploratory protocol design; there is no implemented API.
 
-LoopBridge belongs to LoopEnvironment. An external agent should work with the OS through LoopBridge whether the OS runs on physical hardware or inside a virtual machine. A graphical client and an agent are both clients; they receive only permissions granted to their identities.
+LoopBridge belongs to LoopEnvironment. External agents must access the graphical session through its authorized contract on physical hardware and in virtual machines. Each client receives only the permissions granted to its identity.
+
+## Agent isolation
+
+External agents can run on the same machine or in a separate environment, outside the graphical session's trusted execution context. The OS must block untrusted agent processes from directly accessing compositor IPC, Wayland or X11 sockets, AT-SPI, the session D-Bus and input or capture interfaces and devices. Authenticating to a Bridge socket leaves this isolation requirement in place. Trusted session applications, administrative processes and local human input have separate trust boundaries. The enforcement mechanism and its validation remain open. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) · [Security model](SECURITY_MODEL.md)
 
 ## Responsibilities
 
@@ -63,7 +67,7 @@ Event delivery is best-effort and versioned, not an oracle of complete applicati
 
 **Remote opt-in:** encrypted, mutually authenticated access with explicit pairing and revocation, disabled by default. Never bind an unauthenticated bridge to all network interfaces.
 
-gRPC/Protocol Buffers is a candidate for typed requests and event streaming; Unix sockets, an authenticated network transport, and a future guest channel are candidate carriers. **No protocol, port, or RPC framework has been finalized.** Video may be delivered on a separate authorized media channel.
+gRPC/Protocol Buffers is a candidate for typed requests and event streaming. Unix sockets, an authenticated network transport and a future guest channel are candidate carriers. **No protocol, port, or RPC framework has been finalized.** Video may use a separately authorized media channel. Remote viewing grants access to approved pixels. Interactive remote takeover requires its own authorization and a validated path for preempting agent input in the same session. [Interaction model](INTERACTION_MODEL.md#control-arbitration)
 
 ## Authorization outline
 
@@ -90,6 +94,6 @@ Capabilities are preliminary and must be backed by real enforcement. Access to e
 
 ## Initial proof
 
-An authorized client connects locally, reads one real window's accessible controls, invokes an allowed action, receives an event, and observes a denied action. A human viewer can connect independently and reclaim control. Test a deliberately low-semantic UI to demonstrate an explicit fallback path rather than misleadingly complete trees.
+An isolated, authorized client connects locally, reads one real window's accessible controls, invokes an allowed action, receives an event and observes a denied action. Verify denial of direct session access from that client. Demonstrate independent view-only observation and local human takeover on the same session. Test a deliberately low-semantic UI to demonstrate an explicit fallback path. [M1 proof criteria](ROADMAP.md#m1--agent-native-desktop-proof)
 
 All of this is still **planned**, not shipped.
