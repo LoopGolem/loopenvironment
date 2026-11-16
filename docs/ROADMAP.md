@@ -44,6 +44,8 @@ The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISION
 
 ### M1.3 — Fallback and operator-authorized takeover
 
+**Authority specification:** [Session Authority V1](design/SESSION_AUTHORITY_V1.md) defines the bounded M1.3A identity/grant/lease control-plane proof and the separate M1.3B trusted-input and M1.3C visual gates. It is a proposed implementation contract, not evidence that a control handoff already works.
+
 **Status:** re-scope required before renewed implementation. The Debian/Sway preflight performed in the local VM reported **NO-GO for its investigated input/preemption approach** (not for the OS concept). Capture, observer attachment, takeover and idle-encoding tests were **not executed**. That preflight is local/unmerged at the time of this documentation update; do not cite its report as a published repository artifact.
 
 **Next gate:** define how owner/delegated identity is bound to the graphical session, how a control lease is enforced at the conventional **and semantic** input boundaries, and what counts as an acknowledged takeover. Then perform one bounded proof with a genuine missing-semantic control, separate frame/input grants, view-only observation, denial of unauthorized clipboard/input, a real owner/delegate override, cancelled/stale actions, and zero active capture/encoding increases over 30 seconds before/after attachment without requests. No GO if the tested approach cannot actually stop the old controller; do not mistake a broker flag for compositor enforcement.

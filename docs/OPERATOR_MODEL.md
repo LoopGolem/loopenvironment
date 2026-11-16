@@ -55,3 +55,7 @@ LoopBridge knows which **authenticated principal** requested a Bridge operation.
 When privilege is legitimately delegated, consequences are attributed to the principal and its grants; do not claim guarantees against a malicious or compromised owner. An operator-neutral model does not make authorization optional.
 
 See [product definition](PRODUCT_DEFINITION.md), [interaction model](INTERACTION_MODEL.md), [security model](SECURITY_MODEL.md) and [LoopBridge](LOOPBRIDGE.md).
+
+## Bounded authority contract for M1
+
+See [Session Authority V1](design/SESSION_AUTHORITY_V1.md) for precise control-plane invariants, the real enforcement barrier, acceptance tests and boundaries for M1.3A/B/C. Its operation names and state model are exploratory and do not replace the accepted product requirements above.
