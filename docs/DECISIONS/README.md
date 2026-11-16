@@ -2,6 +2,8 @@
 
 ADRs preserve **why** a decision was made, its status, and what remains undecided. They are not implementation checklists or proof that a feature already works.
 
+**Current interpretation:** [ADR 0008](0008-operator-neutral-authority.md) replaces earlier human-specific takeover assumptions with owner/delegate principal authority; the historical decisions remain preserved. [ADR 0009](0009-native-loopteach.md) adds native LoopTeach as a planned, not implemented, capability.
+
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-os-product-boundaries.md) | Independent agent-oriented operating system | Accepted |
@@ -10,7 +12,9 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0004](0004-desktop-and-human-observation.md) | Real GUI, semantic-first control, human observation | Accepted |
 | [0005](0005-security-and-transport.md) | Permissioned bridge, transport independence, local-first | Accepted |
 | [0006](0006-mandatory-agent-mediation.md) | Mandatory LoopBridge mediation and agent isolation | Accepted |
-| [0007](0007-unified-input-mediation.md) | Unified input mediation and distributed enforcement | Accepted |
+| [0007](0007-unified-input-mediation.md) | Unified input mediation and distributed enforcement | Accepted; clarified by 0008 |
+| [0008](0008-operator-neutral-authority.md) | Owner/principal-neutral authority and delegated takeover | Accepted |
+| [0009](0009-native-loopteach.md) | Native LoopTeach and persistent application semantics | Accepted product direction |
 
 ## ADR workflow
 

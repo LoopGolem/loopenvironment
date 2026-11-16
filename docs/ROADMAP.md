@@ -16,7 +16,7 @@ This roadmap tracks completed and planned milestones. The desktop proof is the g
 
 **Deliverables:** [Linux foundation study](research/M0_5_LINUX_FOUNDATION.md), [LoopBridge feasibility study](research/M0_5_LOOPBRIDGE_FEASIBILITY.md) and [recommendations and experiment gates](research/M0_5_RECOMMENDATIONS.md).
 
-The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) requires agent isolation; [ADR 0007](DECISIONS/0007-unified-input-mediation.md) establishes unified remote and physical input mediation. The [product definition](PRODUCT_DEFINITION.md) describes their scope. Enforcement remains unvalidated.
+The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) clarifies principal-neutral owner/delegated control, and [ADR 0009](DECISIONS/0009-native-loopteach.md) adds future native teaching. Historical M0.5 recommendations describe the earlier *human takeover* language and remain research evidence, not an override of accepted product requirements. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) requires agent isolation; [ADR 0007](DECISIONS/0007-unified-input-mediation.md) establishes unified remote and physical input mediation. The [product definition](PRODUCT_DEFINITION.md) describes their scope. Enforcement remains unvalidated.
 
 ## M1 — Agent-native desktop proof
 
@@ -28,9 +28,9 @@ The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-ma
 3. Enumerate one window and inspect real accessible element metadata.
 4. Invoke one permitted UI action and receive an observable event or refreshed state.
 5. Deny an unauthorized command and report the denial. Verify that the isolated agent cannot bypass LoopBridge through direct session interfaces.
-6. Attach a view-only human observer and demonstrate safe interruption or takeover through a separate local human input path on the same session. Interactive remote takeover requires a separate demonstration.
+6. Attach a separately authorized view-only observer and demonstrate takeover by an authenticated owner/delegate on the same session through a trusted path; input origin or biological humanity alone grants no override. Remote interactive takeover is a distinct demonstration.
 7. Document one application with missing semantic metadata and the safe visual fallback.
-8. Qualify the compositor/input-policy boundary for physical and remote control, including preemption and a safe failure/recovery path, as a separate bounded experiment.
+8. Qualify the trusted compositor/input and semantic-dispatch boundaries for owner/delegate preemption, verified pending-action cancellation and a safe failure/recovery path. Physical input must be bound to a principal/session, not assumed to be the owner.
 
 **Gate:** reproducible demo, limitations, tests and a written security assessment. If compositor/accessibility restrictions block this, document the blocker and compare one bounded alternative rather than endlessly changing the stack.
 
@@ -42,6 +42,20 @@ The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-ma
 
 **Status:** bounded local fixture experiment recorded; [procedure and evidence](labs/M1_2_AUTHORIZATION_EVENTS.md) report GO for a provisioned client in explicit Bubblewrap namespaces, an unenrolled client denied, direct session access denied even with a valid grant, expired references rejected, and query-derived events with retention-gap detection and snapshot recovery after disconnect. Native upstream event completeness, multiuser/session isolation and production authorization remain unvalidated. This is not a stable LoopBridge API. No M1.3 work is included.
 
+### M1.3 — Fallback and operator-authorized takeover
+
+**Status:** re-scope required before renewed implementation. The Debian/Sway preflight performed in the local VM reported **NO-GO for its investigated input/preemption approach** (not for the OS concept). Capture, observer attachment, takeover and idle-encoding tests were **not executed**. That preflight is local/unmerged at the time of this documentation update; do not cite its report as a published repository artifact.
+
+**Next gate:** define how owner/delegated identity is bound to the graphical session, how a control lease is enforced at the conventional **and semantic** input boundaries, and what counts as an acknowledged takeover. Then perform one bounded proof with a genuine missing-semantic control, separate frame/input grants, view-only observation, denial of unauthorized clipboard/input, a real owner/delegate override, cancelled/stale actions, and zero active capture/encoding increases over 30 seconds before/after attachment without requests. No GO if the tested approach cannot actually stop the old controller; do not mistake a broker flag for compositor enforcement.
+
+### M1.4 — Compatibility and reproducibility
+
+**Status:** deferred until the clarified M1.3 gate is met. Reproduce the complete validated M1 scenario with an independent operator, native Wayland and XWayland fixtures, a less accessible application, supported software rendering and negative-case evidence. Do not start image construction merely because M1.1/M1.2 were GO.
+
+### Later product capability — Native LoopTeach
+
+**Status:** accepted product direction, **not** part of current runtime experiments. Specify application-scoped annotations and provenance; later demonstrate a trusted target picker (preferred configurable Super+click plus alternatives), saved-profile lookup after restart, correct/ambiguous-match handling, and permission separation. A curated tested profile set for bundled applications is a future distribution goal. [LoopTeach design](LOOPTEACH.md) · [ADR 0009](DECISIONS/0009-native-loopteach.md).
+
 ## M2 — First bootable environment image
 
 **Goal:** package the proven interaction service into a maintainable Linux image suitable for a virtual machine.
@@ -50,13 +64,13 @@ The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-ma
 
 **Gate:** full M1 scenario works **inside** the image with measured CPU, RAM, storage and startup cost.
 
-## M3 — External interoperability and human session
+## M3 — External interoperability and authorized session handoff
 
 **Goal:** support at least two independent client implementations and reliable human observation/control handoff.
 
-**Demonstrate:** version negotiation, distinct identities/permissions, event resynchronization, disconnection recovery, view-only observer and human takeover, security negative cases.
+**Demonstrate:** version negotiation, authenticated principals and distinct grants, event resynchronization, disconnection recovery, view-only operator observation, owner/delegate-authorized session handoff and negative security cases.
 
-Any claim of interactive remote takeover requires evidence that an authorized remote human can preempt agent input and take control of the same session, with independent control authorization and revocation.
+Any claim of remote interactive takeover requires evidence that an authenticated owner/delegate with its own control grant can preempt the previous controller in the same session, with enforced revocation and no automatic privilege based on a human label.
 
 **Gate:** documented protocol/SDK examples and repeatable compatibility/security test suite.
 
@@ -78,6 +92,7 @@ Any claim of interactive remote takeover requires evidence that an authorized re
 
 - Each milestone has a fixed demonstration, explicit acceptance criteria, and a stop/reassess condition.
 - Keep experiments short, reversible, and isolated from production user data.
+- Maintain the distinction between historical experiment terminology and the current operator-neutral identity/ownership contract.
 - Record measured findings and unresolved risks; avoid calling speculative features "implemented".
 - Maintain main as the reference branch; use at most one active short-lived implementation branch at a time where practical.
 - Do not introduce dependencies on proprietary agents or services for core OS operation.

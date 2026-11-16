@@ -2,7 +2,7 @@
 
 **Status:** initial threat model; implementation and independent review are still required.
 
-LoopEnvironment targets AI-controlled graphical workflows, which may touch documents, authenticated websites, messages, and other sensitive resources. **The bridge is a high-value control surface.** The mere fact that an agent is local or that a VM is isolated does not make its actions safe.
+LoopEnvironment targets both interactive and automated control of graphical workflows, which may touch documents, authenticated websites, messages, and other sensitive resources. **The bridge is a high-value control surface.** The mere fact that an agent is local or that a VM is isolated does not make its actions safe.
 
 ## Assets and trust boundaries
 
@@ -13,10 +13,10 @@ Boundaries:
 - LoopBridge ↔ user graphical session and accessibility/compositor adapters.
 - User session ↔ OS privileges and protected devices.
 - Virtual guest ↔ host (network, shared folders, clipboard, devices, secrets).
-- Human observer ↔ agent-controlled session and other observers. View-only access and remote interactive takeover have separate grants.
+- Owner/delegate/controller/observer principals ↔ sessions and each other. Observation, input, teaching and override use separate grants.
 - Software image/update process ↔ upstream package sources and signing keys.
 
-An external agent runs outside the graphical session's trusted execution context, even when it runs on the same machine. Administrative processes, trusted session applications and local human control have separate trust boundaries. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md)
+A locally **untrusted client** runs outside the graphical session's trusted execution context; an external AI may instead run on another machine and only connect using authenticated credentials. Principal identity is not equivalent to a Linux UID or a biological human. Owner-level authority must not be inherited indiscriminately by arbitrary processes. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) · [ADR 0008](DECISIONS/0008-operator-neutral-authority.md)
 
 ## Threat examples
 
@@ -34,10 +34,10 @@ An external agent runs outside the graphical session's trusted execution context
 ## Mandatory security principles
 
 1. **No remote listener by default.** Local socket permissions and peer credentials are necessary but not sufficient. An authorized OS user can run untrusted processes.
-2. **Explicit identity and session scopes.** Authenticate clients, authorize every meaningful capability, and bind grants to a user/session/target when possible.
-3. **Least privilege.** Prefer a per-user bridge; no routine root/administrator bridge, global input bypass, or unrestricted arbitrary command execution.
+2. **Explicit principal and session scopes.** Authenticate principal credentials and clients, authorize meaningful capabilities, and bind grants to session/target/duration. No biological classification or trusted client-supplied role label.
+3. **Least privilege.** Prefer narrowly scoped services and deny ambient owner authority to arbitrary child processes; no routine unrestricted root Bridge or arbitrary command execution.
 4. **Separate observation from control.** Screenshots, element text, keyboard/mouse, file operations and process launch should each have distinct authorization.
-5. **Revocation and takeover.** Human intervention must preempt agent input and expire stale leases.
+5. **Revocation and takeover.** An authenticated owner/delegate override must preempt a previous operator and expire stale leases, without assuming a human-only class.
 6. **Data minimization.** Logs record identities, actions, times, outcomes, and error categories; not raw passwords, full documents or screen recordings by default.
 7. **Fail closed.** Invalid authentication, missing permission, expired target, adapter error or broken transport must never result in elevated fallback.
 8. **Confidential transport.** Remote use requires encryption and strong authentication; VM loopback binding alone is not a trust policy.
@@ -45,9 +45,11 @@ An external agent runs outside the graphical session's trusted execution context
 10. **Supply-chain transparency.** Verify upstream artifacts, maintain source and license manifests, and plan signed, rollback-capable OS releases.
 11. **Mandatory mediation and OS isolation.** Block untrusted agents from direct access to compositor IPC, Wayland or X11, AT-SPI, the session D-Bus, and input and capture interfaces or devices, including access inherited from another process. Enforce this separation independently of Bridge socket authentication and deny agent access to the session where the separation cannot be enforced. The isolation mechanism and its effectiveness remain to be validated.
 
-## Agent permissions are not human consent
+## Operator authorization and owner authority
 
-A task instruction alone does not justify every possible operation. Sensitive workflows—payments, sending messages, credential entry, destructive file changes—need explicit higher-level policy/approval, especially for unattended operation. Prompt injection cannot be fixed by a transport encryption setting.
+An authenticated principal's grants—not a task instruction or assertion that a client is human—determine authorization. The initial owner may be controlled by a person, AI or other automation; the OS cannot prevent an intentionally authorized owner from changing its own policy.
+
+Sensitive operations (payments, sending messages, credential entry, destructive changes) may require explicit **owner-defined higher-level policy**, approval, scope or confirmation. These rules apply regardless of the type of controller. Prompt injection and malicious stored LoopTeach annotations are untrusted input, not instructions to grant authority. A local process using stolen owner credentials is a compromise of owner identity, not evidence that an AI bypassed biological detection.
 
 ## Virtual deployment caveats
 
@@ -57,11 +59,11 @@ Private host↔guest communication must be authenticated. Host shared folders ca
 
 - Authentication and authorization negative tests, including same-user unauthorized clients.
 - Direct-access denial from the isolated agent context, including with a valid Bridge grant. Check compositor and display sockets, accessibility and session buses, input and capture paths and inherited access.
-- Session isolation and concurrent-observer/control-lease tests.
+- Session isolation, securely bootstrapped owner authority, delegated administration and concurrent-observer/control-lease tests.
 - Stale-element, race-condition, focus-stealing and disconnect handling.
-- Screenshot/accessibility redaction and logging tests.
+- Screenshot/accessibility and LoopTeach annotation redaction, provenance, poisoning, mismatching and logging tests.
 - Remote exposure, TLS/identity, pairing and revocation tests before enabling remote mode.
-- Separate tests for remote view-only access and interactive remote takeover. Verify that takeover requires its own grant and preempts agent input in the same session. A remote viewer plus local human takeover provides evidence for viewing and local takeover only.
+- Separate tests for view-only and interactive control. Verify that takeover requires authenticated owner/delegate authority and preempts all previous conventional and semantic input. A remote viewer plus local input proves neither remote authenticated takeover nor general operator identification.
 - Dependency, update, boot-image integrity, and reproducibility checks.
 - Threat-model review for actual Wayland/portal/accessibility implementations.
 

@@ -1,67 +1,63 @@
 # LoopEnvironment
 
-**An open-source, Linux-based operating system designed for AI agents — observable and usable by humans.**
+**An open-source Linux OS with native graphical and structured interfaces, usable by authenticated operators controlled by people, AI or other software.**
 
-> **Status: design / pre-alpha.** LoopEnvironment is a proposed operating system, not a downloadable distribution yet. This repository contains product and architecture documentation and a bounded local semantic experiment. No image, ISO, installer, stable API, or security-certified runtime is available.
+> **Status: design / pre-alpha.** LoopEnvironment is a proposed operating system, not a downloadable distribution yet. This repository contains product and architecture documentation plus bounded M1.1/M1.2 experiments. No image, ISO, installer, stable API, or security-certified runtime is available.
 
 ## The idea
 
-Most operating systems expose a desktop primarily for people. An AI agent can use them, but often has to infer meaning from pixels and imitate mouse and keyboard input.
+LoopEnvironment exposes **two native ways to operate a real Linux computer**: the familiar rendered desktop and a permissioned, machine-readable view of sessions, windows, controls, actions and events. JSON is one possible representation, not a selected transport. Missing application semantics are reported honestly; visual inspection and conventional input remain separate fallbacks.
 
-LoopEnvironment takes a different approach: **agents are first-class operators of the computer.** The system retains a real graphical desktop and compatibility with ordinary Linux applications, while providing native, permissioned access to windows, accessible controls, actions, and events.
+The operating system authenticates **principals** and applies roles/capabilities, not biological classifications. Installation establishes a **master/responsible owner**, which may be controlled by a person, AI or automation. That owner delegates grants, administers sessions and may explicitly authorize a control handoff. No physical input is inherently a privileged "human" takeover.
 
-A person may run LoopEnvironment on physical hardware or in a virtual machine, watch an agent work, intervene, or use the system directly. A visible display is optional for observation, not a prerequisite for the operating session.
+An agent does **not** need to run as a process in LoopEnvironment. Clients can operate locally under isolation or connect from outside via authenticated transports. Interactive installation and secure unattended VM provisioning must lead to the same owner-authority semantics.
 
-LoopEnvironment does **not** bundle an AI model or require a particular agent vendor. It is an operating environment, not the agent's reasoning engine. It is intended as a complete Linux computer, including ordinary applications and user-written programs.
+**LoopTeach** is a planned native tool to let authorized operators explain what a particular application's controls mean, then expose confidently re-identified annotations through LoopBridge when that app runs again. The product requires no specific model, proprietary vendor or closed app catalog.
 
-**Input mediation is an OS requirement:** external agent and remote human controls use LoopBridge, while physical keyboard and mouse input follows the same trusted session arbitration policy. This is a design target, not implemented behavior.
+All these are design targets, not released OS capabilities. See [operator model](docs/OPERATOR_MODEL.md), [LoopTeach](docs/LOOPTEACH.md) and [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md).
 
 ## What makes it different?
 
 | Principle | Intended behavior |
 | --- | --- |
-| Agent-native | An authenticated agent can discover authorized desktop state and execute approved actions through a structured API. |
-| Human-observable | A human can view the same session and, when permitted, take control. |
-| Real desktop | Existing Linux graphical applications remain useful; the project does not propose a replacement office suite or web browser. |
-| Semantic first | Use accessibility and native application interfaces when available; fall back to screen observation and conventional input when needed. |
-| Local-first security | Local access is scoped to authorized users/sessions; network control is disabled by default. |
-| OS independence | The same operating system capabilities work on physical hardware and inside virtual machines. |
-| Open source | Project-owned code is intended to be licensed under Apache-2.0; upstream Linux components retain their respective licenses. |
+| Operator-neutral | Authenticate principals and scopes, not whether an operator is biologically human or an AI. |
+| Owner-configured | A master/responsible initial owner delegates capabilities, sessions and authority. |
+| Visual and structured | A real Linux GUI plus a structured model of observable elements, state, actions and events. |
+| Teachable | Native LoopTeach can annotate application-specific controls and reuse meaning on later launches. |
+| Compatible | Normal Linux applications remain usable even without a semantic profile. |
+| Mandatory mediation | Untrusted operators must not bypass trusted Bridge/OS input boundaries. |
+| Deployment-neutral | Physical and VM installation, interactive or unattended onboarding, vendor-independent API. |
+| Open source | Apache-2.0 original code with third-party licenses preserved. |
 
 ## LoopBridge: the native agent interface
 
-**LoopBridge is part of LoopEnvironment itself.** It is the required access path to the graphical session for external agents, including agents running locally in an isolated context. It mediates authorized observation and control of the desktop:
+**LoopBridge belongs to the OS.** It exposes session/window discovery, accessible state, semantic actions, ordinary input fallbacks, events, captures and administrative capabilities to authenticated principals. It is not an LLM or agent runtime.
 
-- Discover sessions, windows, focus, geometry, and available accessible elements.
-- Query semantic roles, labels, states, and supported actions where applications expose them.
-- Perform permitted interactions, such as focus, activation, text entry, and input events.
-- Subscribe to changes and receive ordered, documented event streams.
-- Request a screenshot or visual stream when semantic data is missing or a human chooses to watch.
-- Allow user intervention, revocation, and auditable control handoffs.
+Authority is established by owner-delegated grants: observing does not permit control; teaching does not permit invoking actions; screenshots, clipboard, file access and administration require separate scopes. An authorized owner or delegate may request control transfer; the system must enforce cancellation/preemption at trusted boundaries rather than infer a "human" from an input device.
 
-The agent-facing contract is intended to be stable across execution environments. Only the **connection transport** changes: an authenticated local Unix socket, a private virtual-machine channel, or explicitly enabled remote access.
+Live accessibility metadata, inferred visual meaning and stored LoopTeach annotations have distinct provenance. Saved profiles cannot grant authority or guarantee persistent target identity. When semantic matching is uncertain, the API reports ambiguity rather than guessing.
 
-These are design goals; none of these capabilities should be mistaken for implemented functionality today.
+The external contract may use a local socket, VM channel or opt-in remote transport, retaining the same conceptual semantics. Bridge cannot observe or veto every syscall.
 
-See [LoopBridge design](docs/LOOPBRIDGE.md), [interaction model](docs/INTERACTION_MODEL.md), and [security model](docs/SECURITY_MODEL.md).
+Read [LoopBridge](docs/LOOPBRIDGE.md), [operator model](docs/OPERATOR_MODEL.md), [interaction](docs/INTERACTION_MODEL.md), and [security](docs/SECURITY_MODEL.md).
 
 ## Conceptual architecture
 
-    Agent or authorized human client
-                   |
-          Versioned agent API
-                   |
-             LoopBridge
-       Auth / Policy / Sessions / Events
-                   |
-      Desktop and application adapters
-       Wayland / accessibility / D-Bus
-                   |
-       Linux graphical user session
-                   |
-       Linux kernel and system services
+Operator principals: owner / delegates / local or external clients
+                             |
+                Authenticated structured API
+                             |
+                        LoopBridge
+            grants | sessions | actions | events
+                /                     \
+      semantic/profile adapters    trusted input/media
+         AT-SPI + LoopTeach          compositor/portals
+                \                     /
+                 Real graphical applications
+                             |
+                   Linux kernel/services
 
-LoopBridge is not a privileged universal backdoor. The design assumes explicit identities, scoped permissions, least privilege, revocation, and clear ownership of each graphical session.
+The compositor and other trusted OS services enforce their own policy boundaries. LoopTeach annotates semantics; it does not authorize input. The system does not require an AI process inside the guest.
 
 ## Project status
 
@@ -71,11 +67,15 @@ LoopBridge is not a privileged universal backdoor. The design assumes explicit i
 
 **M1.2 — Authorization and Events: bounded experiment recorded.** The [lab report and evidence](docs/labs/M1_2_AUTHORIZATION_EVENTS.md) demonstrate a provisioned client in explicit Bubblewrap namespaces, denied direct session access, expired-reference rejection and query-derived events with gap detection and snapshot recovery. This is a fixture-specific prototype, not a stable or production-secure LoopBridge. Native upstream event completeness and broader isolation remain unvalidated.
 
+The unmerged M1.3 preflight was reported NO-GO for its tested input/takeover mechanism; it is not proof the full OS is infeasible. Further M1.3 work must be re-scoped against the updated operator-neutral authority model.
+
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)
+- [Owner and operator identity model](docs/OPERATOR_MODEL.md)
+- [LoopTeach — native semantic teaching](docs/LOOPTEACH.md)
 - [Vision and boundaries](docs/VISION.md)
 - [System architecture](docs/ARCHITECTURE.md)
 - [LoopBridge API and transport design](docs/LOOPBRIDGE.md)

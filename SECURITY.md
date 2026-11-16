@@ -2,7 +2,7 @@
 
 ## Project status
 
-LoopEnvironment is currently **documentation-only / pre-alpha**. There is no supported released operating system, API server, binary image, installation package, or production deployment to secure. Features and controls described in design documents are planned, not implemented.
+LoopEnvironment is currently **design / pre-alpha with bounded M1.1/M1.2 experimental code**. No supported OS image, stable API, installer or production deployment exists. These experiments do not constitute a security-certified Bridge; the full owner/operator authority model and LoopTeach are unimplemented.
 
 ## Reporting vulnerabilities
 
@@ -17,8 +17,9 @@ A definitive private security contact and response SLA have **not yet been estab
 - Unauthenticated network control is forbidden by design.
 - Local sockets, guest/host forwarding and remote transports require independent authorization checks.
 - Access to window metadata, screen pixels, input, processes and files must be separately permissioned.
-- Sensitive text, credentials and image content should be minimized and redacted in logs.
-- Human permission revocation and input takeover must not depend on agent cooperation.
+- Sensitive text, credentials, images and LoopTeach annotations must be minimized, scoped and redacted in logs.
+- Stored annotations cannot become executable instructions or grants; owner credentials must not become ambient process capabilities.
+- Owner/delegate takeover and revocation must not depend on the previous controller's cooperation or whether it is human or AI.
 - Design-time claims must be verified with negative security tests before release.
 
 Read [the threat model](docs/SECURITY_MODEL.md). No architecture document constitutes a security certification.

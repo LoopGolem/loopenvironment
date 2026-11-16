@@ -1,5 +1,7 @@
 # M0.5 — LoopBridge technical feasibility
 
+> **Historical M0.5 snapshot (2026-11-10):** The "human takeover" language below reflects the earlier experiment proposal; current operator-neutral ownership is defined by [ADR 0008](../DECISIONS/0008-operator-neutral-authority.md), the [operator model](../OPERATOR_MODEL.md), [ADR 0009](../DECISIONS/0009-native-loopteach.md) and the [updated roadmap](../ROADMAP.md). Original technical research remains unchanged.
+
 **Status:** desk research and design proposal. Sources consulted on **2026-11-10**. There is no deployed Bridge, selected RPC framework or validated adapter. **High** confidence denotes a documented interface. **Medium** denotes expected integration with version, OS policy or application dependencies. A documented interface is evidence of an upstream contract, not of a working LoopEnvironment deployment.
 
 The [Linux foundation study](M0_5_LINUX_FOUNDATION.md) covers the graphical stack, accessibility providers and VM graphics. The [recommendations](M0_5_RECOMMENDATIONS.md) define the proposed experiment sequence. The [LoopBridge contract](../LOOPBRIDGE.md), [security model](../SECURITY_MODEL.md) and [accepted ADRs](../DECISIONS/README.md) remain authoritative for product boundaries.

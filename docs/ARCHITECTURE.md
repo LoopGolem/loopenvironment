@@ -1,40 +1,39 @@
 # System architecture
 
-**Status:** conceptual architecture; no runtime is implemented.
+**Status:** conceptual architecture with bounded prototypes; no bootable OS or stable Bridge runtime is implemented.
 
 ## Boundaries
 
-LoopEnvironment is a standalone Linux-based operating system. Its own components include an agent-facing service (LoopBridge), desktop integration/adapters, security policy, and distribution configuration. External agents are clients, not dependencies. The same OS is intended to run on physical hardware or as a guest in a virtual machine.
+LoopEnvironment is an independent Linux OS whose real graphical sessions are also operable through structured, permissioned interfaces. A **principal** may be controlled by a person, AI or script inside or outside the OS. No LLM or in-guest agent process is mandatory.
 
-The implementation should reuse a maintained Linux kernel, userland, display server/compositor, accessibility mechanisms, and existing applications rather than rebuilding them.
+An initial owner principal is bound during secure interactive or unattended provisioning and manages delegates and sessions. LoopBridge is the native API/authority. LoopTeach is a planned native semantic annotation application. See [operator model](OPERATOR_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
 ## Logical layers
 
-    +--------------------------------------------------------+
-    | External client: agent, automation, human viewer       |
-    +----------------------+---------------------------------+
-                           | authenticated transport
-    +----------------------v---------------------------------+
-    | LoopBridge                                             |
-    | protocol | identities | authorization | sessions      |
-    | capability discovery | commands | events | audit       |
-    +-----------+----------------+---------------------------+
-                |                |
-    +-----------v---------+  +---v--------------------------+
-    | Semantic adapters   |  | Visual / input adapters      |
-    | AT-SPI / D-Bus /     |  | compositor / portals /       |
-    | app-specific APIs    |  | screen capture / input       |
-    +-----------+---------+  +---+--------------------------+
-                |                |
-    +-----------v----------------v--------------------------+
-    | Real Linux user session, windows, apps and processes   |
-    +----------------------+---------------------------------+
-                           |
-    +----------------------v---------------------------------+
-    | Linux kernel, devices and system services              |
++--------------------------------------------------------+
+    | Controllers (people / AI / services)                    |
+    | Authenticated principals: initial owner + delegates    |
+    +-----------------------------+--------------------------+
+                                  | versioned Bridge contract
+    +-----------------------------v--------------------------+
+    | LoopBridge: identity | session | grants | actions      |
+    | structured state | annotations | events | audit        |
+    +-----------------------+-----------------+--------------+
+                            |                 |
+    +-----------------------v---+ +-----------v--------------+
+    | Semantic adapters        | | Trusted input/media       |
+    | AT-SPI, apps, profiles    | | compositor / portals      |
+    +-----------------------+---+ +-----------+--------------+
+                            |                 |
+    +-----------------------v-----------------v--------------+
+    | Real Linux applications, graphical sessions            |
+    +-----------------------------+--------------------------+
+                                  |
+    +-----------------------------v--------------------------+
+    | Kernel, narrow privileged services, isolation          |
     +--------------------------------------------------------+
 
-This is an **intent**, not a selected dependency stack. Wayland, AT-SPI, D-Bus, desktop portals and a lightweight compositor are strong candidates; their capabilities and restrictions need experiment-driven confirmation.
+LoopTeach feeds application-scoped descriptions into the semantic observation layer as **data**, not authorization. Compositor, OS base and transport remain experiment choices.
 
 ## Core components
 
@@ -72,21 +71,29 @@ The agent contract is independent of transport, though latency, disconnection an
 
 ## Session and control model
 
-- Sessions and seats must have stable identifiers within a connection/restart scope; clients must not assume global permanence.
-- Only the owning authorized session is exposed.
-- Reading accessible state, viewing pixels, sending input, launching processes, and accessing files are separate capabilities.
-- Human intervention must be explicit, observable, and able to preempt agent input. Remote human controllers pass through LoopBridge and physical keyboard/mouse input follows trusted session arbitration policy.
-- Changes in focus, window lifetime, or permissions must invalidate stale targets or return a safe conflict/error.
+- Principals are authenticated subjects, not synonyms for a Linux UID/process, human body or AI model.
+- Owner bootstrap occurs once per installation through an interactive or unattended protected flow.
+- Session and target identifiers are scoped; live references must be revalidated.
+- Independent sessions are a preferred default, with shared sessions and separately authorized observers.
+- Observation, media capture, semantic action, conventional input, teaching, process/file access and administration are distinct capabilities.
+- Takeover is an **explicit authenticated owner/delegate operation**, not an automatic response to pointer motion or a claim to be human.
+- Trusted input policy must prevent old queued/in-flight commands from affecting the new owner after a confirmed handoff; semantic and conventional paths must be coordinated.
+- Untrusted clients cannot directly bypass protected compositor/session interfaces. Bridge cannot itself intercept every syscall.
+- Learned application semantics cannot grant new input privileges.
+
+See [operator model](OPERATOR_MODEL.md), [interaction model](INTERACTION_MODEL.md) and [ADR 0008](DECISIONS/0008-operator-neutral-authority.md).
 
 ## Expected data flow
 
-1. Client authenticates and discovers server/API version and granted capabilities.
-2. Client chooses an authorized graphical session.
-3. Client gets a state snapshot with element and window identifiers.
-4. Client performs an allowed action with target freshness checks.
-5. Bridge executes using available adapters and returns a structured outcome.
-6. Client subscribes to events, resynchronizing after gaps/reconnects.
-7. Human viewer may observe or request control under policy.
+1. Installation securely establishes an initial master/responsible owner.
+2. Owner creates/delegates principals, permissions and session policies.
+3. A local or remote client authenticates to LoopBridge as a principal.
+4. Client receives a permitted structured snapshot, including reliably matched LoopTeach annotations with distinct provenance.
+5. A permitted semantic or conventional operation is validated against current target/lease; trusted OS components enforce protected paths.
+6. Bridge reports an outcome with known/unknown status; events and snapshots repair stream gaps.
+7. An owner/delegate can explicitly request a control transfer, refresh state and grant new leases under tested revocation barriers.
+
+This is the intended product data flow, not the currently implemented end-to-end runtime.
 
 ## Constraints and risks
 
@@ -99,6 +106,6 @@ The agent contract is independent of transport, though latency, disconnection an
 
 ## Architecture quality gates
 
-No implementation is accepted merely because it can click a coordinate. The proof must demonstrate authorization, semantic inspection of a real application, event consistency, denial of an unauthorized operation, and human observation/interruptibility.
+No implementation is accepted merely because it can click a coordinate. The proof must demonstrate authorization, semantic inspection of a real application, event consistency, denial of an unauthorized operation, and authorized observation/owner-delegate interruptibility.
 
 See [LoopBridge](LOOPBRIDGE.md), [Interaction](INTERACTION_MODEL.md), [Security](SECURITY_MODEL.md) and [Roadmap](ROADMAP.md).

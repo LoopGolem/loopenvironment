@@ -3,6 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-11-10
 
+> **Interpretation notice (2026-11-16):** [ADR 0008](0008-operator-neutral-authority.md) supersedes human-specific priority implied by wording below. Owner/delegate principals—not biological categories—govern explicit control override. Original historical text is retained; mandatory mediation and safe enforcement still apply.
+
 ## Context
 
 The product should support graphical tasks—spreadsheets, email, browsers—rather than only terminal commands. A human needs the option to inspect or take over a working session.

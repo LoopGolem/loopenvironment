@@ -3,6 +3,8 @@
 **Status:** Accepted  
 **Date:** 2026-11-10
 
+> **Interpretation notice (2026-11-16):** [ADR 0008](0008-operator-neutral-authority.md) supersedes human-specific priority implied by wording below. Owner/delegate principals—not biological categories—govern explicit control override. Original historical text is retained; mandatory mediation and safe enforcement still apply.
+
 ## Context
 
 The ability to observe screens and control apps is highly sensitive. A virtual machine, loopback port, Unix-domain socket or encrypted channel is not by itself proof that a client is authorized.

@@ -1,5 +1,7 @@
 # M0.5 — Linux foundation, graphics and accessibility
 
+> **Historical M0.5 snapshot (2026-11-10):** The "human takeover" language below reflects the earlier experiment proposal; current operator-neutral ownership is defined by [ADR 0008](../DECISIONS/0008-operator-neutral-authority.md), the [operator model](../OPERATOR_MODEL.md), [ADR 0009](../DECISIONS/0009-native-loopteach.md) and the [updated roadmap](../ROADMAP.md). Original technical research remains unchanged.
+
 **Status:** desk research and recommendations for review. Sources consulted on **2026-11-10**. No Linux session, installer, image, performance benchmark or hardware test was run. **High** confidence means a primary source documents the stated interface or artifact. **Medium** means an integration inference or a conclusion that depends on package version or configuration. The confidence ratings do not certify runtime behavior.
 
 See the [executive recommendations](M0_5_RECOMMENDATIONS.md) for the M1 gates and the [LoopBridge study](M0_5_LOOPBRIDGE_FEASIBILITY.md) for the adapter, transport and security design. The [accepted ADRs](../DECISIONS/README.md) govern this study. Distribution and compositor choices remain open.
