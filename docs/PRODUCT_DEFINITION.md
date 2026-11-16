@@ -95,6 +95,6 @@ Without any active authorized viewer, avoid unnecessary continuous capture, vide
 
 Do not initially build a new kernel, hypervisor, bespoke browser, office suite or full distribution. No decision mandates a compositor fork, universal GUI introspection, perfect annotation matching or classification of all syscalls.
 
-M1.1 and M1.2 have bounded GO evidence, not shipping OS guarantees. The M1.3 preflight reported NO-GO for its attempted input preemption path; it remains local/unmerged and must be reconciled with the clarified operator-neutral authority model before more testing. LoopTeach is a native future product capability, not an implemented M1 feature.
+M1.1 and M1.2 have bounded GO evidence, not shipping OS guarantees. The M1.3 preflight reported NO-GO for its attempted input preemption path; its [historical evidence](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved. The subsequent [M1.3A authority proof](labs/M1_3A_SESSION_AUTHORITY.md) qualifies only its bounded control plane; real preemption remains unqualified. LoopTeach is a native future product capability, not an implemented M1 feature.
 
 A custom image follows reproducible evidence of the security and interaction properties; see [architecture](ARCHITECTURE.md), [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md) and [roadmap](ROADMAP.md).

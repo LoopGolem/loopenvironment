@@ -71,6 +71,8 @@ The compositor and other trusted OS services enforce their own policy boundaries
 
 This historical preflight predates the authority clarification in [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md) and [Session Authority V1](docs/design/SESSION_AUTHORITY_V1.md); it does not change their later acceptance gates or demonstrate them.
 
+**M1.3A — Identity, Grants & Session Authority: bounded experiment recorded.** The [lab and reproducible evidence](docs/labs/M1_3A_SESSION_AUTHORITY.md) report server-authenticated identities, scoped delegation/revocation, exclusive leases, 96 passing tests and a real authorized Calculator action from isolated clients. Takeover is policy simulation only; real compositor/semantic preemption remains unqualified for M1.3B. This does not qualify M1.3 overall or production security.
+
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
 ## Documentation

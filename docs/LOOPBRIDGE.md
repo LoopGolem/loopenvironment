@@ -110,4 +110,4 @@ The initial owner holds ultimate configured administrative authority but should 
 
 **Experimental evidence:** M1.1 showed a bounded GNOME Calculator semantic action; M1.2 added a fixture-specific isolated client, local authorization and query-derived events. Neither is a completed LoopBridge service or proof of universal security.
 
-The M1.3 preflight for a conventional input/preemption path reported NO-GO in the local lab and was not yet published in this repository. Its outcome motivates reviewing **owner/delegate control semantics** and the enforcement boundary, not abandoning the design. LoopTeach and persistent profile matching remain unimplemented. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof).
+The M1.3 preflight for a conventional input/preemption path reported NO-GO in the local lab; its [historical report](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved in this repository. Its outcome motivates reviewing **owner/delegate control semantics** and the enforcement boundary, not abandoning the design. LoopTeach and persistent profile matching remain unimplemented. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof).
