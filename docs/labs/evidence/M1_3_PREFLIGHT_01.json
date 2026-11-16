@@ -1,0 +1,288 @@
+{
+  "result": "PARTIAL",
+  "started": "2026-11-16T05:03:55.154820+00:00",
+  "phase": "preflight",
+  "versions": {
+    "packages": {
+      "bubblewrap": "0.12.0-1~deb13u1",
+      "foot": "1.21.0-2",
+      "libwayland-client0:amd64": "1.23.1-3",
+      "libwlroots-0.18:amd64": "0.18.2-3",
+      "python3-gi": "3.50.0-4+b1",
+      "python3-pyatspi": "2.46.1-1",
+      "sway": "1.10.1-2",
+      "xdg-desktop-portal": "1.20.3+ds-1",
+      "xdg-desktop-portal-gnome": "48.0-2",
+      "xdg-desktop-portal-gtk": "1.15.3-1"
+    },
+    "python": "3.13.5",
+    "kernel": "6.12.117+deb13-amd64"
+  },
+  "wayland_globals": {
+    "ext_foreign_toplevel_list_v1": 1,
+    "ext_idle_notifier_v1": 1,
+    "ext_session_lock_manager_v1": 1,
+    "ext_transient_seat_manager_v1": 1,
+    "org_kde_kwin_server_decoration_manager": 1,
+    "wl_compositor": 6,
+    "wl_data_device_manager": 3,
+    "wl_output": 4,
+    "wl_seat": 9,
+    "wl_shm": 2,
+    "wl_subcompositor": 1,
+    "wp_alpha_modifier_v1": 1,
+    "wp_content_type_manager_v1": 1,
+    "wp_cursor_shape_manager_v1": 1,
+    "wp_drm_lease_device_v1": 1,
+    "wp_fractional_scale_manager_v1": 1,
+    "wp_presentation": 1,
+    "wp_security_context_manager_v1": 1,
+    "wp_single_pixel_buffer_manager_v1": 1,
+    "wp_tearing_control_manager_v1": 1,
+    "wp_viewporter": 1,
+    "xdg_activation_v1": 1,
+    "xdg_wm_base": 5,
+    "zwlr_data_control_manager_v1": 2,
+    "zwlr_export_dmabuf_manager_v1": 1,
+    "zwlr_foreign_toplevel_manager_v1": 3,
+    "zwlr_gamma_control_manager_v1": 1,
+    "zwlr_layer_shell_v1": 4,
+    "zwlr_output_manager_v1": 4,
+    "zwlr_output_power_manager_v1": 1,
+    "zwlr_screencopy_manager_v1": 3,
+    "zwlr_virtual_pointer_manager_v1": 2,
+    "zwp_idle_inhibit_manager_v1": 1,
+    "zwp_input_method_manager_v2": 1,
+    "zwp_keyboard_shortcuts_inhibit_manager_v1": 1,
+    "zwp_pointer_constraints_v1": 1,
+    "zwp_pointer_gestures_v1": 3,
+    "zwp_primary_selection_device_manager_v1": 1,
+    "zwp_relative_pointer_manager_v1": 1,
+    "zwp_tablet_manager_v2": 1,
+    "zwp_text_input_manager_v3": 1,
+    "zwp_virtual_keyboard_manager_v1": 1,
+    "zxdg_decoration_manager_v1": 1,
+    "zxdg_exporter_v1": 1,
+    "zxdg_exporter_v2": 1,
+    "zxdg_importer_v1": 1,
+    "zxdg_importer_v2": 1,
+    "zxdg_output_manager_v1": 3
+  },
+  "tools_available": {
+    "wayland-info": false,
+    "grim": false,
+    "wayvnc": false,
+    "wtype": false,
+    "wl-copy": false,
+    "wl-paste": false
+  },
+  "portal_alternative": {
+    "interfaces": [
+      "org.freedesktop.DBus.Introspectable",
+      "org.freedesktop.DBus.Peer",
+      "org.freedesktop.DBus.Properties",
+      "org.freedesktop.host.portal.Registry",
+      "org.freedesktop.portal.Account",
+      "org.freedesktop.portal.Camera",
+      "org.freedesktop.portal.DynamicLauncher",
+      "org.freedesktop.portal.Email",
+      "org.freedesktop.portal.FileChooser",
+      "org.freedesktop.portal.GameMode",
+      "org.freedesktop.portal.Inhibit",
+      "org.freedesktop.portal.Location",
+      "org.freedesktop.portal.MemoryMonitor",
+      "org.freedesktop.portal.NetworkMonitor",
+      "org.freedesktop.portal.Notification",
+      "org.freedesktop.portal.OpenURI",
+      "org.freedesktop.portal.PowerProfileMonitor",
+      "org.freedesktop.portal.Print",
+      "org.freedesktop.portal.ProxyResolver",
+      "org.freedesktop.portal.Realtime",
+      "org.freedesktop.portal.Settings",
+      "org.freedesktop.portal.Trash"
+    ],
+    "remote_desktop": false,
+    "screen_cast": false,
+    "mutter_remote_desktop_owned": false,
+    "mutter_screen_cast_owned": false,
+    "connect_to_eis_attempted": false
+  },
+  "clipboard_configuration": {
+    "sway_autostart_matches_known_command": true,
+    "vboxclient_process_flags": [
+      {
+        "clipboard": true,
+        "wayland": true,
+        "foreground": true
+      }
+    ],
+    "vboxclient_version": "7.2.22r175245"
+  },
+  "clipboard_isolation": {
+    "baseline": {
+      "sway": {
+        "connected": true
+      },
+      "wayland": {
+        "connected": true
+      },
+      "session_bus": {
+        "connected": true
+      },
+      "atspi_bus": {
+        "connected": true
+      },
+      "x11": {
+        "connected": true
+      },
+      "pipewire": {
+        "connected": true
+      },
+      "system_bus": {
+        "connected": true
+      }
+    },
+    "isolated": {
+      "endpoints": {
+        "sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "system_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_system_bus": {
+          "connected": false,
+          "errno": 2
+        }
+      },
+      "devices": {
+        "uinput": 2
+      },
+      "exposed_device_count": 0,
+      "inherited_socket_count": 0,
+      "unexpected_descriptor_count": 0,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "security": {
+        "CapEff": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "nested_userns_denied": true
+    },
+    "clipboard_content_read": false,
+    "clipboard_content_written": false,
+    "grant_authenticated": false,
+    "payload": "independent_probe_only"
+  },
+  "semantic_gap": {
+    "window": {
+      "id": 23,
+      "pid": 16658,
+      "app_id": "org.loopenvironment.M13Gap",
+      "shell": "xdg_shell"
+    },
+    "executable": "/usr/bin/foot",
+    "samples": [
+      {
+        "elapsed_ms": 91,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 1061,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 1696,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 2359,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 2950,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 3604,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 4127,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      },
+      {
+        "elapsed_ms": 4884,
+        "foot_matches": 0,
+        "calculator_matches": 1
+      }
+    ],
+    "duration_ms": 5469,
+    "positive_control_pid": 16617,
+    "gap_observed": true,
+    "scope": "no_foot_atspi_application_for_window_pid_during_sampling"
+  },
+  "input_device_types": {
+    "pointer": 3,
+    "keyboard": 4
+  },
+  "completed": true
+}

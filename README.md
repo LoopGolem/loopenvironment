@@ -67,7 +67,9 @@ The compositor and other trusted OS services enforce their own policy boundaries
 
 **M1.2 — Authorization and Events: bounded experiment recorded.** The [lab report and evidence](docs/labs/M1_2_AUTHORIZATION_EVENTS.md) demonstrate a provisioned client in explicit Bubblewrap namespaces, denied direct session access, expired-reference rejection and query-derived events with gap detection and snapshot recovery. This is a fixture-specific prototype, not a stable or production-secure LoopBridge. Native upstream event completeness and broader isolation remain unvalidated.
 
-The unmerged M1.3 preflight was reported NO-GO for its tested input/takeover mechanism; it is not proof the full OS is infeasible. Further M1.3 work must be re-scoped against the updated operator-neutral authority model.
+**M1.3 — Fallback and Human Control: preflight NO-GO for the investigated approach.** The [lab assessment](docs/labs/M1_3_FALLBACK_HUMAN_CONTROL.md) records a real Foot accessibility gap and blocked clipboard transport paths in the M1.2 isolation profile. Target-bound input and safe compositor-side preemption remain unqualified; the existing-session portal alternative was unavailable. Capture, observation, takeover and idle encoding measurements were not implemented or demonstrated.
+
+This historical preflight predates the authority clarification in [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md) and [Session Authority V1](docs/design/SESSION_AUTHORITY_V1.md); it does not change their later acceptance gates or demonstrate them.
 
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 

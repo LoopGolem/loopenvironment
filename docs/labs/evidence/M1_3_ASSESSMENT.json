@@ -1,0 +1,55 @@
+{
+  "result": "NO-GO",
+  "scope": "M1.3 approach on the existing Sway session",
+  "phase": "preflight_stop",
+  "observations": "M1_3_PREFLIGHT_01.json",
+  "blocking_reason": "No qualified target-bound input and compositor-side safe preemption path in the investigated approach",
+  "qualification": "This is a stop decision, not evidence of an observed bypass or a proof that every possible Sway configuration is incapable",
+  "bounded_alternative": {
+    "path": "RemoteDesktop/EIS via the existing session portal and Mutter service availability",
+    "outcome": "RemoteDesktop and ScreenCast not exported; corresponding Mutter services not owned",
+    "new_session_started": false
+  },
+  "positive_observations": [
+    "Wayland registry enumerated without binding capture or input globals",
+    "Real Foot window had no matching AT-SPI application across eight samples with a live GTK positive control",
+    "M1.2 Bubblewrap profile denied session endpoints relevant to clipboard without reading or transferring clipboard data"
+  ],
+  "scenario": [
+    {"step": 1, "status": "observed", "detail": "Real Foot semantic gap in the sampled interval"},
+    {"step": 2, "status": "not_executed", "detail": "Authorized frame request"},
+    {"step": 3, "status": "not_executed", "detail": "Capture grant denial"},
+    {"step": 4, "status": "not_executed", "detail": "Conventional input request"},
+    {"step": 5, "status": "not_executed", "detail": "Input result confirmation"},
+    {"step": 6, "status": "not_executed", "detail": "Read-only observer attachment"},
+    {"step": 7, "status": "not_executed", "detail": "Observer input denial"},
+    {"step": 8, "status": "not_executed", "detail": "Agent lease acquisition"},
+    {"step": 9, "status": "not_executed", "detail": "Interruptible queued input"},
+    {"step": 10, "status": "not_executed", "detail": "Independent human takeover request"},
+    {"step": 11, "status": "not_executed", "detail": "Agent lease revocation"},
+    {"step": 12, "status": "not_executed", "detail": "Queued input cannot reach replacement focus"},
+    {"step": 13, "status": "not_executed", "detail": "Real human input"},
+    {"step": 14, "status": "not_executed", "detail": "Human result confirmation"},
+    {"step": 15, "status": "not_executed", "detail": "Agent input denied during human ownership"},
+    {"step": 16, "status": "not_executed", "detail": "Human releases control"},
+    {"step": 17, "status": "not_executed", "detail": "New lease and refresh required"}
+  ],
+  "capture_idle_measurements": {
+    "before_observer_30s": "not_measured",
+    "with_observer": "not_measured",
+    "after_observer_30s": "not_measured",
+    "active_subscriptions": null,
+    "encoded_frame_increment": null,
+    "reason": "No capture or encoding implementation was started; no synthetic counters used"
+  },
+  "control_properties": {
+    "api_revocation": "not_implemented",
+    "pending_input_cancellation": "not_demonstrated",
+    "compositor_policy_enforcement": "not_demonstrated",
+    "physical_input_mediation_adr_0007": "not_demonstrated"
+  },
+  "administrative_changes": [],
+  "screenshots_recorded": false,
+  "clipboard_payload_accessed": false,
+  "network_service_created": false
+}
