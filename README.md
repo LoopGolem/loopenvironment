@@ -77,6 +77,8 @@ This historical preflight predates the authority clarification in [ADR 0008](doc
 
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
+**M1.3B.1 — Delivery & Acknowledgement:** the [candidate contract](docs/design/DELIVERY_ACKNOWLEDGEMENT_V1.md) specifies operation states, a joint takeover barrier and a nested testbed acceptance matrix. A bounded cooperative-receiver POC is technically plausible; no patch or takeover was implemented, and arbitrary-app acknowledgements remain unavailable.
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)
