@@ -1,24 +1,29 @@
 # Instructions for automated contributors
 
-Scope: **LoopEnvironment only** — an independent open-source Linux-based operating system with its native agent interface, LoopBridge.
+Scope: **LoopEnvironment only** — an independent open-source Linux OS with visual and structured operator interfaces, native LoopBridge and planned LoopTeach.
 
 ## Current project phase
 
-M0 foundation and M0.5 feasibility research are documented. M1.1 — Semantic Feasibility has a bounded local diagnostic and recorded lab evidence; see docs/labs/M1_1_VIRTUALBOX.md. This is not a LoopBridge implementation; M1.2 has a bounded authorization/isolation/events experiment and recorded evidence; see docs/labs/M1_2_AUTHORIZATION_EVENTS.md. Its GO is fixture-specific; native upstream event completeness and broader isolation remain unvalidated. No buildable OS, distribution image, selected compositor, stable API or deployed bridge exists. Do not invent completed functionality or add placeholder implementation solely to suggest progress.
+M0/M0.5 research and bounded M1.1/M1.2 experiments are recorded (see docs/labs/); neither proves a deployed OS or Bridge. The M1.3 local preflight reported NO-GO for the investigated input/preemption path, and remains unmerged. Re-scope M1.3 against ADR 0008 before further tests. No bootable image, selected compositor, stable API or implemented LoopTeach exists; do not claim otherwise.
 
 ## Non-negotiable product boundaries
 
 - LoopEnvironment must be usable independently on physical or virtual machines.
 - LoopBridge is part of the OS, open and provider-agnostic.
-- Existing Linux applications and optional human observation/control are core goals.
+- Real Linux applications, graphical operation and a structured operator interface are core goals.
+- Initial setup establishes a master/responsible owner principal, whether controlled by human, AI or software.
+- Agent clients may run outside the guest; authority derives from authentication and grants, not biological labels.
+- Owner/delegate takeover requires explicit trusted authorization, not automatic physical pointer motion.
+- Native LoopTeach is a planned app-specific teaching tool (preferred configurable Super+click); annotations do not authorize actions.
 - Different transports must preserve the same agent-facing conceptual API.
 - Deny unauthorized operations; no default remote control or privileged fallback.
 - The product does not require a particular proprietary agent, account or cloud service.
 - Project-owned code under Apache-2.0; preserve all third-party license obligations.
+- Treat saved annotations as untrusted, revisioned semantic data with provenance and ambiguity.
 
 ## Before changes
 
-Read README, VISION, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index. Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
+Read README, VISION, PRODUCT_DEFINITION, OPERATOR_MODEL, LOOPTEACH, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index (including ADRs 0008–0009). Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
 
 ## Working discipline
 

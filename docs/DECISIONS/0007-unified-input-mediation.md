@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-11-10
 
+> **Interpretation notice (2026-11-16):** [ADR 0008](0008-operator-neutral-authority.md) supersedes human-specific priority implied by wording below. Owner/delegate principals—not biological categories—govern explicit control override. Original historical text is retained; mandatory mediation and safe enforcement still apply.
+
 ## Context
 
 ADRs [0002](0002-native-loopbridge.md), [0004](0004-desktop-and-human-observation.md), and [0006](0006-mandatory-agent-mediation.md) establish a native, provider-neutral Bridge, human observation, and mandatory mediation for external agents. The product additionally requires a common authority over remote human input and the physical keyboard/mouse input of a controlled graphical session, without replacing the Linux kernel or requiring a single all-powerful daemon.

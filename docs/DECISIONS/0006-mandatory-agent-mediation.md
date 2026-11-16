@@ -3,6 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-11-10
 
+> **Interpretation notice (2026-11-16):** [ADR 0008](0008-operator-neutral-authority.md) supersedes human-specific priority implied by wording below. Owner/delegate principals—not biological categories—govern explicit control override. Original historical text is retained; mandatory mediation and safe enforcement still apply.
+
 ## Context
 
 [ADR 0002](0002-native-loopbridge.md) defines LoopBridge as the native agent interface, and [ADR 0005](0005-security-and-transport.md) requires authenticated, scoped access. A local agent that inherits the graphical session's permissions can bypass those checks through desktop sockets, buses or devices. The location of the agent does not establish its trust level.

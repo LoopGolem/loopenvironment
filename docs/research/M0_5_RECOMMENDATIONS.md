@@ -1,5 +1,7 @@
 # M0.5 — Reference architecture and M1 decision gates
 
+> **Historical M0.5 snapshot (2026-11-10):** The "human takeover" language below reflects the earlier experiment proposal; current operator-neutral ownership is defined by [ADR 0008](../DECISIONS/0008-operator-neutral-authority.md), the [operator model](../OPERATOR_MODEL.md), [ADR 0009](../DECISIONS/0009-native-loopteach.md) and the [updated roadmap](../ROADMAP.md). Original technical research remains unchanged.
+
 **Status:** research complete. The reference stack remains an experimental proposal. Evidence reviewed on **2026-11-10**. No OS, Bridge, virtual machine image or runtime proof was built. The package/API facts and their limitations are documented in the [Linux foundation study](M0_5_LINUX_FOUNDATION.md) and [LoopBridge feasibility study](M0_5_LOOPBRIDGE_FEASIBILITY.md). Confidence in the reference combination is **medium** until the experiments below pass.
 
 ## Recommended reference architecture

@@ -4,7 +4,7 @@ Thanks for considering a contribution. The project is at the **design / pre-alph
 
 ## Before contributing
 
-1. Read [VISION](docs/VISION.md), [ARCHITECTURE](docs/ARCHITECTURE.md), [LOOPBRIDGE](docs/LOOPBRIDGE.md), and [SECURITY_MODEL](docs/SECURITY_MODEL.md).
+1. Read [VISION](docs/VISION.md), [PRODUCT_DEFINITION](docs/PRODUCT_DEFINITION.md), [OPERATOR_MODEL](docs/OPERATOR_MODEL.md), [LOOPTEACH](docs/LOOPTEACH.md), [ARCHITECTURE](docs/ARCHITECTURE.md), [LOOPBRIDGE](docs/LOOPBRIDGE.md), and [SECURITY_MODEL](docs/SECURITY_MODEL.md).
 2. Check existing issues and ADRs before proposing a major change.
 3. For architecture proposals, describe the problem, constraints, alternatives, security impact, test plan and observable acceptance criteria.
 4. Prefer the smallest change that produces measurable evidence.
@@ -22,9 +22,9 @@ Thanks for considering a contribution. The project is at the **design / pre-alph
 
 ## Review criteria
 
-- Correct scoping and security boundaries.
+- Correct scoping and security boundaries: identities and permissions are operator-neutral, owner authority is explicit and teaching does not grant control.
 - Real Linux graphical application interoperability.
-- Honest disclosure of accessibility and Wayland restrictions.
+- Honest disclosure of accessibility, Wayland and LoopTeach profile-matching limitations, including provenance and ambiguous matches.
 - Measured resource usage and testable failure cases.
 - Compatible third-party software licenses and provenance.
 - Clear upgrade/migration paths for protocol changes.
