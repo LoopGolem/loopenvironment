@@ -4,7 +4,7 @@ Scope: **LoopEnvironment only** — an independent open-source Linux OS with vis
 
 ## Current project phase
 
-M0/M0.5 research and bounded M1.1/M1.2 experiments are recorded (see docs/labs/); neither proves a deployed OS or Bridge. The M1.3 local preflight reported NO-GO for the investigated input/preemption path, and remains unmerged. Re-scope M1.3 against ADR 0008 before further tests. No bootable image, selected compositor, stable API or implemented LoopTeach exists; do not claim otherwise.
+M0/M0.5 research and bounded M1.1/M1.2 experiments are recorded (see docs/labs/); neither proves a deployed OS or Bridge. M1.3 stopped at preflight with NO-GO for the investigated approach; see docs/labs/M1_3_FALLBACK_HUMAN_CONTROL.md. Safe compositor-side preemption remains unqualified; capture, observer and takeover were not implemented. Re-scope M1.3 against ADR 0008 before further tests. No bootable image, selected compositor, stable API or implemented LoopTeach exists; do not claim otherwise.
 
 ## Non-negotiable product boundaries
 
