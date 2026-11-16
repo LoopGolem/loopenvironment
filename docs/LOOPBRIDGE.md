@@ -1,24 +1,29 @@
-# LoopBridge: native agent interface
+# LoopBridge: native structured operator interface
 
 **Status:** architecture contract and exploratory protocol design; there is no implemented API.
 
-LoopBridge belongs to LoopEnvironment. External agents and remote human controllers must access the graphical session through its authorized contract on physical hardware and in virtual machines. Physical keyboard/mouse input follows the same trusted session policy through compositor/input integration, not necessarily through per-event RPC. Each external client receives only the permissions granted to its identity. See [Product definition](PRODUCT_DEFINITION.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
+LoopBridge belongs to LoopEnvironment. It is the vendor-neutral structured interface for **authenticated operator principals** and their clients, whether controlled by people, AI or services, local or external. The owner and delegates determine capabilities and session scope; the OS does not infer a controller's biological identity. Physical input requires trusted session/principal binding and compositor enforcement, not necessarily per-event RPC. See [operator model](OPERATOR_MODEL.md), [product definition](PRODUCT_DEFINITION.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
 
 ## Agent isolation
 
-External agents can run on the same machine or in a separate environment, outside the graphical session's trusted execution context. The OS must block untrusted agent processes from directly accessing compositor IPC, Wayland or X11 sockets, AT-SPI, the session D-Bus and input or capture interfaces and devices. Authenticating to a Bridge socket leaves this isolation requirement in place. Trusted session applications, administrative processes and local human input have separate trust boundaries. The enforcement mechanism and its validation remain open. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) · [Security model](SECURITY_MODEL.md)
+Untrusted or externally controlled clients may run in an isolated local execution context or **entirely outside LoopEnvironment**. An agent is not required to be an in-guest Linux process. The important distinction is the trust boundary, not the controller's nature.
+
+Locally untrusted code must not gain unmediated access to protected compositor IPC, Wayland/X11, AT-SPI, session buses, input/capture devices or inherited descriptors. Bridge authentication does not authorize those bypasses. The trusted compositor, applications and limited administrative services have separate boundaries. An owner may legitimately delegate broad authority, but ordinary processes in the owner's session must not inherit administrative privileges automatically.
+
+Historical ADR 0006 remains mandatory for untrusted client access; [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) clarifies terminology. Exact isolation mechanisms remain experimental.
 
 ## Responsibilities
 
-1. Authenticate clients and identify the requested OS user and graphical session.
-2. Authorize operations by **capability, target, and session**.
-3. Expose a best-effort semantic desktop model.
-4. Broker permitted input and focus control.
-5. Emit structured events, lifecycle changes and errors.
-6. Provide optional visual capture/streaming with separate authorization.
-7. Record security-relevant actions without recording secrets by default.
+1. Authenticate principals and bind clients to the correct installation, session and resources.
+2. Implement owner-defined delegation, capability grants, scope and revocation.
+3. Offer a machine-readable best-effort model of current graphical sessions, windows, accessible elements and actions.
+4. Resolve authorized LoopTeach profile annotations against **new live elements** with provenance and ambiguity reporting.
+5. Mediate permitted semantic/visual/keyboard/pointer actions and trusted session handoffs.
+6. Supply event streams, snapshots, lifecycle changes, honest outcomes and errors.
+7. Separately authorize visual capture, teaching/profile changes, file/process operations and administrative actions.
+8. Audit security-relevant transitions without recording secrets by default.
 
-Non-responsibilities: reasoning, task planning, mandatory LLM integration, hypervisor management, unrestricted process execution, bypassing application security or browser authentication, and pretending third-party apps expose complete semantic state.
+Non-responsibilities: AI reasoning/planning, biological verification, mandatory model hosting, hypervisor management, bypassing application security or observing/vetoing every Linux syscall.
 
 ## Proposed contract domains
 
@@ -30,8 +35,10 @@ Non-responsibilities: reasoning, task planning, mandatory LLM integration, hyper
 | Input | InvokeElement, Focus, TypeText, SendKey, PointerAction | Requires explicit input capability and ownership. |
 | Events | Subscribe, Ack/Resume, GetSnapshot | Reconnect and overflow must be detectable. |
 | Media | CaptureFrame, StartStream, StopStream | Sensitive pixels, separately authorized. |
-| Control | RequestControl, ReleaseControl, RevokeClient | Human policy can preempt agent input. |
+| Control | RequestControl, ReleaseControl, RevokeClient | Owner/delegate authority governs control transfers. |
 | Diagnostics | GetHealth, GetAdapterCapabilities | Must not leak unapproved system details. |
+| Teaching | IdentifyElement, AnnotateElement, GetProfile, ReviewMatch | Future LoopTeach scope; annotation is not input authorization. |
+| Ownership | GetPrincipal, ListGrants, Delegate, RevokeGrant | Requires administrative capabilities; names are illustrative. |
 
 Operation names are **illustrative**, not stable endpoints. The initial API definition, error model and client SDKs require an ADR after the first technical spike.
 
@@ -39,15 +46,13 @@ Operation names are **illustrative**, not stable endpoints. The initial API defi
 
 A client may observe a hierarchy such as:
 
-    Session -> Display -> Window -> AccessibleElement
+    Installation -> Session -> Display -> Window -> LiveElement
 
-Each exposed object may provide an opaque ID, generation/revision, role, title or label (where permitted), state (enabled, focused, selected, visible), bounds, available actions, and source/quality of evidence.
+Each exposed target may carry a runtime handle, generation/revision, role, state, bounds, available actions, app identity/context, freshness and observation provenance. An opaque handle identifies a **current** element, not a persistent semantic concept.
 
-- An ID is a handle, not permanent identity. Window closing or accessibility tree rebuilding invalidates it.
-- Elements may contain sensitive content; policy must support redaction of text and labels.
-- Semantics must identify provenance: accessibility tree, native integration, inferred visual result, or unknown.
-- The client must be able to discover when an action cannot be performed.
-- Logical coordinates, display scaling, virtual desktops, focus and timeouts require explicit rules.
+LoopTeach may add **application-scoped saved annotations** (purpose, expected effect, usage notes) to a matching live element. A stored profile must be re-evaluated after every app restart/version/layout change and must return ambiguous/unresolved when evidence is insufficient. Native accessibility, operator descriptions, visual inference and tested bundled profiles must remain distinguishable. No description authorizes an action by itself.
+
+Application pixels do not guarantee accessible semantics. Redact sensitive data; handle missing matches, inaccessible controls and stale references explicitly. Prefer bounded reads and explicit error conditions. See [LoopTeach](LOOPTEACH.md).
 
 ## Events and consistency
 
@@ -61,39 +66,48 @@ Event delivery is best-effort and versioned, not an oracle of complete applicati
 
 ## Transport independence
 
-**Local default:** a Unix-domain socket scoped to the current OS user/session, with kernel peer-credential checks plus application-level authorization. An example development path is /run/user/UID/loopenvironment/bridge.sock; the final pathname is not specified.
+**Local default proposal:** authenticated Unix-domain endpoint with OS peer identity plus application-level principal grants. A Linux UID alone is not an operator principal.
 
-**Virtual guest:** a private host/guest channel or a carefully bound network proxy reaches the same service contract. No hypervisor-specific dependency belongs in the public semantics. A port forwarded to 127.0.0.1 on the host is not itself authenticated.
+**Virtual guest:** a private guest/host path or authenticated proxy should carry the same conceptual API. An external orchestration service may hold an owner credential established at unattended bootstrap, but no orchestration vendor is required.
 
-**Remote opt-in:** encrypted, mutually authenticated access with explicit pairing and revocation, disabled by default. Never bind an unauthenticated bridge to all network interfaces.
+**Remote opt-in:** use protected, mutually authenticated transport, pairing/rotation and explicit revocation; remote listeners are disabled by default.
 
-gRPC/Protocol Buffers is a candidate for typed requests and event streaming. Unix sockets, an authenticated network transport and a future guest channel are candidate carriers. **No protocol, port, or RPC framework has been finalized.** Video may use a separately authorized media channel. Remote viewing grants access to approved pixels. Interactive remote takeover requires its own authorization and a validated path for preempting agent input in the same session. [Interaction model](INTERACTION_MODEL.md#control-arbitration)
+gRPC/Protocol Buffers, JSON-RPC and local/guest channels remain candidates, not final protocol decisions. View-only, input control and teaching are separate capabilities. Remote transport never implies a "human" or owner identity.
+
+Authorized owner/delegate takeover must be verified against actual input and in-flight semantic action paths; client revocation alone is insufficient. See [interaction model](INTERACTION_MODEL.md#control-arbitration).
 
 ## Authorization outline
 
-Suggested initial grants:
+Capabilities below are illustrative and must be backed by OS-enforced scopes and principal authentication:
 
 | Grant | Allows | Does not imply |
 | --- | --- | --- |
-| desktop.observe | Window metadata, redacted accessible state | Screenshots, secrets, control |
-| desktop.control | Approved UI actions for specified session | File system/root access |
-| desktop.capture | Approved frame/stream observation | Input control |
-| process.launch | Explicit allowlisted or policy-approved launch | Arbitrary elevated commands |
-| files.access | Scoped file operation via dedicated service, if ever implemented | Entire home directory |
-| audit.read | Permitted security/audit events | Secret-bearing raw logs |
+| desktop.observe | Permitted window/element state, including allowed annotations | Pixel capture or input |
+| desktop.capture | Scoped frame/stream access | Control or teaching |
+| desktop.control | Authorized semantic/conventional input with lease | Root/files/admin authority |
+| desktop.clipboard | Specifically approved clipboard operations | Clipboard access by other grants |
+| app.teach | Annotate approved app/element via LoopTeach | Invoking that element or distributing profiles |
+| app.profile.read | Read allowed saved annotations | Modify/approve/import them |
+| app.profile.manage | Manage allowed app profiles | Administrative ownership |
+| session.override | Explicitly request control transfer for allowed sessions | Automatic rights on all sessions |
+| identity.admin | Create/delegate/revoke principals within scope | Kernel/root authority in general |
+| process.launch | Approved process creation via narrow service | Arbitrary privileged commands |
+| files.access | Scoped file operations via authorized service | Unrestricted filesystem |
+| audit.read | Read approved audit events | Raw secrets or unsanitized logs |
 
-Capabilities are preliminary and must be backed by real enforcement. Access to email, financial services, authentication prompts, and credential material should require additional application-level safeguards where practical.
+The initial owner holds ultimate configured administrative authority but should not automatically expose its credentials/capabilities to arbitrary descendant processes. Identity and grant lifetimes, handoff barriers, local device binding and high-risk actions need dedicated designs. See [operator model](OPERATOR_MODEL.md).
 
 ## Fail-closed behavior
 
-- Deny by default without an authorized identity and scoped grant.
-- Refuse an action if the target expired, a session changed owners, or a human took control.
-- Report unsupported semantics rather than silently switching to a more privileged channel.
-- Never interpret API presence as authorization to bypass OS or application permissions.
-- Treat network or client disconnection as a reason to release control leases safely.
+- Reject unknown principals, denied scope, expired/revoked leases and ambiguous/stale targets.
+- Treat annotations as untrusted data: do not auto-execute their commands or elevate privileges.
+- An authorized owner/delegate takeover must prevent old pending operations from affecting the new target **before** confirmation; otherwise report failure/unknown, not successful handoff.
+- Do not silently fall back from inaccessible semantics to a more privileged input or capture path.
+- On disconnect, release control appropriately and require fresh state before reacquisition.
+- Administrative recovery must not create an unmediated channel for unauthorized clients.
 
 ## Initial proof
 
-An isolated, authorized client connects locally, reads one real window's accessible controls, invokes an allowed action, receives an event and observes a denied action. Verify denial of direct session access from that client. Demonstrate independent view-only observation and local human takeover on the same session. Test a deliberately low-semantic UI to demonstrate an explicit fallback path. [M1 proof criteria](ROADMAP.md#m1--agent-native-desktop-proof)
+**Experimental evidence:** M1.1 showed a bounded GNOME Calculator semantic action; M1.2 added a fixture-specific isolated client, local authorization and query-derived events. Neither is a completed LoopBridge service or proof of universal security.
 
-All of this is still **planned**, not shipped.
+The M1.3 preflight for a conventional input/preemption path reported NO-GO in the local lab and was not yet published in this repository. Its outcome motivates reviewing **owner/delegate control semantics** and the enforcement boundary, not abandoning the design. LoopTeach and persistent profile matching remain unimplemented. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof).

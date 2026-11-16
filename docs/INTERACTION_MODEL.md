@@ -1,65 +1,64 @@
-# Interaction and human observation model
+# Visual, structured and delegated interaction model
 
 **Status:** intended behavior, not implemented behavior.
 
 ## Two complementary channels
 
-**Semantic channel:** structured windows, accessible elements, labels, roles, states and actions, normalized by LoopBridge. This is the preferred path when an application exposes usable metadata.
+**Structured channel:** LoopBridge offers permitted window/session metadata, accessible elements, action descriptions, states, lifecycle and events. JSON can represent this data but does not define the transport.
 
-**Visual channel:** screenshots or optional streaming plus conventional keyboard/pointer actions. It remains available when a third-party program uses custom graphics or incomplete accessibility metadata. A client must know when information is missing or only visually inferred.
+**Visual channel:** an ordinary rendered Linux desktop plus separately authorized frame capture and conventional keyboard/pointer control. It remains useful for applications with missing accessibility metadata.
 
-No application is required to be rewritten for the OS, and we do not claim universal GUI introspection.
+The model is **operator-neutral**: both channels can be used by authenticated principals controlled by people, AI or software outside the OS. Live semantic facts may be enriched by LoopTeach annotations with separate provenance; annotations are not trusted authority or universal semantic coverage. See [LoopTeach](LOOPTEACH.md).
 
 ## Real desktop without an active viewer
 
-A windowed Linux session can run with a virtual display and no physical monitor. The compositor and graphical applications still render their content as needed. Disabling a live viewer avoids continuous video capture, encoding and transmission; it **does not** make graphical rendering free.
+A graphical session may remain live without a physical monitor or attached viewer; output/backend support remains subject to testing. Rendering is different from capture/encoding and transmission.
 
-A human may later attach a viewer and see the current session. Remote view-only access and interactive remote takeover are distinct capabilities with separate grants. The former shares approved pixels. The latter requires an authorized remote human to preempt agent input and control the same session.
+An authorized principal can request view-only access. A principal holding an owner-delegated control capability may also request interactive control. View-only never implies pointer/keyboard input, and no privilege derives from declaring oneself "human".
 
 ## Unified input mediation
 
-External agents and remote human controllers must use authorized LoopBridge capabilities. Physical keyboard and mouse input must be subject to the same session arbitration policy through trusted compositor/input enforcement; per-event synchronous RPC is not required. Recovery must be trusted and must not become an agent bypass. See [Product definition](PRODUCT_DEFINITION.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md). These are requirements, not implemented mechanisms.
+External and locally untrusted clients use authorized LoopBridge capabilities. Physical input is handled through trusted compositor/input components under the **same session arbitration policy**, with a validated binding to the proper principal/session; no per-event synchronous RPC is mandatory.
+
+The system must block direct session access from untrusted clients. The owner/delegate control-plane policy coordinates conventional input and semantic actions. If the input boundary cannot enforce revocation, the system must not claim a completed transfer. See [operator model](OPERATOR_MODEL.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
 
 ## Control arbitration
 
-The initial proposed model is **single active input controller per graphical session**, while multiple authorized observers may exist:
+Conservative initial design: **one active controller per session**, multiple separately permitted observers. Prefer independent sessions where practical; shared operation remains an explicit policy choice.
 
-1. Session starts under a local user and policy.
-2. Agent requests a time-bounded control lease; policy grants or denies it.
-3. The agent sends actions against a known state revision.
-4. A human requests takeover. Agent input stops before control changes hands.
-5. The session emits a control-transition event; the agent can observe state but cannot send input.
-6. The human releases control; the agent must reacquire a lease and refresh state.
+1. Secure installation establishes owner authority; owner delegates operator/session/capability grants.
+2. A principal requests an input lease for an authorized session; its current state/target revision is recorded.
+3. The principal may send semantic or conventional actions through permitted paths.
+4. The owner or a delegated override-capable principal explicitly requests takeover, irrespective of whether either controller is a human or AI.
+5. Trusted input/semantic boundaries prevent old queued or in-flight operations from reaching a new focus; acknowledge handoff only after the enforceable barrier.
+6. The replacement controller refreshes state and starts acting; previous controller cannot resume without a new lease and refresh.
 
-A disconnect, session switch, denial, or lease expiry must release active input safely. Lease durations, default ownership, and emergency intervention controls are open design choices.
+A physical key press is a source event, not a biological credential or automatic takeover request. Previously completed external effects cannot be undone; cancellation must distinguish accepted, delivered and outcome-unknown operations. Recovery and disconnect behavior are unresolved.
 
 ## Example workflow (design target)
 
-A permitted agent:
-- Discovers a visible office document and its accessible table/cells, if available.
-- Selects a cell and enters test data through a supported element action.
-- Watches the relevant document-change event or refreshes state.
-- Saves the document, then verifies a result through the application or file state.
-- Requests a frame or uses ordinary input only if semantic controls are insufficient.
+An owner provisions a VM using an unattended bootstrap key, configures a delegate with limited control over a legacy application and stores credentials outside the agent process. The delegate authenticates remotely, queries structured state, consults permitted LoopTeach annotations, performs a validated UI action and checks its result.
 
-The OS cannot guarantee that a click or text entry resulted in a valid business action. The agent must check application-specific outcomes.
+Another authorized principal can view the same session without acquiring input rights. The owner explicitly requests a control transfer; the old operator is blocked at the enforcement boundary and its stale lease invalidated. The new controller refreshes the state before operating.
+
+No application is required to be rewritten, and the OS cannot certify an external business operation solely from a click acknowledgment.
 
 ## Accessibility and input expectations
 
-- Prefer accessibility standards (e.g., AT-SPI) where supported.
-- Use compositor- or portal-mediated capture/input consistent with Wayland security.
-- Do not require unrestricted global keylogging or unapproved screenshot access.
-- Preserve coordinate reference, scaling, focus, and window identity across actions.
-- Support multiple monitors/seats as a later expansion, not a hidden initial promise.
-- Treat password fields, private windows and security dialogs as sensitive and policy-controlled.
+- Accessibility standards are useful but incomplete; return explicit ambiguity/unknown values.
+- LoopTeach allows app-scoped, version-aware descriptions and later re-identification, not permanent reuse of runtime target handles.
+- Prefer trusted compositor/portal media and input interfaces; reject unsafe bypasses.
+- Keep focus, scaling, coordinate space and revisions tied to session/target.
+- Sensitive controls and content require redaction and additional permissions.
+- A teach-mode shortcut such as **Super+click** must be explicitly authorized, configurable and safely intercepted (no unintended underlying click), with keyboard/structured alternatives.
+- Multiple seats/displays, remote interactive takeover and hardening require separate qualification.
 
 ## Observable behavior for human clients
 
-- View-only must be possible without agent control privileges.
-- The UI should show whether an agent currently has control and what permission scope applies.
-- A person can stop or revoke control without trusting the agent to cooperate.
-- Logs must identify attempted and completed commands, but not capture secrets or whole screenshots by default.
+A client presenting a human-oriented UI should show current control ownership, available grants and any outstanding transfer. A display/viewer does not grant ownership. An owner/delegate can request override through an authenticated trusted path; another ordinary principal cannot substitute merely by claiming to be human.
+
+Logs identify requested/accepted/delivered/verified operations and transfer events without raw secrets or unnecessary screenshots by default. Equivalent policy applies to non-visual clients.
 
 ## Proof criteria
 
-The M1 demonstration should show authorized UI inspection and control, a denied operation, a view-only attachment, local human takeover on the same session and a state refresh after handoff. A remote view-only attachment paired with local input demonstrates observation and local takeover only. Interactive remote takeover needs a separate proof of authorization, preemption and revocation over the remote input path. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof) · [ADR 0004](DECISIONS/0004-desktop-and-human-observation.md)
+M1.1/M1.2 provide narrow semantic and isolated-client evidence. Future M1.3 proof must demonstrate a genuine semantic gap, scoped visual fallback, view-only observation, explicit owner/delegate takeover, an enforceable barrier across conventional **and semantic** input, safe refresh/release and zero idle capture/encoding without requests. A remote viewer plus local input is **not** proof of authenticated remote interactive control. The preflight on the present Sway approach reported NO-GO; requirements should be re-scoped to the clarified owner-neutral model before further experiments. See [Roadmap](ROADMAP.md), [operator model](OPERATOR_MODEL.md) and [ADR 0008](DECISIONS/0008-operator-neutral-authority.md).
