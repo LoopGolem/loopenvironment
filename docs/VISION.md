@@ -4,7 +4,9 @@
 
 ## Purpose
 
-Create a real, Linux-based operating system whose primary design target is **operation by software agents** rather than exclusively by humans. A human must still be able to observe and operate the environment. LoopEnvironment is an OS, not an agent, model, hypervisor, remote-desktop subscription, or container-only execution wrapper.
+Create an independent Linux operating system where **normal visual desktop interaction and structured machine-readable operation are both first-class**. Any authenticated principal may be controlled by a human, AI, script or external orchestrator; the OS does not need to classify its controller's nature.
+
+A master/responsible owner is provisioned at installation and delegates access. LoopBridge is the native operational interface, not a required in-guest agent process. See [operator model](OPERATOR_MODEL.md).
 
 ## The problem
 
@@ -16,29 +18,32 @@ Create a real, Linux-based operating system whose primary design target is **ope
 
 ## Intended experience
 
-An authorized agent can open a browser, read an application's visible and accessible state, navigate windows, work with a spreadsheet, interact with an email client, and report the result. The OS exposes **what it can know** through a versioned, structured interface. It never promises to see internal application state that the application does not expose. Pixels and conventional input remain essential fallbacks.
+An authorized operator can use a browser, application, file manager or text editor through the real desktop, or query structured session/window/accessibility state and request permitted actions through LoopBridge. When an app offers incomplete semantics, the Bridge reports the gap and may offer separately authorized visual/keyboard/pointer fallback.
 
-The graphical session can exist while nobody is watching. When a human connects, they observe the current session; when authorized, they can take or yield input control. Not streaming video does not imply that applications stop rendering.
+A native **LoopTeach** tool will let an authorized operator identify an element in a specific application (ideally via configurable **Super+click**) and annotate its meaning, expected result and conditions. Future launches should use those annotations only when a new live element can be matched reliably; uncertain matches require review. Distribution-bundled, tested profiles for selected applications are a future option, never a closed-app requirement.
 
-A person may also install and use LoopEnvironment as an ordinary OS on suitable hardware. Physical installation is a long-term requirement, not a claim of day-one hardware compatibility.
+A session may run without a viewer. Independent sessions are preferred by default but shared control and observation are possible through explicit grants. The owner or delegated authority—not an automatically privileged "human"—can request takeover; no physical mouse event proves that authority. An owner can be operated by automation, including unattended VM provisioners.
+
+LoopEnvironment remains a conventional usable Linux OS, on supported physical hardware or in a VM; hardware coverage and headless rendering remain technical qualification tasks. See [interaction](INTERACTION_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
 ## Product principles
 
-1. **Agent-first, human-capable.** Keep ordinary desktop semantics; do not force a human-free environment.
-2. **Independence.** Support arbitrary compatible agents and client languages. No built-in model or required vendor service.
-3. **Semantic before visual.** Prefer typed element roles/states/actions; make gaps and ambiguity explicit.
-4. **Permissioned mediation.** The OS owns the authorization boundary; mere API access is not blanket permission.
-5. **Same OS everywhere.** Physical vs virtual deployments must not change the agent-facing meaning of an action.
-6. **Predictable operations.** Versioned API, observable failures, diagnostics, reproducible builds, rollback design.
-7. **Open development.** Public design, open project-owned code, clear dependency licensing.
-8. **Incremental delivery.** Demonstrate the distinctive interaction capability before designing a bespoke distribution.
+1. **Operator-neutral ownership.** Authenticate principals and their capabilities, not biological human vs AI.
+2. **Visual and structured parity in operation.** Expose what the OS can really observe; never invent missing semantics.
+3. **Native teaching.** LoopTeach stores app-scoped operator annotations with provenance and careful re-identification.
+4. **Explicit delegation.** Owner/bootstrap, scope, lease, revocation and audit define authority.
+5. **Distributed enforcement.** Trusted compositor, kernel and services apply policy; Bridge is no universal syscall interceptor.
+6. **Real Linux compatibility.** Support ordinary apps and user programs without a required LLM or vendor.
+7. **Deployment independence.** Interactive or unattended installs, physical/VM and local/external clients share a conceptual API.
+8. **Open, incremental evidence.** Separate accepted product requirements from tested prototypes and future implementation.
 
 ## Target use cases
 
-- An agent completing spreadsheet and browser tasks in a graphical workspace.
-- A person remotely viewing a running session and intervening when necessary.
-- Agent research and benchmarking in repeatable virtualized images.
-- A dedicated physical machine operated primarily through an agent.
+- A company provisions a VM, configures an owner credential, creates limited operator identities and delegates work.
+- A person installs LoopEnvironment and interacts normally while automated clients use independent sessions.
+- An external AI service connects using an authorized principal without running inside the guest.
+- An authorized operator teaches a legacy application with LoopTeach and reuses that meaning after restart.
+- An owner/delegate explicitly observes, revokes or assumes control of a session under tested policy.
 
 ## Deliberate non-goals for early milestones
 
@@ -51,8 +56,8 @@ A person may also install and use LoopEnvironment as an ordinary OS on suitable 
 
 ## Success criteria
 
-The first meaningful demonstration must show one real graphical application being inspected and controlled through a secured interface, with observable events and an independent human viewing/reclaiming the session. See [ROADMAP.md](ROADMAP.md).
+Prove a real GUI and a structured operational model, enforce authenticated scopes, prevent untrusted access bypass, demonstrate owner/delegate session control and a safe visual fallback. Later demonstrate LoopTeach annotations surviving an app restart with reliable re-identification and refusal on ambiguous controls. Historical M1.1/M1.2 results cover only bounded subsets. See [Roadmap](ROADMAP.md).
 
 ## Open design questions
 
-Linux base, desktop/compositor, implementation languages, RPC framework, image format, remote desktop transport, packaging, and exact permission policy are hypotheses until evaluated and recorded in decision records.
+Owner/credential bootstrapping and recovery, principal-to-device binding, delegated administration, session ownership and preemption barriers, compositor choice, structured schema, LoopTeach profiles/matching, RPC transport, distribution/update format and hardware support remain unresolved.

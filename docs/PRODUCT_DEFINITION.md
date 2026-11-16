@@ -1,35 +1,39 @@
 # LoopEnvironment — Product Definition
 
-**Version:** 0.1
+**Version:** 0.2
 **Status:** Accepted product intent, not an implemented or security-validated system.
-**Scope:** The LoopEnvironment operating system and its native LoopBridge subsystem. External clients are unnamed and vendor-independent.
+**Scope:** LoopEnvironment OS, native LoopBridge, owner/operator identity model and planned LoopTeach. External controllers are provider-neutral.
 
-This definition complements accepted ADRs 0001–0007. It records product goals, not selections of Linux base, compositor, RPC protocol, language, image format or implementation.
+This definition incorporates accepted clarifications ADR 0008–0009 while preserving ADRs 0001–0007 as historical records. It records product goals, not selections of Linux base, compositor, RPC protocol, language, image format or implementation.
 
 ## 1. Purpose
 
-LoopEnvironment is an independent, complete, open-source Linux operating system designed primarily for AI agents, while remaining operable by humans. It must support normal Linux applications and user-developed programs, subject to actual platform and Linux security constraints. It can run on physical hardware or in a virtual machine, with a visible desktop or an active graphical session that has no viewer.
+LoopEnvironment is a complete open-source Linux OS with **dual native operation**: a real graphical environment and a structured machine-readable model of that environment. A principal operating it may be controlled by a person, AI, program or remote service; it need not run an agent inside the OS. Conventional Linux apps and user programs remain supported.
 
-LoopBridge is an integral OS subsystem for authorized, provider-neutral observation and interaction. It does not contain an LLM, require a particular client or vendor, or replace the kernel or compositor.
+LoopBridge provides authenticated, scoped and vendor-neutral operations. LoopTeach will be a native tool for recording and later retrieving application-specific semantic annotations through LoopBridge. Installation may be physical or virtual, interactive or unattended; the latter can establish an owner without a biological-human operator.
 
 ## 2. Accepted product principles
 
-- **Full Linux functionality:** Do not impose an intrinsic closed application catalogue, or prohibit ordinary user-developed applications. Applications retain normal Linux behavior and permissions.
-- **Agents as native operators:** Prefer structured observation and semantic actions; permit visual observation and pointer/keyboard fallback when necessary.
-- **Mandatory interaction mediation:** External AI agents and remote human clients interact with the graphical session only through authorized LoopBridge capabilities. Local physical keyboard and mouse input is also subject to the same OS-defined session control policy.
-- **Distributed enforcement:** LoopBridge is the logical policy authority, while trusted compositor, kernel and limited-purpose system services enforce policy at their own boundaries.
-- **Honest capability reporting:** Explicitly identify missing, unsupported, ambiguous, stale or redacted observations; do not claim universal visibility or interception.
-- **Independent and open:** Core operation requires no proprietary orchestrator, model, account, cloud service, or hypervisor.
+- **Normal Linux:** do not enforce a closed application catalog or specific AI provider.
+- **Principal-neutral:** security is based on authenticated identity, grants and session scope, never biology or client implementation.
+- **Responsible owner:** initial setup creates an ultimate master/responsible owner which may delegate, revoke and administer sessions, whether controlled by a person or AI.
+- **Dual views:** visual rendering and permissioned structured observation/action for the same real session, with explicit semantic gaps.
+- **Native LoopTeach:** operator-authored app-specific annotations may inform future sessions only when re-identified safely.
+- **Mandatory mediation:** untrusted local and external clients must use authorized Bridge capabilities for graphical operation.
+- **Distributed OS enforcement:** trusted compositor/input, kernel and narrow services apply policy; no universal syscall interception.
+- **Separated capabilities:** observation, capture, teaching, input and administration are not interchangeable.
+
+See [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0009](DECISIONS/0009-native-loopteach.md).
 
 ## 3. What mandatory input mediation means
 
-The session input policy covers external keyboard/pointer commands, semantic UI actions, focus/window control, remote human control, and local physical keyboard/mouse events directed at the graphical session. Protected OS operations require their own explicit authorization and enforcement.
+Graphical session policy governs semantic actions, input, focus, observation and control transfer. A trusted compositor may enforce input using locally cached policy; no synchronous Bridge call per physical event is required.
 
-LoopBridge defines identities, grants, input ownership, revocation and policy. **A trusted compositor/input component may enforce these rules locally**, without making a synchronous Bridge RPC for every mouse movement or key press. No external agent may bypass the authorized interface using raw graphical sockets, accessibility buses, capture/input devices or inherited descriptors.
+The OS must block untrusted clients from bypassing authorized Bridge operations through compositor IPC, Wayland/X11, accessibility/session buses, input devices or inherited descriptors. Local clients may be isolated by OS mechanisms; remote clients do not need to be processes inside the OS.
 
-This requirement is not a claim that the Bridge observes or vetoes all internal syscalls, process computations, network packets, filesystem writes or firmware behavior. Applications can perform indirect operations using their own Linux privileges. Those operations need independent OS-level restrictions if policy must control them.
+The owner or delegated principal may explicitly request takeover. **No physical keyboard event or claim of being human confers owner privileges**. All takeover paths need authenticated principal binding and tested enforcement against in-flight and stale actions.
 
-An administrator must have a documented trusted recovery path. Bridge failure must not silently grant external agents direct session control. The exact local fallback, recovery and fail-closed behavior remains to be designed and tested.
+Bridge does not inspect every Linux syscall. Kernel/services enforce access to files, network and devices. A deliberate or compromised ultimate owner may change the system's administrative policy; non-owner processes must not inherit that authority automatically.
 
 ## 4. Authority model
 
@@ -45,37 +49,35 @@ These are **logical responsibilities**, not a mandate for a particular number of
 
 ## 5. LoopBridge responsibility planes
 
-**Control:** identities, session scoping, permissions, lease ownership, preemption, invalidation, error categories, diagnostics, security audit and cancellation boundaries.
+**Authority:** initial owner binding, principals, delegation, grants, sessions, leases, revocation and audit.
 
-**Interaction:** keyboard/pointer input, semantic actions, focus, window operations, application launch, and narrowly authorized system operations through adapters.
+**Interaction:** permitted semantic actions, conventional input, focus, window management and narrowly authorized OS operations.
 
-**Observation:** sessions, outputs, windows, applications, processes, accessible components, approved pixels, and bounded events and resource state.
+**Observation:** session/window/element state, available actions, events and separately authorized pixels.
 
-A single controller per graphical session, with multiple separately authorized observers, is the initial control model. Human takeover must revoke agent control and prevent queued, held or stale input from reaching a new target.
+**Teaching:** LoopTeach manages separately permissioned annotations; Bridge may resolve them against live elements with explicit provenance and confidence. Annotation never grants input rights.
+
+Initial conservative model: one active input controller per session, multiple separately authorized observers. Takeover belongs to an owner/delegated principal, not a biological-human role. The enforcement boundary must coordinate pending input and semantic actions before confirming handoff; that guarantee remains unvalidated.
 
 ## 6. Structured semantic UI
 
-Clients should be able to request a **machine-readable representation** of the observed session. JSON is a possible textual presentation, not a decision on wire protocol.
+Every graphical session should expose its **observable** structure and state through a permissioned machine-readable representation; JSON is an illustrative presentation, not a protocol decision. Include session/window/element identities, app/version/context, roles, states, actions, geometry, freshness, provenance and explicit unsupported/ambiguous/redacted values.
 
-The model may contain session/display/window/element handles; application identity; workspace, focus, bounds and scale; element role, name, state, actions and optional geometry; timestamps, revisions and provenance; and explicit unsupported/ambiguous/redacted states.
+A compositor's window may not map unambiguously to an accessibility tree; refuse actions if correlation is unsafe. Live references expire when their target or context changes. Prefer bounded queries/snapshots/events with gap detection.
 
-A compositor window does not necessarily map one-to-one to an accessibility tree. Do not invent a match or permit mutation of an ambiguous target. References must expire on relevant lifecycle/revision changes. Prefer targeted, bounded queries, snapshots and incremental updates with loss detection over exporting entire large trees continually.
-
-The initial schema, APIs, event delivery and error definitions must be refined after feasibility tests.
+Distinguish native accessible data, trusted application integrations, operator-provided LoopTeach descriptions, tested bundled app profiles and visual inference. Saved profiles are **not live target handles**: re-identify on each launch, reject ambiguity and never treat annotations as authorization. See [LoopTeach](LOOPTEACH.md).
 
 ## 7. API scope
 
-Early **core capabilities** should cover discovery of sessions and windows, inspectable UI elements, semantic actions, keyboard/pointer/focus control, input ownership, events and diagnostics, application discovery/launch, and separately authorized capture and narrow OS operations.
+Core capabilities cover principal/session discovery, observation, accessible elements, semantic and conventional input, leases/ownership, events, diagnostics, permitted frames and narrow system operations. Transport and JSON/RPC details remain open.
 
-**Optional application adapters** may later provide document, spreadsheet, email, browser or other specialized operations. They must remain provider-neutral, separately permissioned and nonessential to running ordinary Linux applications. No app-specific adapter is guaranteed to exist for arbitrary software.
+Native LoopTeach will support authorized element selection (preferably configurable Super+click), annotation, profile storage and future Bridge lookup. Annotation read, edit, approval and sharing are separately authorized. Application-specific richer adapters remain optional, and ordinary apps still work without profiles.
 
 ## 8. Human use and devices
 
-Humans may use the desktop normally. Remote human control must be authorized through the same LoopBridge session authority as external agents, with different identity and grants. Physical keyboard/mouse events are handled by trusted local input components under the same arbitration policy.
+The desktop remains usable by people, but **a human is not an authorization class**. Physical keyboard and mouse are input sources, not proof of principal authority; trusted local binding to a session/principal is required. Authenticated owner/delegates can explicitly assume control according to policy; ordinary operators cannot arbitrarily preempt each other.
 
-Initially, only keyboard and mouse are required as **interactive human input** classes. This does not prohibit graphics, network, storage or other hardware needed by the OS. Future peripheral support requires explicit qualification.
-
-A headless graphical session remains active without a monitor or viewer. Remote view-only is separate from interactive remote takeover, and neither is proof of the other.
+Independent sessions are the preferred default product direction, with shared-session operation/viewing where authorized. A remote owner may be human or automated. Remote viewing and interactive control remain separate permissions. Headless operation and hardware compatibility require qualification.
 
 ## 9. Protected credentials and administrative operations
 
@@ -91,12 +93,8 @@ Without an observing human, avoid unnecessary continuous capture, video encoding
 
 ## 11. Deliberate non-goals and experiments
 
-Do not initially build a new kernel, hypervisor, browser, office suite, AI model, compositor fork or full distribution image. Do not claim universal GUI introspection or universal event veto.
+Do not initially build a new kernel, hypervisor, bespoke browser, office suite or full distribution. No decision mandates a compositor fork, universal GUI introspection, perfect annotation matching or classification of all syscalls.
 
-M1.1 remains a bounded semantic proof on an existing Linux session: correlate a real window and its accessibility elements, invoke an action, verify its result and reject stale handles. Subsequent independent experiments must qualify compositor-mediated input arbitration, physical and remote control, agent isolation, failure/recovery, visual fallback, credential boundaries, compatibility and performance.
+M1.1 and M1.2 have bounded GO evidence, not shipping OS guarantees. The M1.3 preflight reported NO-GO for its attempted input preemption path; it remains local/unmerged and must be reconciled with the clarified operator-neutral authority model before more testing. LoopTeach is a native future product capability, not an implemented M1 feature.
 
-Build the first LoopEnvironment image **only after** the distinguishing interactions and security boundaries have reproducible evidence. See [Architecture](ARCHITECTURE.md), [LoopBridge](LOOPBRIDGE.md), [Interaction model](INTERACTION_MODEL.md), [Roadmap](ROADMAP.md), and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
-
----
-
-**Product principle:** A complete Linux computer with a native, enforceable, semantically rich, vendor-independent interaction authority designed for agents and available to authorized human users.
+A custom image follows reproducible evidence of the security and interaction properties; see [architecture](ARCHITECTURE.md), [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md) and [roadmap](ROADMAP.md).
