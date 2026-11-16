@@ -69,6 +69,8 @@ LoopBridge is not a privileged universal backdoor. The design assumes explicit i
 
 **M1.1 — Semantic Feasibility: experiment recorded.** The [local diagnostic and evidence](docs/labs/M1_1_VIRTUALBOX.md) demonstrate three clean GNOME Calculator launches, window/tree correlation, a semantic action with independently queried result and stale-reference rejection on the existing VirtualBox/Sway output. Synthetic/headless output remains unvalidated. This is not a LoopBridge implementation. Later M1 experiments will verify authorized access from an isolated agent, view-only observation and local human takeover before image work begins.
 
+**M1.2 — Authorization and Events: bounded experiment recorded.** The [lab report and evidence](docs/labs/M1_2_AUTHORIZATION_EVENTS.md) demonstrate a provisioned client in explicit Bubblewrap namespaces, denied direct session access, expired-reference rejection and query-derived events with gap detection and snapshot recovery. This is a fixture-specific prototype, not a stable or production-secure LoopBridge. Native upstream event completeness and broader isolation remain unvalidated.
+
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
 ## Documentation

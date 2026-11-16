@@ -38,6 +38,10 @@ The study proposes technologies for M1 experiments. [ADR 0006](DECISIONS/0006-ma
 
 **Status:** bounded experiment recorded; [lab procedure and evidence](labs/M1_1_VIRTUALBOX.md) report semantic GO across three clean launches on the existing VirtualBox output, with stale-reference rejection. Synthetic/headless output remains unvalidated. The experiment uses a trusted local diagnostic process on an existing graphical session to correlate one real window with its accessible tree, invoke a supported action and verify the result. Repeat after restarting the application and check that the earlier reference is stale. This experiment provides semantic evidence for M1. The isolated client and its mediation checks belong to the subsequent authorization experiment. [Experiment sequence and GO/NO-GO criteria](research/M0_5_RECOMMENDATIONS.md#proposed-m1-experiment-sequence).
 
+### M1.2 — Authorization and Events
+
+**Status:** bounded local fixture experiment recorded; [procedure and evidence](labs/M1_2_AUTHORIZATION_EVENTS.md) report GO for a provisioned client in explicit Bubblewrap namespaces, an unenrolled client denied, direct session access denied even with a valid grant, expired references rejected, and query-derived events with retention-gap detection and snapshot recovery after disconnect. Native upstream event completeness, multiuser/session isolation and production authorization remain unvalidated. This is not a stable LoopBridge API. No M1.3 work is included.
+
 ## M2 — First bootable environment image
 
 **Goal:** package the proven interaction service into a maintainable Linux image suitable for a virtual machine.
