@@ -52,6 +52,10 @@ The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISION
 
 **Status:** bounded GO recorded in the [lab and evidence](labs/M1_3A_SESSION_AUTHORITY.md): server-authenticated principals, scoped grants/revocation, exclusive connection-bound leases, 96 passing tests including M1.1/M1.2 regressions, and one real Calculator action with negative isolation probes. Takeover is explicitly abstract policy simulation only. M1.3B still requires the actual compositor/conventional and semantic dispatch barrier; M1.3C visual observation remains separate. No GO for M1.3 overall or image work.
 
+#### M1.3B — Trusted Input & Enforcement Feasibility
+
+**Status:** [bounded feasibility assessment](labs/M1_3B_TRUSTED_INPUT_FEASIBILITY.md) records **NO-GO for takeover on the current unmodified Sway + M1.3A composition**. Real AT-SPI timeout/revocation/disconnection produced a late Calculator effect while the broker remained blocked. 101 tests and the existing authorized-client isolation regression passed; none proves a compositor barrier. Cooperative IPC, patch, nested and EIS alternatives were compared; no enforcement candidate was implemented, and future patched/nested paths are not disproven. The next M1.3B step is review of an explicit delivery/receipt contract for a minimal patch in an isolated nested testbed, before authorizing build dependencies. M1.3C and later gates remain unqualified.
+
 **Preserved historical preflight — Fallback and Human Control:**
 
 **Status:** preflight stopped with NO-GO for the investigated approach; [assessment and evidence](labs/M1_3_FALLBACK_HUMAN_CONTROL.md). A real Foot semantic gap and isolated clipboard endpoint denials were observed. Target-bound conventional input and safe compositor-side preemption were not qualified; the existing-session portal RemoteDesktop/EIS availability check did not provide an alternative. No capture/observer/takeover or 30-second idle encoding proof was performed. This is not evidence of a demonstrated bypass or universal Sway impossibility. The complete M1 gate and image work remain blocked.
