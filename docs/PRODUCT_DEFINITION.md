@@ -89,7 +89,7 @@ Privileged operations must use narrowly scoped services with OS-enforced authori
 
 ## 10. Future efficiency
 
-Without an observing human, avoid unnecessary continuous capture, video encoding and transmission. The desktop may still render and consume CPU/GPU. Viewer-aware composition, refresh-rate and resource optimizations are deferred until compatibility and functional correctness can be measured.
+Without any active authorized viewer, avoid unnecessary continuous capture, video encoding and transmission. The desktop may still render and consume CPU/GPU. Viewer-aware composition, refresh-rate and resource optimizations are deferred until compatibility and functional correctness can be measured.
 
 ## 11. Deliberate non-goals and experiments
 

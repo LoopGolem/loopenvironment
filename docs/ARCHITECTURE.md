@@ -106,6 +106,6 @@ This is the intended product data flow, not the currently implemented end-to-end
 
 ## Architecture quality gates
 
-No implementation is accepted merely because it can click a coordinate. The proof must demonstrate authorization, semantic inspection of a real application, event consistency, denial of an unauthorized operation, and human observation/interruptibility.
+No implementation is accepted merely because it can click a coordinate. The proof must demonstrate authorization, semantic inspection of a real application, event consistency, denial of an unauthorized operation, and authorized observation/owner-delegate interruptibility.
 
 See [LoopBridge](LOOPBRIDGE.md), [Interaction](INTERACTION_MODEL.md), [Security](SECURITY_MODEL.md) and [Roadmap](ROADMAP.md).

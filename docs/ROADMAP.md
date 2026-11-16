@@ -64,11 +64,11 @@ The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISION
 
 **Gate:** full M1 scenario works **inside** the image with measured CPU, RAM, storage and startup cost.
 
-## M3 — External interoperability and human session
+## M3 — External interoperability and authorized session handoff
 
 **Goal:** support at least two independent client implementations and reliable human observation/control handoff.
 
-**Demonstrate:** version negotiation, distinct identities/permissions, event resynchronization, disconnection recovery, view-only observer and human takeover, security negative cases.
+**Demonstrate:** version negotiation, authenticated principals and distinct grants, event resynchronization, disconnection recovery, view-only operator observation, owner/delegate-authorized session handoff and negative security cases.
 
 Any claim of remote interactive takeover requires evidence that an authenticated owner/delegate with its own control grant can preempt the previous controller in the same session, with enforced revocation and no automatic privilege based on a human label.
 

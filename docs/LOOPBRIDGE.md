@@ -4,7 +4,7 @@
 
 LoopBridge belongs to LoopEnvironment. It is the vendor-neutral structured interface for **authenticated operator principals** and their clients, whether controlled by people, AI or services, local or external. The owner and delegates determine capabilities and session scope; the OS does not infer a controller's biological identity. Physical input requires trusted session/principal binding and compositor enforcement, not necessarily per-event RPC. See [operator model](OPERATOR_MODEL.md), [product definition](PRODUCT_DEFINITION.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
 
-## Agent isolation
+## Untrusted client isolation
 
 Untrusted or externally controlled clients may run in an isolated local execution context or **entirely outside LoopEnvironment**. An agent is not required to be an in-guest Linux process. The important distinction is the trust boundary, not the controller's nature.
 
