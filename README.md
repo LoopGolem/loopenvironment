@@ -73,6 +73,8 @@ This historical preflight predates the authority clarification in [ADR 0008](doc
 
 **M1.3A — Identity, Grants & Session Authority: bounded experiment recorded.** The [lab and reproducible evidence](docs/labs/M1_3A_SESSION_AUTHORITY.md) report server-authenticated identities, scoped delegation/revocation, exclusive leases, 96 passing tests and a real authorized Calculator action from isolated clients. Takeover is policy simulation only; real compositor/semantic preemption remains unqualified for M1.3B. This does not qualify M1.3 overall or production security.
 
+**M1.3B — Trusted Input & Enforcement Feasibility: NO-GO for enabling takeover on the current unmodified Sway + M1.3A stack.** The [assessment and real diagnostics](docs/labs/M1_3B_TRUSTED_INPUT_FEASIBILITY.md) compare cooperative integration, patches, nesting and EIS. A timed-out AT-SPI action took effect after revocation and client disconnection; the broker correctly stayed blocked. No real takeover, compositor patch or input injection was implemented. Future patched/nested approaches remain unqualified.
+
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
 ## Documentation
