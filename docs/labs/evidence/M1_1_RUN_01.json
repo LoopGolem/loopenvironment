@@ -1,0 +1,14 @@
+{
+  "result": "PARTIAL",
+  "runs": [],
+  "started": "2026-11-16T04:15:44.216473+00:00",
+  "outputs": [
+    {
+      "name": "Virtual-1",
+      "make": "Unknown",
+      "model": "Unknown",
+      "active": true
+    }
+  ],
+  "failure": "Rejected:element_unavailable"
+}

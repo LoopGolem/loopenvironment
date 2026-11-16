@@ -2,7 +2,7 @@
 
 **An open-source, Linux-based operating system designed for AI agents — observable and usable by humans.**
 
-> **Status: design / pre-alpha.** LoopEnvironment is a proposed operating system, not a downloadable distribution yet. This repository currently contains product and architecture documentation. No image, ISO, installer, stable API, or security-certified runtime is available.
+> **Status: design / pre-alpha.** LoopEnvironment is a proposed operating system, not a downloadable distribution yet. This repository contains product and architecture documentation and a bounded local semantic experiment. No image, ISO, installer, stable API, or security-certified runtime is available.
 
 ## The idea
 
@@ -67,7 +67,7 @@ LoopBridge is not a privileged universal backdoor. The design assumes explicit i
 
 **M0.5 — feasibility research complete.** The [study recommendations](docs/research/M0_5_RECOMMENDATIONS.md) identify candidates for experiments. [ADR 0006](docs/DECISIONS/0006-mandatory-agent-mediation.md) records the accepted agent isolation requirement.
 
-**Next: M1.1 — Semantic Feasibility.** The first planned experiment will correlate one real window with its accessible tree and verify the result of a semantic action on an existing Linux graphical session. Later M1 experiments will verify authorized access from an isolated agent, view-only observation and local human takeover before image work begins.
+**M1.1 — Semantic Feasibility: experiment recorded.** The [local diagnostic and evidence](docs/labs/M1_1_VIRTUALBOX.md) demonstrate three clean GNOME Calculator launches, window/tree correlation, a semantic action with independently queried result and stale-reference rejection on the existing VirtualBox/Sway output. Synthetic/headless output remains unvalidated. This is not a LoopBridge implementation. Later M1 experiments will verify authorized access from an isolated agent, view-only observation and local human takeover before image work begins.
 
 The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
 
