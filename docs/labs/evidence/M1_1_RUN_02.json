@@ -1,0 +1,161 @@
+{
+  "result": "GO",
+  "runs": [
+    {
+      "iteration": 1,
+      "timestamp": "2026-11-16T04:16:18.895448+00:00",
+      "process": {
+        "pid": 9330,
+        "start_ticks": "192929",
+        "executable": "/usr/bin/gnome-calculator"
+      },
+      "window": {
+        "id": 10,
+        "pid": 9330,
+        "app_id": "org.gnome.Calculator",
+        "shell": "xdg_shell"
+      },
+      "atspi_pid": 9330,
+      "frame_count": 1,
+      "button": {
+        "name": "7",
+        "role": "button",
+        "path": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "actions": [
+          "click"
+        ]
+      },
+      "before": {
+        "0.0.0.0.0.0.0.1.0.0": "",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "after": {
+        "0.0.0.0.0.0.0.1.0.0": "7",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "display_path": "0.0.0.0.0.0.0.1.0.0",
+      "observation": "query_after_action",
+      "stale_rejection": null
+    },
+    {
+      "iteration": 2,
+      "timestamp": "2026-11-16T04:16:20.186321+00:00",
+      "process": {
+        "pid": 9362,
+        "start_ticks": "193079",
+        "executable": "/usr/bin/gnome-calculator"
+      },
+      "window": {
+        "id": 11,
+        "pid": 9362,
+        "app_id": "org.gnome.Calculator",
+        "shell": "xdg_shell"
+      },
+      "atspi_pid": 9362,
+      "frame_count": 1,
+      "button": {
+        "name": "7",
+        "role": "button",
+        "path": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "actions": [
+          "click"
+        ]
+      },
+      "before": {
+        "0.0.0.0.0.0.0.1.0.0": "",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "after": {
+        "0.0.0.0.0.0.0.1.0.0": "7",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "display_path": "0.0.0.0.0.0.0.1.0.0",
+      "observation": "query_after_action",
+      "stale_rejection": "expired_reference"
+    },
+    {
+      "iteration": 3,
+      "timestamp": "2026-11-16T04:16:21.795647+00:00",
+      "process": {
+        "pid": 9389,
+        "start_ticks": "193207",
+        "executable": "/usr/bin/gnome-calculator"
+      },
+      "window": {
+        "id": 12,
+        "pid": 9389,
+        "app_id": "org.gnome.Calculator",
+        "shell": "xdg_shell"
+      },
+      "atspi_pid": 9389,
+      "frame_count": 1,
+      "button": {
+        "name": "7",
+        "role": "button",
+        "path": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "actions": [
+          "click"
+        ]
+      },
+      "before": {
+        "0.0.0.0.0.0.0.1.0.0": "",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "after": {
+        "0.0.0.0.0.0.0.1.0.0": "7",
+        "0.0.0.0.0.0.0.1.1.0": ""
+      },
+      "display_path": "0.0.0.0.0.0.0.1.0.0",
+      "observation": "query_after_action",
+      "stale_rejection": "expired_reference"
+    }
+  ],
+  "started": "2026-11-16T04:16:17.387834+00:00",
+  "outputs": [
+    {
+      "name": "Virtual-1",
+      "make": "Unknown",
+      "model": "Unknown",
+      "active": true
+    }
+  ]
+}
