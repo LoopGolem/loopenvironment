@@ -45,7 +45,7 @@ def service(args):
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
-    with serve(args.runtime, identities, args.mode):
+    with serve(args.runtime, identities, args.mode, args.workspace):
         print('ready', flush=True)
         stop.wait()
 
@@ -81,7 +81,8 @@ def main():
     daemon = subparsers.add_parser('serve')
     daemon.add_argument('--runtime', type=Path, required=True)
     daemon.add_argument('--credentials', type=Path, required=True)
-    daemon.add_argument('--mode', choices=('calculator', 'fixture'), default='calculator')
+    daemon.add_argument('--mode', choices=('desktop', 'calculator', 'fixture'), default='desktop')
+    daemon.add_argument('--workspace', type=Path)
     client = subparsers.add_parser('client')
     client.add_argument('--socket', required=True)
     client.add_argument('--token-file', type=Path)

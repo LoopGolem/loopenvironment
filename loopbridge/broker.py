@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Bounded Unix-socket broker and dispatch coordinator."""
-from collections import deque
+from collections import deque, OrderedDict
 from dataclasses import asdict, dataclass, field
 import select
 import secrets
@@ -10,7 +10,7 @@ import threading
 import time
 
 from .protocol import Fault, VERSION, DeadlineChannel, encode, request
-from .authority import CAPABILITIES, Handle, Session, fail
+from .authority import Handle, Session, TARGET, fail
 
 
 @dataclass
@@ -20,6 +20,7 @@ class Connection:
     principal: str | None = None
     active: bool = True
     handle: Handle | None = None
+    handles: dict = field(default_factory=OrderedDict)
     snapshots: dict = field(default_factory=dict)
     alive: object = field(default=lambda: True, repr=False)
 
@@ -35,16 +36,23 @@ SCHEMA = {
 
 
 class Broker:
-    def __init__(self, identities, adapters, uid, journal, clock=time.monotonic):
+    schema = SCHEMA
+    versions = ('0.1', VERSION)
+    connection_limits = (30, 180, 64)
+
+    def __init__(self, identities, adapters, uid, journal, clock=time.monotonic,
+                 catalog=(), workspace=False):
         self.identities, self.adapters, self.uid, self.clock = identities, adapters, uid, clock
         self.journal = journal
-        self.sessions = {sid: Session(sid, clock, journal.blocked(sid)) for sid in adapters}
+        self.sessions = {sid: Session(sid, clock, journal.blocked(sid), catalog, workspace) for sid in adapters}
         self.io = {sid: threading.Lock() for sid in adapters}
         self.audit = deque(maxlen=32)
         self.audit_lock = threading.Lock()
+        self.operations = {sid: OrderedDict() for sid in adapters}
 
     def clear(self, connection):
         connection.handle = None
+        connection.handles.clear()
         connection.snapshots.clear()
         for session in self.sessions.values():
             with session.lock:
@@ -69,13 +77,14 @@ class Broker:
             connection.principal = self.identities.authenticate(params['credential'])
             return dict(principal=connection.principal, connection=connection.id)
         principal = self.authenticated(connection)
-        if method not in SCHEMA:
+        if method not in self.schema:
             fail('method_not_found', -32601)
-        if set(params) != SCHEMA[method]:
+        if set(params) != self.schema[method]:
             fail('invalid_params', -32602)
         # Bound strings before dictionary lookups and never reflect request data.
-        if any(not isinstance(v, str) or len(v) > 128 for k, v in params.items()
-               if k not in ('ttl', 'cursor', 'generation')):
+        if any(not isinstance(v, str) or len(v) > (3000 if k == 'text' else 128)
+               for k, v in params.items()
+               if k not in ('ttl', 'cursor', 'generation', 'offset', 'depth', 'value')):
             fail('invalid_params', -32602)
         if method == 'discover':
             permitted = []
@@ -113,7 +122,7 @@ class Broker:
                 with self.audit_lock:
                     return dict(entries=list(self.audit))
             if method == 'events':
-                session.require(principal, 'desktop.observe')
+                self.require_events(session, principal)
                 if connection.snapshots.get(session.id) != session.epoch:
                     fail('snapshot_required', -32004)
                 try:
@@ -121,11 +130,20 @@ class Broker:
                 except Fault:
                     connection.snapshots.pop(session.id, None)
                     connection.handle = None
+                    connection.handles.clear()
                     raise
                 return dict(events=events, cursor=session.history.seq, epoch=session.epoch)
         if method == 'snapshot':
             return self.snapshot(session, connection)
-        return self.invoke(session, connection, params)
+        if method == 'invoke7':
+            return self.invoke(session, connection, params)
+        return self.extended(session, connection, method, params)
+
+    def require_events(self, session, principal):
+        session.require(principal, 'desktop.observe')
+
+    def extended(self, session, connection, method, params):
+        fail('method_not_found', -32601)
 
     def lease(self, session, connection, params):
         principal = self.authenticated(connection)
@@ -134,7 +152,10 @@ class Broker:
 
     @staticmethod
     def capabilities(session, principal):
-        return sorted(cap for cap in CAPABILITIES if session.permits(principal, cap))
+        return sorted(cap for cap in session.capabilities
+                      if any(session.permits(principal, cap, scope)
+                             for scope in ('*', TARGET, 'workspace',
+                                           *('app:' + app for app in session.catalog))))
 
     def snapshot(self, session, connection):
         with session.lock:
@@ -172,6 +193,7 @@ class Broker:
     def invoke(self, session, connection, params):
         with session.lock:
             self.lease(session, connection, params)
+            session.require(connection.principal, 'desktop.control')
             session.require(connection.principal, 'desktop.observe')
             handle = connection.handle
             if (handle is None or params['reference'] != handle.id or
@@ -179,26 +201,51 @@ class Broker:
                     handle.generation != session.generation or handle.revision != session.revision or
                     self.clock() >= handle.expires):
                 fail('stale_reference', -32002)
+            connection.handle = None
+        result = self.dispatch(session, connection, params, 'prepare', handle.reference,
+                               TARGET, 'desktop.control', 'desktop.observe', handle)
+        if result['status'] == 'refused':
+            fail(result['reason'], -32006)
+        return result
+
+    def dispatch(self, session, connection, params, prepare_method, argument, target,
+                 capability, observation, handle=None, extra=()):
+        with session.lock:
+            self.lease(session, connection, params)
+            session.require(connection.principal, capability, target)
+            if observation:
+                session.require(connection.principal, observation, target)
+            for extra_cap, extra_target in extra:
+                session.require(connection.principal, extra_cap, extra_target)
             if session.pending:
                 fail('operation_pending', -32005)
             operation = secrets.token_hex(16)
             session.pending = operation
-            connection.handle = None
-
+        principal = connection.principal
+        result = dict(status='unknown', operation=operation)
         sent = confirmed = storage_error = False
         adapter = self.adapters[session.id]
         try:
             with self.io[session.id]:
-                adapter.call('prepare', handle.reference)
+                adapter.call(prepare_method, argument)
                 with session.lock:
                     self.lease(session, connection, params)
-                    if session.revision != handle.revision or self.clock() >= handle.expires:
+                    session.require(principal, capability, target)
+                    if observation:
+                        session.require(principal, observation, target)
+                    for extra_cap, extra_target in extra:
+                        session.require(principal, extra_cap, extra_target)
+                    if handle and (session.revision != handle.revision or self.clock() >= handle.expires):
                         fail('stale_reference', -32002)
                     # Persist uncertainty before submitting any Desktop RPC.
                     self.journal.mark(session.id, operation)
-                    deadline = min(handle.expires, session.lease.expires,
-                                   session.expires(connection.principal, 'desktop.control'),
-                                   session.expires(connection.principal, 'desktop.observe'))
+                    deadline = min(session.lease.expires, session.expires(principal, capability, target))
+                    if observation:
+                        deadline = min(deadline, session.expires(principal, observation, target))
+                    for extra_cap, extra_target in extra:
+                        deadline = min(deadline, session.expires(principal, extra_cap, extra_target))
+                    if handle:
+                        deadline = min(deadline, handle.expires)
                     if not connection.alive() or self.clock() >= deadline:
                         self.journal.clear(session.id)
                         fail('dispatch_fenced', -32002)
@@ -217,21 +264,26 @@ class Broker:
                         self.journal.clear(session.id)
                     except OSError:
                         storage_error = True
-                    if not session.permits(connection.principal, 'desktop.observe'):
+                    read_capability = observation or 'desktop.observe'
+                    if not session.permits(principal, read_capability, target):
                         evidence['state'] = None
-            return dict(status='confirmed', operation=operation, evidence=evidence)
+            result.update(status='confirmed', evidence=evidence)
+            if storage_error:
+                result['session_blocked'] = True
         except Fault:
             if not sent:
                 raise
-        except Exception:
+        except Exception as error:
             if not sent and not self.journal.blocked(session.id):
-                fail('target_unavailable_or_changed', -32006)
+                result.update(status='refused', reason=getattr(error, 'reason',
+                              'target_unavailable_or_changed'))
         finally:
             with session.lock:
                 session.pending = None
                 session.refresh()
                 if confirmed:
-                    session.last_state = state
+                    if prepare_method == 'prepare':
+                        session.last_state = state
                     session.event('operation.confirmed')
                 if storage_error or (not confirmed and (sent or self.journal.blocked(session.id))):
                     session.lease = None
@@ -240,10 +292,16 @@ class Broker:
                 if session.phase == 'handoff_pending':
                     session.phase = 'idle'
                     session.event('operation.resolved')
-        return dict(status='unknown', operation=operation,
-                    evidence=dict(source=adapter.source, state=None))
+                if result['status'] == 'unknown':
+                    result['evidence'] = dict(source=adapter.source, state=None)
+                history = self.operations[session.id]
+                history[operation] = (principal, result['status'])
+                if len(history) > 32:
+                    history.popitem(last=False)
+        return result
 
-    def serve_connection(self, sock, idle_timeout=30, lifetime=180):
+    def serve_connection(self, sock):
+        idle_timeout, lifetime, request_limit = self.connection_limits
         try:
             _, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
         except OSError:
@@ -263,7 +321,7 @@ class Broker:
         last_id = -1
         deadline = time.monotonic() + lifetime
         try:
-            for _ in range(64):
+            for _ in range(request_limit):
                 if time.monotonic() >= deadline:
                     break
                 value = channel.receive(min(idle_timeout, max(.001, deadline - time.monotonic())))
@@ -272,14 +330,16 @@ class Broker:
                     fail('replay_request', -32600)
                 last_id = rid
                 try:
+                    if value['version'] not in self.versions:
+                        fail('unsupported_version', -32600)
                     result = self.handle(connection, method, params)
-                    reply = dict(jsonrpc='2.0', version=VERSION, id=rid, result=result)
+                    reply = dict(jsonrpc='2.0', version=value['version'], id=rid, result=result)
                     outcome = result.get('status', 'ok')
                 except Fault as error:
-                    reply = dict(jsonrpc='2.0', version=VERSION, id=rid, error=dict(code=error.code, message=error.message))
+                    reply = dict(jsonrpc='2.0', version=value['version'], id=rid, error=dict(code=error.code, message=error.message))
                     outcome = error.message
                 with self.audit_lock:
-                    self.audit.append(dict(method=method if method in SCHEMA or method == 'auth' else 'unknown',
+                    self.audit.append(dict(method=method if method in self.schema or method == 'auth' else 'unknown',
                                            principal=connection.principal, outcome=outcome))
                 channel.send(reply)
         except (EOFError, OSError, Fault, ValueError, RecursionError):

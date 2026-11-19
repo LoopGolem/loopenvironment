@@ -10,6 +10,8 @@ from .protocol import Fault, History
 CAPABILITIES = frozenset(('session.discover', 'desktop.observe', 'desktop.control',
                           'identity.admin'))
 TARGET = 'calculator.digit7'
+MUTATIONS = frozenset(('desktop.control', 'app.launch', 'workspace.write'))
+DESKTOP_CAPABILITIES = CAPABILITIES | MUTATIONS | {'workspace.read'}
 
 
 def fail(message, code=-32001):
@@ -56,8 +58,12 @@ class Handle:
 
 
 class Session:
-    def __init__(self, sid, clock=time.monotonic, blocked=False):
+    def __init__(self, sid, clock=time.monotonic, blocked=False, catalog=(), workspace=False):
         self.id, self.clock = sid, clock
+        self.catalog, self.workspace = frozenset(catalog), workspace
+        self.capabilities = DESKTOP_CAPABILITIES if self.catalog else CAPABILITIES
+        if not workspace:
+            self.capabilities = self.capabilities - {'workspace.read', 'workspace.write'}
         self.lock = threading.RLock()  # Per session, never a process-wide adapter lock.
         self.epoch = secrets.token_hex(16)
         self.revision = self.policy_revision = self.generation = 0
@@ -66,7 +72,7 @@ class Session:
         self.lease = self.pending = None
         self.grants = {}
         self.history = History(self.epoch, capacity=8)
-        for capability in sorted(CAPABILITIES):
+        for capability in sorted(self.capabilities):
             self._grant('owner', capability, '*', 'lab_bootstrap', 3600)
 
     def event(self, kind):
@@ -88,10 +94,10 @@ class Session:
                    g.target in ('*', target) and not g.revoked and self.clock() < g.expires
                    for g in self.grants.values())
 
-    def expires(self, principal, capability):
+    def expires(self, principal, capability, target=TARGET):
         return max((g.expires for g in self.grants.values()
                     if g.principal == principal and g.capability == capability
-                    and not g.revoked and g.target in ('*', TARGET)), default=0)
+                    and not g.revoked and g.target in ('*', target)), default=0)
 
     def require(self, principal, capability, target=TARGET):
         if not self.permits(principal, capability, target):
@@ -100,11 +106,18 @@ class Session:
     def delegate(self, issuer, principal, capability, target, ttl):
         duration(ttl)
         self.require(issuer, 'identity.admin', target)
-        if (principal not in ('delegate', 'observer') or capability not in CAPABILITIES
+        if (principal not in ('delegate', 'observer') or capability not in self.capabilities
                 or capability == 'identity.admin'
-                or (principal == 'observer' and capability == 'desktop.control')):
+                or (principal == 'observer' and capability in MUTATIONS)):
             fail('invalid_grant', -32602)
-        if target not in ('*', TARGET):
+        scopes = {'*'}
+        if capability.startswith('workspace.'):
+            scopes.add('workspace')
+        elif self.catalog and capability in ('desktop.observe', 'desktop.control', 'app.launch'):
+            scopes.update('app:' + app for app in self.catalog)
+        elif not self.catalog:
+            scopes.add(TARGET)
+        if target not in scopes:
             fail('invalid_scope', -32602)
         # Admin alone does not mint a capability; delegation is bounded by a live
         # grant of that capability AND administration, including scope and expiry.
@@ -128,7 +141,7 @@ class Session:
         grant.revision = self.policy_revision
         self.event('grant.revoked')
         if (self.lease and self.lease.principal == grant.principal
-                and grant.capability == 'desktop.control'):
+                and grant.capability in MUTATIONS):
             self.fence('control.invalidated')
         self.refresh()
 
@@ -141,13 +154,18 @@ class Session:
     def refresh(self):
         lease = self.lease
         if lease and (self.clock() >= lease.expires or
-                      not self.permits(lease.principal, 'desktop.control')):
+                      not self.can_control(lease.principal)):
             self.fence('control.invalidated')
+
+    def can_control(self, principal):
+        return any(g.principal == principal and g.capability in MUTATIONS
+                   and not g.revoked and self.clock() < g.expires for g in self.grants.values())
 
     def acquire(self, principal, connection, ttl):
         duration(ttl)
         self.refresh()
-        self.require(principal, 'desktop.control')
+        if not self.can_control(principal):
+            fail('grant_denied')
         if self.phase != 'idle' or self.pending:
             fail('control_busy', -32005)
         self.generation += 1
@@ -159,7 +177,8 @@ class Session:
 
     def check_lease(self, principal, connection, lease_id, generation, epoch):
         self.refresh()
-        self.require(principal, 'desktop.control')
+        if not self.can_control(principal):
+            fail('grant_denied')
         lease = self.lease
         if (self.phase != 'controlled' or lease is None or lease.id != lease_id or
                 lease.principal != principal or lease.connection != connection or

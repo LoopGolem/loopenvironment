@@ -22,7 +22,7 @@ from experiments.m1_2.probe import connect
 from experiments.m1_2.run import endpoints
 from loopbridge.__main__ import read_private
 from loopbridge.authority import TARGET
-from loopbridge.service import SESSION
+from loopbridge.service import Journal, SESSION
 
 
 def check(condition):
@@ -80,7 +80,7 @@ class Process:
         check(json.loads(self.line()) == {'error': denial})
 
 
-def launch(stack, folder, paths, token, broker_pid):
+def launch(stack, folder, paths, token, broker_pid, private_paths=()):
     args = command(folder)
     historical = str(ROOT / 'experiments/m1_2')
     mount = args.index(historical)
@@ -95,7 +95,7 @@ def launch(stack, folder, paths, token, broker_pid):
         sentinel.set_inheritable(True)
         client = Process(stack, args, env={'PATH': '/usr/bin'})
     client.send(dict(credential=token, endpoints=paths, host_ns=namespaces(),
-                     broker_pid=broker_pid, devices=sorted(set(
+                     broker_pid=broker_pid, private_paths=private_paths, devices=sorted(set(
                          glob.glob('/dev/input/event*') + glob.glob('/dev/dri/*') +
                          glob.glob('/dev/video*') + ['/dev/uinput']))))
     probes = json.loads(client.line())
@@ -117,7 +117,7 @@ def independent_display():
 
 
 def clean_demo(root, report):
-    if (root / 'runtime' / (SESSION + '.pending')).exists():
+    if Journal(root / 'runtime').blocked(SESSION):
         # Preserve the protected runtime and its fence after an uncertain action.
         shutil.rmtree(root / 'credentials')
         report['blocked_runtime'] = str(root / 'runtime')
@@ -143,7 +143,8 @@ def demo(report):
                        check=True, close_fds=True, timeout=5)
         report['stage'] = 'service_start'
         server = Process(stack, [sys.executable, '-m', 'loopbridge', 'serve',
-                                '--runtime', runtime, '--credentials', credentials / 'service.json'])
+                                '--runtime', runtime, '--credentials', credentials / 'service.json',
+                                '--mode', 'calculator'])
         check(server.line() == b'ready\n')
         report['stage'] = 'client_isolation_and_authentication'
         clients = {}

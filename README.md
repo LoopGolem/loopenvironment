@@ -83,6 +83,8 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge Core V0.1 — experimental implementation.** The Unix-socket service supports authenticated principals, scoped grants, leases, structured Calculator observation and one semantic action. See the [architecture and run instructions](docs/LOOPBRIDGE_CORE_V0_1.md) and [qualification results](docs/LOOPBRIDGE_CORE_V0_1_RESULTS.md).
 
+**LoopBridge V0.2 — supervised desktop and workspace.** The experimental service adds scoped application discovery, bounded semantic trees and verified operations across supported applications. See the [V0.2 contract and qualification](docs/LOOPBRIDGE_V0_2.md).
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)
