@@ -80,7 +80,7 @@ class Process:
         check(json.loads(self.line()) == {'error': denial})
 
 
-def launch(stack, folder, paths, token, broker_pid, private_paths=()):
+def launch(stack, folder, paths, token, broker_pid, private_paths=(), version=None):
     args = command(folder)
     historical = str(ROOT / 'experiments/m1_2')
     mount = args.index(historical)
@@ -95,7 +95,7 @@ def launch(stack, folder, paths, token, broker_pid, private_paths=()):
         sentinel.set_inheritable(True)
         client = Process(stack, args, env={'PATH': '/usr/bin'})
     client.send(dict(credential=token, endpoints=paths, host_ns=namespaces(),
-                     broker_pid=broker_pid, private_paths=private_paths, devices=sorted(set(
+                     broker_pid=broker_pid, private_paths=private_paths, version=version, devices=sorted(set(
                          glob.glob('/dev/input/event*') + glob.glob('/dev/dri/*') +
                          glob.glob('/dev/video*') + ['/dev/uinput']))))
     probes = json.loads(client.line())
@@ -155,7 +155,7 @@ def demo(report):
                      if principal != 'invalid' else 'invalid')
             if principal != 'invalid':
                 secrets.append(token)
-            client, probes, auth = launch(stack, runtime / 'socket', paths, token, server.child.pid)
+            client, probes, auth = launch(stack, runtime / 'socket', paths, token, server.child.pid, version='0.1')
             if principal == 'invalid':
                 check(auth == {'error': 'denied'})
                 check(client.child.wait(timeout=5) == 1)

@@ -12,9 +12,9 @@ The environment's authority model authenticates **principals** and applies roles
 
 An agent does **not** need to run as a process in LoopEnvironment. Clients can operate locally under isolation or connect from outside via authenticated transports. Interactive installation and secure unattended VM provisioning must lead to the same owner-authority semantics.
 
-**LoopTeach** is a planned native tool to let authorized operators explain what a particular application's controls mean, then expose confidently re-identified annotations through LoopBridge when that app runs again. The product requires no specific model, proprietary vendor or closed app catalog.
+**LoopTeach** includes an experimental structured teaching tool to let authorized operators explain what a particular application's controls mean, then expose confidently re-identified annotations through LoopBridge when that app runs again. The product requires no specific model, proprietary vendor or closed app catalog.
 
-All these are design targets, not released environment capabilities. See [operator model](docs/OPERATOR_MODEL.md), [LoopTeach](docs/LOOPTEACH.md) and [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md).
+The current experimental scope is recorded below. The broader capability set remains a product direction. See [operator model](docs/OPERATOR_MODEL.md), [LoopTeach](docs/LOOPTEACH.md) and [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md).
 
 ## What makes it different?
 
@@ -84,6 +84,8 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 **LoopBridge Core V0.1 — experimental implementation.** The Unix-socket service supports authenticated principals, scoped grants, leases, structured Calculator observation and one semantic action. See the [architecture and run instructions](docs/LOOPBRIDGE_CORE_V0_1.md) and [qualification results](docs/LOOPBRIDGE_CORE_V0_1_RESULTS.md).
 
 **LoopBridge V0.2 — supervised desktop and workspace.** The experimental service adds scoped application discovery, bounded semantic trees and verified operations across supported applications. See the [V0.2 contract and qualification](docs/LOOPBRIDGE_V0_2.md).
+
+**LoopBridge V0.3 and LoopTeach V0.1.** The experimental service adds capability-based AT-SPI policies, multiple workspace documents, and persistent teaching with fresh target resolution. See the [contract and demo](docs/LOOPBRIDGE_V0_3.md).
 
 ## Documentation
 

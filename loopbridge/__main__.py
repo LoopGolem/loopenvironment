@@ -11,7 +11,7 @@ import sys
 import threading
 
 from .identity import Identities, PRINCIPALS
-from .protocol import Fault, RPC
+from .protocol import Fault, RPC, VERSION
 
 
 def write_private(path, data):
@@ -50,11 +50,11 @@ def service(args):
         stop.wait()
 
 
-def rpc_stream(endpoint, credential, input_stream, output_stream):
+def rpc_stream(endpoint, credential, input_stream, output_stream, version=VERSION):
     with socket.socket(socket.AF_UNIX) as sock:
         sock.settimeout(30)
         sock.connect(endpoint)
-        rpc = RPC(sock)
+        rpc = RPC(sock, version)
         try:
             result = rpc.call('auth', credential=credential)
         except Fault as error:
@@ -86,16 +86,30 @@ def main():
     client = subparsers.add_parser('client')
     client.add_argument('--socket', required=True)
     client.add_argument('--token-file', type=Path)
+    teacher = subparsers.add_parser('teach')
+    teacher.add_argument('--socket', required=True)
+    teacher.add_argument('--token-file', type=Path, required=True)
     args = parser.parse_args()
     try:
         if args.command == 'provision':
             provision(args.directory)
         elif args.command == 'serve':
             service(args)
+        elif args.command == 'teach':
+            from .teach_cli import teach
+            with socket.socket(socket.AF_UNIX) as sock:
+                sock.settimeout(30)
+                sock.connect(args.socket)
+                rpc = RPC(sock)
+                rpc.call('auth', credential=read_private(args.token_file).rstrip('\n'))
+                return teach(rpc, input, sys.stdout)
         else:
             credential = (read_private(args.token_file) if args.token_file
                           else sys.stdin.readline(129)).rstrip('\n')
             return rpc_stream(args.socket, credential, sys.stdin, sys.stdout)
+    except Fault as error:
+        print('loopbridge: ' + error.message, file=sys.stderr)
+        return 1
     except (OSError, RuntimeError, EOFError, ValueError, KeyError, TypeError, RecursionError):
         print('loopbridge: startup, transport or input failed', file=sys.stderr)
         return 1

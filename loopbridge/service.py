@@ -114,10 +114,13 @@ def serve(root, identities, mode, workspace=None):
         endpoint = sockets / 'control.sock'
         if endpoint.is_socket():
             endpoint.unlink()
+        broker_options = {}
         if mode == 'desktop':
             from .desktop import CATALOG
             from .desktop_broker import DesktopBroker
+            from .teaching import AnnotationStore
             broker_class, session, catalog = DesktopBroker, DESKTOP_SESSION, CATALOG
+            broker_options['annotation_store'] = AnnotationStore(root / 'annotations.sqlite3')
         else:
             broker_class, session, catalog = Broker, SESSION, ()
         journal = Journal(root)
@@ -128,7 +131,7 @@ def serve(root, identities, mode, workspace=None):
         adapter = Adapter(mode, root, workspace)
         try:
             broker = broker_class(identities, {session: adapter}, os.getuid(), journal,
-                                  catalog=catalog, workspace=bool(workspace))
+                                  catalog=catalog, workspace=bool(workspace), **broker_options)
             with socket.socket(socket.AF_UNIX) as listener:
                 listener.bind(str(endpoint))
                 try:

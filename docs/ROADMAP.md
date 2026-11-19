@@ -76,9 +76,9 @@ The user reported local-only evidence under `docs/labs/M1_3B2_NESTED_SMOKE_01.md
 
 **Status:** deferred until the clarified M1.3 gate is met. Reproduce the complete validated M1 scenario with an independent operator, native Wayland and XWayland fixtures, a less accessible application, supported software rendering and negative-case evidence. Do not start image construction merely because M1.1/M1.2 were GO.
 
-### Later product capability — Native LoopTeach
+### Native LoopTeach
 
-**Status:** accepted product direction, **not** part of current runtime experiments. Specify application-scoped annotations and provenance; later demonstrate a trusted target picker (preferred configurable Super+click plus alternatives), saved-profile lookup after restart, correct/ambiguous-match handling, and permission separation. A curated tested profile set for bundled applications is a future distribution goal. [LoopTeach design](LOOPTEACH.md) · [ADR 0009](DECISIONS/0009-native-loopteach.md).
+**Status:** [V0.1](LOOPBRIDGE_V0_3.md) implements scoped structured selection, revisioned SQLite annotations and conservative reidentification. Trusted compositor gesture interception, GUI overlays, cross-version matching and bundled profiles remain open. See [LoopTeach design](LOOPTEACH.md) and [ADR 0009](DECISIONS/0009-native-loopteach.md).
 
 ## LoopBridge Core V0.1
 

@@ -1,0 +1,226 @@
+{
+  "result": "GO",
+  "isolation": {
+    "owner": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    },
+    "delegate": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    },
+    "observer": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    }
+  },
+  "restart_isolation": {
+    "owner": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    },
+    "delegate": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    },
+    "observer": {
+      "direct_endpoints_denied": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "direct_private_paths_denied": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "no_inherited_sockets": true
+    }
+  },
+  "extra_catalog": true,
+  "stage": "completed",
+  "teach": {
+    "provenance": "operator_annotation",
+    "reviewed_revision": 2,
+    "teacher": "observer",
+    "structured_selector": true,
+    "desktop_control_denied": true,
+    "cross_application_read_denied": true,
+    "credential_storage_denied": true
+  },
+  "resolve_status": "matched",
+  "reidentification": {
+    "criteria": [
+      "application_build",
+      "window_context",
+      "role",
+      "name",
+      "semantic_interfaces",
+      "native_actions",
+      "ancestry"
+    ],
+    "provenance": {
+      "element": "atspi",
+      "annotation": "operator_annotation",
+      "association": "context_match"
+    },
+    "fresh_process": true,
+    "old_ref_refused": true,
+    "changed_context": "unresolved",
+    "privileged_hint": "refused"
+  },
+  "edit_status": "confirmed",
+  "refresh_status": "matched",
+  "save_status": "confirmed",
+  "file": {
+    "independently_verified": true,
+    "bytes": 60,
+    "sha256": "fda4a3bbdb6dbf3261af2c4d0da3c2ff4a49687ae0c68a88582dcd0d069d21ce"
+  },
+  "catalog": {
+    "clocks": {
+      "launch": "confirmed",
+      "window_observed": true
+    },
+    "files": {
+      "launch": "confirmed",
+      "window_observed": true,
+      "selection": "compatible_container_unavailable"
+    }
+  }
+}
