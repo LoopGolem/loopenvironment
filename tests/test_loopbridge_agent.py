@@ -22,7 +22,8 @@ class Bridge:
         if method == 'session.access':
             return dict(scopes=self.scopes)
         if method == 'session.features':
-            return dict(capture='private_output', input='private_pointer')
+            return dict(capture='private_output', input='private_pointer', keyboard='private_keyboard',
+                        externalHttps=True)
         if method == 'snapshot':
             return dict(session=params['session'], phase='idle')
         if isinstance(self.outcome, Exception):

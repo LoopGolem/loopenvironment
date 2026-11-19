@@ -160,7 +160,7 @@ def run():
         source = Path(__file__).with_name('private_wayland_effects.c')
         try:
             subprocess.run(['/usr/bin/cc', '-Wall', '-Wextra', '-Werror', str(source),
-                            '-lwayland-client', '-o', str(root / 'effects')],
+                            '-lwayland-client', '-lxkbcommon', '-o', str(root / 'effects')],
                            capture_output=True, timeout=10, check=True)
         except (OSError, subprocess.SubprocessError):
             pass

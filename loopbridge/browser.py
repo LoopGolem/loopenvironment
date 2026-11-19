@@ -8,6 +8,7 @@ import tempfile
 from urllib.parse import parse_qs, urlsplit
 
 from .adapter import Refused
+from .https_egress import BROWSER_PORT, UNIX_PROXY
 from . import browser_native
 from .catalog import CATALOG
 from .web_native import ROOT as SITE_ROOT, PAGES as SITE_PAGES
@@ -33,7 +34,7 @@ def mounted_socket(path):
     return str(path)
 
 
-def launch_args(root, site=False):
+def launch_args(root, site=False, external=False):
     from gi.repository import Gio
 
     if not ready():
@@ -79,9 +80,30 @@ user_pref("accessibility.force_disabled", -1);
             '--ro-bind', str(Path(__file__).with_name('web_native.py')), '/web_native.py',
             '--bind', str(home), '/home/browser', '--chdir', '/home/browser',
             '--clearenv', '--cap-drop', 'ALL']
+    if external:
+        proxy = mounted_socket(Path(UNIX_PROXY))
+        args += ['--ro-bind', proxy, '/run/browser/https.sock']
+        for filename in ('https_egress.py', 'web_https.py'):
+            args += ['--ro-bind', str(Path(__file__).with_name(filename)), '/' + filename]
+        with (profile / 'user.js').open('a') as prefs:
+            prefs.write(f'''user_pref("network.proxy.type", 1);
+user_pref("network.proxy.http", "127.0.0.1");
+user_pref("network.proxy.http_port", {BROWSER_PORT});
+user_pref("network.proxy.ssl", "127.0.0.1");
+user_pref("network.proxy.ssl_port", {BROWSER_PORT});
+user_pref("network.proxy.no_proxies_on", "");
+user_pref("network.http.http3.enable", false);
+user_pref("media.peerconnection.enabled", false);
+user_pref("network.prefetch-next", false);
+user_pref("network.dns.disablePrefetch", true);
+user_pref("network.captive-portal-service.enabled", false);
+user_pref("network.proxy.failover_direct", false);
+''')
     env = dict(PATH='/usr/bin', HOME='/home/browser', XDG_RUNTIME_DIR='/run/browser',
                WAYLAND_DISPLAY='wayland-0', AT_SPI_BUS_ADDRESS='unix:path=/run/browser/atspi',
                MOZ_ENABLE_WAYLAND='1', GTK_A11Y='1', LANG='C.UTF-8', LIBGL_ALWAYS_SOFTWARE='1')
+    if external:
+        env['LOOPBRIDGE_HTTPS_HOSTS'] = os.environ['LOOPBRIDGE_HTTPS_HOSTS']
     if site:
         env['LOOPBRIDGE_SITE'] = '1'
     for key, value in env.items():

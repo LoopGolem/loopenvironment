@@ -35,6 +35,8 @@ def received(stream, length):
 class Marionette:
     def __init__(self):
         self.socket = socket.create_connection(('127.0.0.1', PORT), timeout=3)
+        if os.environ.get('LOOPBRIDGE_HTTPS_HOSTS'):
+            self.socket.settimeout(7)
         self.seq = 0
         try:
             hello = self.read()
@@ -112,10 +114,17 @@ def serve():
                     if session is None:
                         session = Marionette()
                     if site:
-                        from web_native import execute
+                        from web_native import execute, snapshot
                         if type(request) is not dict or not isinstance(request.get('operation'), str):
                             raise NativeError('request')
-                        site_reply(peer, dict(result=execute(session, request)))
+                        op = request['operation']
+                        if os.environ.get('LOOPBRIDGE_HTTPS_HOSTS') and (
+                                op in ('inspect_external', 'navigate_https') or op.startswith('external_')):
+                            from web_https import execute as execute_https
+                            result = execute_https(session, request, snapshot)
+                        else:
+                            result = execute(session, request)
+                        site_reply(peer, dict(result=result))
                     else:
                         if (not isinstance(request, list) or len(request) != 2
                                 or any(type(item) is not str or len(item) > 40 for item in request)):
@@ -147,7 +156,7 @@ def call(folder, operation, value=''):
         raise NativeError('private_socket')
     request = json.dumps([operation, value]).encode()
     with socket.socket(socket.AF_UNIX) as peer:
-        peer.settimeout(5)
+        peer.settimeout(9)
         peer.connect(str(target))
         peer.sendall(len(request).to_bytes(2, 'big') + request)
         receipt = peer.recv(128)
@@ -171,7 +180,7 @@ def site_call(folder, request):
     if len(data) > 4096:
         raise NativeError('web_request_limit')
     with socket.socket(socket.AF_UNIX) as peer:
-        peer.settimeout(5)
+        peer.settimeout(9)
         peer.connect(str(target))
         peer.sendall(len(data).to_bytes(2, 'big') + data)
         size = int.from_bytes(received(peer, 2), 'big')

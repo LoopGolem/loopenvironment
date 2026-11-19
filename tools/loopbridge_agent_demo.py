@@ -116,7 +116,12 @@ def run(evidence, seed):
             note = element(owner, 'editor', lambda row: row['role'] == 'frame')
             owner.call('teach.create', **SESSION, ref=note['ref'], meaning='document.save',
                        operationHint='page.save', conditions='', warnings='')
-        check(owner.call('app.close', **lease, app='editor')['status']=='confirmed')
+        evidence['stage'] = 'close_teaching_editor'
+        close = owner.call('app.close', **lease, app='editor')
+        evidence['teaching_editor_close'] = {key: close[key] for key in ('status', 'reason') if key in close}
+        if close['status'] == 'confirmed':
+            evidence['teaching_editor_close'].update(close['evidence']['state'])
+        check(close['status'] == 'confirmed')
         owner.call('release', **lease)
         evidence['stage'] = 'grant_expiry'
         owner.call('delegate', **SESSION, principal='observer', capability='workspace.read',

@@ -6,7 +6,7 @@ from .adapter import Refused, Unavailable
 from .authority import Handle, fail
 from .broker import Broker, SCHEMA
 from .protocol import VERSION
-from .private_effects import available, private_id, OUTPUT, TTL
+from .private_effects import available, private_id, KEYS, OUTPUT, TTL
 from .teach_routes import SCHEMA as TEACH_SCHEMA, TeachRoutes
 
 READS = {
@@ -27,20 +27,26 @@ READS = {
     'workspace.list_at': {'offset', 'directory'},
     'desktop.capture': {'ref'},
     'browser.document': {'ref'},
+    'web.controls_page': {'ref', 'offset'},
     'web.discover': {'ref'},
     'workspace.read': {'path'},
 }
 WRITES = {
+    'session.keyboard.type': ({'ref', 'text'}, 'desktop.input'),
+    'session.keyboard.key': ({'ref', 'key'}, 'desktop.input'),
     'session.pointer.click': ({'ref', 'x', 'y'}, 'desktop.input'),
     'session.pointer.move': ({'ref', 'x', 'y'}, 'desktop.input'),
     'app.launch': ({'app'}, 'app.launch'),
     'app.open_document': ({'app', 'document'}, 'app.launch'),
     'app.open_directory': ({'app', 'directory'}, 'app.launch'),
     'browser.open_fixture': ({'app'}, 'app.launch'),
+    'web.open_external': ({'app'}, 'app.launch'),
+    'web.navigate_https': ({'ref', 'url'}, 'desktop.control'),
     'web.open': ({'app'}, 'app.launch'),
     'web.navigate': ({'ref', 'page'}, 'desktop.control'),
     'web.set_text': ({'ref', 'text'}, 'desktop.control'),
     'web.select': ({'ref', 'option'}, 'desktop.control'),
+    'web.submit_https': ({'ref'}, 'web.submit'),
     'web.activate': ({'ref'}, 'desktop.control'),
     'input.key': ({'ref', 'key'}, 'desktop.input'),
     'app.close': ({'app'}, 'app.close'),
@@ -115,7 +121,7 @@ class DesktopBroker(Broker):
                 targets = ('*', 'workspace', *('app:' + app for app in sorted(session.catalog)))
                 return dict(scopes={cap: [scope for scope in targets if session.permits(principal, cap, scope)]
                                     for cap in self.capabilities(session, principal)})
-        if method.startswith(('session.capture', 'session.pointer.')):
+        if method.startswith(('session.capture', 'session.pointer.', 'session.keyboard.')):
             return self.private_effect(session, connection, principal, method, params)
         if method == 'session.features':
             with session.lock:
@@ -125,7 +131,10 @@ class DesktopBroker(Broker):
                         sources=['atspi', 'linux_workspace', 'firefox_dom'])
             if private := private_id():
                 info.update(privateId=private, capture='private_output' if available() else 'disabled',
-                            input='private_pointer' if available() else 'disabled')
+                            input='private_pointer' if available() else 'disabled',
+                            keyboard='private_keyboard' if available() else 'disabled')
+                from .web_https import hosts
+                info['externalHttps'] = bool(hosts())
             return info
         if method == 'operation.status':
             with session.lock:
@@ -157,7 +166,7 @@ class DesktopBroker(Broker):
                 observation = 'workspace.read'
             else:
                 observation = (None if method in ('app.launch', 'app.close', 'app.open_document',
-                                                 'app.open_directory', 'browser.open_fixture', 'web.open')
+                                                 'app.open_directory', 'browser.open_fixture', 'web.open', 'web.open_external')
                                else 'desktop.observe')
             extra = EFFECT_REQUIREMENTS.get(params.get('action'), ())
             if method in ('app.open_document', 'app.open_directory', 'element.select'):
@@ -209,20 +218,26 @@ class DesktopBroker(Broker):
 
     def private_effect(self, session, connection, principal, method, params):
         pointer = method.startswith('session.pointer.')
+        keyboard = method.startswith('session.keyboard.')
         args, handle = params, None
         with session.lock:
             session.require(principal, 'desktop.capture', '*')
-            if pointer:
+            if pointer or keyboard:
                 session.require(principal, 'desktop.input', '*')
             if not available():
                 fail('private_effect_unavailable', -32006)
             if 'ref' in params:
                 _, args, handle = self.target(session, connection, params, capture=True)
             revision = session.revision
-        if pointer:
-            if not all(type(params[key]) is int and 0 <= params[key] < bound
-                       for key, bound in zip(('x', 'y'), OUTPUT)):
-                fail('pointer_outside_private_output', -32602)
+        if pointer and not all(type(params[key]) is int and 0 <= params[key] < bound
+                               for key, bound in zip(('x', 'y'), OUTPUT)):
+            fail('pointer_outside_private_output', -32602)
+        if method == 'session.keyboard.key' and params['key'] not in KEYS:
+            fail('private_key_unsupported', -32602)
+        if method == 'session.keyboard.type' and (not 0 < len(params['text']) <= 120
+                or any(not 32 <= ord(char) <= 126 for char in params['text'])):
+            fail('private_text_unsupported', -32602)
+        if pointer or keyboard:
             return self.dispatch(session, connection, params, 'desktop.prepare', (method, None, args),
                                  '*', 'desktop.input', 'desktop.capture', handle)
         try:

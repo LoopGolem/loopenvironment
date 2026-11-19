@@ -20,6 +20,7 @@ IMAGE = (240, 180)
 CHUNK = 4096
 TTL = 20
 HELPER = '/private/effects'
+KEYS = frozenset(('Return', 'Tab', 'Escape', 'BackSpace', 'Delete', 'Up', 'Down', 'Left', 'Right', 'space'))
 
 
 def private_id():
@@ -50,8 +51,9 @@ def png(rgb):
             + chunk(b'IDAT', zlib.compress(scan, 6)) + chunk(b'IEND', b''))
 
 
-def run(*args):
-    return subprocess.run([HELPER, *args], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+def run(*args, text=None):
+    input_options = {'stdin': subprocess.DEVNULL} if text is None else {'input': text.encode('ascii')}
+    return subprocess.run([HELPER, *args], **input_options, stdout=subprocess.PIPE,
                           stderr=subprocess.DEVNULL, timeout=4, check=True).stdout
 
 
@@ -111,7 +113,7 @@ class Effects:
         contents = data[index * CHUNK:(index + 1) * CHUNK]
         return dict(index=index, encoding='base64', data=base64.b64encode(contents).decode())
 
-    def prepare(self, command, token, x, y, controlled):
+    def prepare(self, command, token, x, y, controlled, *, text=None, key=None):
         expected = self.frame(token)[2]
 
         def validate():
@@ -122,12 +124,17 @@ class Effects:
                 raise Refused('private_target_ambiguous')
             _, identity, focused, (left, top, width, height) = expected[0]
             if (not focused or identity not in controlled() or
-                    not (left <= x < left + width and top <= y < top + height)):
+                    (x is not None and not (left <= x < left + width and top <= y < top + height))):
                 raise Refused('private_target_unavailable')
 
         def submit():
             validate()
-            run(command, str(x), str(y))
+            if command == 'type':
+                run(command, text=text)
+            elif command == 'key':
+                run(command, key)
+            else:
+                run(command, str(x), str(y))
 
         validate()
         return Prepared(submit, lambda: dict(delivery='wayland_roundtrip',

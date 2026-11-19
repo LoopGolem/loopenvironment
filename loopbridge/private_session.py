@@ -18,6 +18,7 @@ import time
 
 from .__main__ import read_private
 from .identity import Identities
+from .https_egress import Egress, UNIX_PROXY, destinations
 from .protocol import DeadlineChannel, Fault, request
 from .service import DESKTOP_SESSION, Journal, private_directory, serve
 
@@ -56,7 +57,7 @@ def wait_ready(process, deadline):
 
 
 class Instance:
-    def __init__(self, root, credentials):
+    def __init__(self, root, credentials, hosts=()):
         self.id = secrets.token_hex(8)
         self.root = root / self.id
         self.root.mkdir(mode=0o700)
@@ -69,6 +70,9 @@ class Instance:
             raise ValueError('private_socket_path_too_long')
         self.process = None
         self.phase = 'starting'
+        self.egress = None
+        self.egress_thread = None
+        self.hosts = hosts
         self.checks = {}
         self.exit = None
         source = Path(__file__).resolve().parent
@@ -81,7 +85,7 @@ class Instance:
         try:
             subprocess.run(['/usr/bin/cc', '-Wall', '-Wextra', '-Werror',
                             str(source.parent / 'tools/private_wayland_effects.c'),
-                            '-lwayland-client', '-o', str(effects)], stdin=subprocess.DEVNULL,
+                            '-lwayland-client', '-lxkbcommon', '-o', str(effects)], stdin=subprocess.DEVNULL,
                            capture_output=True, timeout=10, check=True)
         except (OSError, subprocess.SubprocessError):
             effects.unlink(missing_ok=True)
@@ -109,13 +113,19 @@ class Instance:
                    '--cap-drop', 'ALL', '--clearenv', '--chdir', '/app']
         if effects.is_file():
             command += ['--ro-bind', str(effects), '/private/effects']
+        if hosts:
+            self.egress = Egress(self.root / 'display/https.sock', hosts)
+            self.egress_thread = threading.Thread(target=self.egress.serve_forever, daemon=True)
+            self.egress_thread.start()
+            command += ['--ro-bind', str(self.root / 'display/https.sock'), UNIX_PROXY]
+            env['LOOPBRIDGE_HTTPS_HOSTS'] = json.dumps(sorted(hosts))
         for key, value in env.items():
             command.extend(('--setenv', key, value))
         command += ['--', '/usr/bin/dbus-run-session', '--config-file=/app/loopbridge/private_dbus.conf',
                     '--', '/usr/bin/python3', '-B', '-m', 'loopbridge.private_session', '--inside']
-        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.DEVNULL, start_new_session=True)
         try:
+            self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                            stderr=subprocess.DEVNULL, start_new_session=True)
             self.process.stdin.write(credentials)
             self.process.stdin.flush()
             wait_ready(self.process, time.monotonic() + STARTUP)
@@ -128,7 +138,8 @@ class Instance:
             self.stop('failed')
             raise
         finally:
-            self.process.stdout.close()
+            if self.process:
+                self.process.stdout.close()
 
     def cleanup(self):
         # Persistent effects and journal records remain together at the old root.
@@ -145,13 +156,22 @@ class Instance:
 
     def stop(self, phase='stopped'):
         if self.phase in ('starting', 'ready'):
-            self.process.stdin.close()
-            try:
-                self.exit = self.process.wait(timeout=12)
-            except subprocess.TimeoutExpired:
-                self.exit = terminate(self.process)
+            if self.process:
+                self.process.stdin.close()
+                try:
+                    self.exit = self.process.wait(timeout=12)
+                except subprocess.TimeoutExpired:
+                    self.exit = terminate(self.process)
+            if self.egress:
+                self.egress.shutdown()
+                self.egress.server_close()
+                self.egress_thread.join(timeout=1)
             self.phase = 'failed' if phase == 'stopped' and self.exit != 0 else phase
             self.cleanup()
+
+    def network(self):
+        return dict(mode='https_connect' if self.hosts else 'offline', hosts=sorted(self.hosts),
+                    events=self.egress.snapshot() if self.egress else [])
 
     def status(self):
         if self.phase == 'ready' and self.process.poll() is not None:
@@ -290,19 +310,23 @@ def handle(client, root, credentials, identities, instances):
                 raise Fault(-32001, 'denied')
             elif method == 'private.list' and not params:
                 result = {'instances': [instance.status() for instance in instances.values()]}
-            elif method == 'private.start' and not params:
+            elif method == 'private.start' and set(params) <= {'httpsHosts'}:
                 if len(instances) >= MAX_SESSIONS:
                     raise Fault(-32006, 'private_session_limit')
-                instance = Instance(root, credentials)
+                try:
+                    hosts = destinations(params.get('httpsHosts', []))
+                except ValueError:
+                    raise Fault(-32602, 'invalid_https_hosts') from None
+                instance = Instance(root, credentials, hosts)
                 instances[instance.id] = instance
                 result = instance.status()
-            elif method in ('private.status', 'private.stop') and set(params) == {'id'} and isinstance(params['id'], str):
+            elif method in ('private.status', 'private.stop', 'private.network') and set(params) == {'id'} and isinstance(params['id'], str):
                 instance = instances.get(params['id'])
                 if not instance:
                     raise Fault(-32006, 'private_session_unavailable')
                 if method == 'private.stop':
                     instance.stop()
-                result = instance.status()
+                result = instance.network() if method == 'private.network' else instance.status()
             else:
                 raise Fault(-32601, 'method_not_found')
             reply = dict(result=result)

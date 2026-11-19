@@ -50,6 +50,8 @@ TOOLS = {
     'sessions_list': Tool('discover', 'List authorized sessions.'),
     'session_capture': Tool('session.capture', 'Capture the authorized private output. A short-lived ref retrieves the PNG.', 'session'),
     'session_capture_read': Tool('session.capture.read', 'Read one numbered base64 PNG chunk from a live capture.', 'session ref index:i'),
+    'session_keyboard_type': write('session.keyboard.type', 'Type printable ASCII in the focused private window.', 'ref text'),
+    'session_keyboard_key': write('session.keyboard.key', 'Send one supported navigation key to the focused private window.', 'ref key'),
     'session_pointer_click': write('session.pointer.click', 'Click at private output pixel coordinates using a fresh capture ref.', 'ref x:i y:i'),
     'session_pointer_move': write('session.pointer.move', 'Move the pointer within the identified private window.', 'ref x:i y:i'),
     'session_features': Tool('session.features', 'Inspect backend availability and limits.', 'session'),
@@ -62,10 +64,14 @@ TOOLS = {
     'lease_acquire': Tool('acquire', 'Acquire a bounded session lease in seconds.', 'session ttl:i', True),
     'lease_release': write('release', 'Release this connection’s lease.', ''),
     'web_open': write('web.open', 'Start a fresh private Firefox instance for the packaged local site.', 'app'),
+    'web_open_external': write('web.open_external', 'Start disposable Firefox with the private session HTTPS allowlist.', 'app'),
+    'web_navigate_https': write('web.navigate_https', 'Navigate the supervised Firefox to an authorized HTTPS URL.', 'ref url'),
     'web_navigate': write('web.navigate', 'Navigate to a named authorized local page.', 'ref page'),
-    'web_discover': Tool('web.discover', 'Read local page identity, observable controls and table rows.', 'session ref'),
+    'web_controls_page': Tool('web.controls_page', 'Read another page of observable HTTPS controls.', 'session ref offset:i'),
+    'web_discover': Tool('web.discover', 'Read page identity and observable controls. Packaged pages can also return table rows.', 'session ref'),
     'web_set_text': write('web.set_text', 'Replace text in a live authorized web field.', 'ref text'),
     'web_select': write('web.select', 'Select an advertised option value.', 'ref option'),
+    'web_submit_https': write('web.submit_https', 'Submit one authorized HTTPS form at most once in this instance. Verify the commercial outcome separately.', 'ref'),
     'web_activate': write('web.activate', 'Activate an observed local form submit button or link.', 'ref'),
     'workspace_list': Tool('workspace.list_at', 'List an authorized workspace directory. Use an empty directory for the root.',
                            'session directory offset:i'),
@@ -76,6 +82,7 @@ TOOLS = {
                            'session ref query offset:i'),
     'element_find': Tool('element.find', 'Find a unique AT-SPI target. Empty filters impose no constraint.',
                          'session ref role name interface action'),
+    'element_inspect': Tool('element.inspect', 'Inspect a fresh accessible element.', 'session ref'),
     'element_get_text': Tool('element.get_text', 'Read text from a live scoped AT-SPI element.', 'session ref'),
     'app_launch': write('app.launch', 'Launch an authorized supervised desktop application.', 'app'),
     'app_open_document': write('app.open_document', 'Open an authorized workspace document in the supervised editor.',
@@ -96,10 +103,14 @@ SCOPES = {
     'session.recovery': ('identity.admin',),
     'window.list': ('desktop.observe',),
     'web.open': ('app.launch',),
+    'web.open_external': ('app.launch',),
+    'web.navigate_https': ('desktop.control', 'desktop.observe'),
+    'web.controls_page': ('desktop.observe',),
     'web.discover': ('desktop.observe',),
     'web.navigate': ('desktop.control', 'desktop.observe'),
     'web.set_text': ('desktop.control', 'desktop.observe'),
     'web.select': ('desktop.control', 'desktop.observe'),
+    'web.submit_https': ('web.submit', 'desktop.observe'),
     'web.activate': ('desktop.control', 'desktop.observe'),
     'workspace.list_at': ('workspace.read',),
     'workspace.read': ('workspace.read',),
@@ -107,6 +118,7 @@ SCOPES = {
     'element.tree': ('desktop.observe',),
     'element.search': ('desktop.observe',),
     'element.find': ('desktop.observe',),
+    'element.inspect': ('desktop.observe',),
     'element.get_text': ('desktop.observe',),
     'element.set_text': ('desktop.observe', 'desktop.control'),
     'element.invoke': ('desktop.observe', 'desktop.control'),
@@ -117,6 +129,8 @@ SCOPES = {
     'teach.resolve': ('desktop.observe', 'teach.read'),
     'session.capture': ('desktop.capture',),
     'session.capture.read': ('desktop.capture',),
+    'session.keyboard.type': ('desktop.capture', 'desktop.input'),
+    'session.keyboard.key': ('desktop.capture', 'desktop.input'),
     'session.pointer.click': ('desktop.capture', 'desktop.input'),
     'session.pointer.move': ('desktop.capture', 'desktop.input'),
 }
@@ -125,7 +139,7 @@ SCOPES = {
 def visible(method, grants, features):
     if method in ('acquire', 'release'):
         return any(cap in grants for cap in ('desktop.control', 'app.launch', 'app.close',
-                                             'workspace.write', 'desktop.input'))
+                                             'workspace.write', 'desktop.input', 'web.submit'))
     required = SCOPES.get(method, ())
     if not required:
         return True
@@ -134,12 +148,15 @@ def visible(method, grants, features):
         targets.intersection_update(grants.get(cap, ()))
     if method.startswith('session.capture'):
         return '*' in targets and features.get('capture') == 'private_output'
+    if method.startswith('session.keyboard.'):
+        return '*' in targets and features.get('keyboard') == 'private_keyboard'
     if method.startswith('session.pointer.'):
         return '*' in targets and features.get('input') == 'private_pointer'
     if method.startswith('workspace.'):
         return 'workspace' in targets
     if method.startswith('web.'):
-        return 'app:browser' in targets
+        return ('app:browser' in targets and (method not in ('web.open_external', 'web.navigate_https', 'web.submit_https')
+                or features.get('externalHttps') is True))
     if method == 'app.open_document':
         return 'app:editor' in targets and 'workspace' in grants.get('workspace.read', ())
     if method == 'app.launch':

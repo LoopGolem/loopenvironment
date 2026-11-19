@@ -33,6 +33,7 @@ class Application:
     directory: str | None = None
     profile: Path | None = None
     site: bool = False
+    external: bool = False
 
 
 @dataclass
@@ -196,7 +197,12 @@ class Desktop:
     def tree_start(self, app, frame):
         if app != 'browser':
             return [((), frame)]
-        document, _ = browser.known_document(frame)
+        if self.apps[app].external:
+            from .web_https import allowed
+            document, uri = browser.active_document(frame)
+            allowed(uri)
+        else:
+            document, _ = browser.known_document(frame)
         roots = [(path, node) for path, node in walk(frame) if node == document]
         if len(roots) != 1:
             raise Refused('browser_document_ambiguous')
@@ -292,8 +298,8 @@ class Desktop:
             return self.effects.acquire()
         if method == 'session.capture.read':
             return self.effects.read(params['ref'], params['index'])
-        if method == 'web.discover':
-            return self.web.discover(app, params['ref'])
+        if method in ('web.discover', 'web.controls_page'):
+            return self.web.discover(app, params['ref'], params.get('offset', 0))
         if method == 'teach.capture':
             return self.picker.capture(app, params['ref'])
         if method == 'teach.find':
@@ -406,16 +412,16 @@ class Desktop:
 
         return Prepared(send, lambda: wait_for(verify, timeout=18))
 
-    def prepare_browser(self, site=False):
+    def prepare_browser(self, site=False, external=False):
         try:
-            args, profile = browser.launch_args(self.profile.name, site)
+            args, profile = browser.launch_args(self.profile.name, site, external)
         except (OSError, KeyError, ValueError):
             raise Refused('browser_isolation_unavailable') from None
 
         def send():
             process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, close_fds=True)
-            self.apps['browser'] = Application(process, profile=profile, site=site)
+            self.apps['browser'] = Application(process, profile=profile, site=site, external=external)
 
         def verify():
             running = self.apps['browser']
@@ -444,16 +450,20 @@ class Desktop:
         return Prepared(send, lambda: wait_for(verify, timeout=30))
 
     def prepare_operation(self, method, app, params):
-        if method.startswith('session.pointer.'):
-            return self.effects.prepare(method.rsplit('.', 1)[1], params['ref'], params['x'], params['y'],
-                                        lambda: {app.identity for app in self.apps.values()})
-        if method in ('browser.open_fixture', 'web.open'):
+        if method.startswith(('session.pointer.', 'session.keyboard.')):
+            return self.effects.prepare(method.rsplit('.', 1)[1], params['ref'], params.get('x'), params.get('y'),
+                                        lambda: {app.identity for app in self.apps.values()},
+                                        text=params.get('text'), key=params.get('key'))
+        if method in ('browser.open_fixture', 'web.open', 'web.open_external'):
             current = self.apps.get(app)
             if app != 'browser':
                 raise Refused('browser_fixture_app_required')
             if current is not None and current.process.poll() is None:
                 raise Refused('application_already_running')
-            return self.prepare_browser(site=method == 'web.open')
+            external = method == 'web.open_external'
+            if external and not os.environ.get('LOOPBRIDGE_HTTPS_HOSTS'):
+                raise Refused('external_https_disabled')
+            return self.prepare_browser(site=method != 'browser.open_fixture', external=external)
         if method.startswith('web.'):
             return self.web.prepare(method, app, params)
         if method == 'input.key':
@@ -491,17 +501,17 @@ class Desktop:
             raise Refused('editor_document_changed')
         return document
 
-    def document_contents(self, target):
+    def document_contents(self, target, *, closing=False):
         path = self.verify_document(target.app, target.frame)
+        required = {'editable', 'multi_line'} if closing else {'editable', 'multi_line', 'showing'}
         documents = [child for _, child in walk(target.frame)
-                     if child and {'editable', 'multi_line', 'showing'} <= state_flags(child)
-                     and 'Text' in child.get_interfaces()]
+                     if child and required <= state_flags(child) and 'Text' in child.get_interfaces()]
         if len(documents) != 1:
             raise Refused('editor_document_ambiguous')
         query = documents[0].queryText()
         if not 0 <= query.characterCount <= 3000:
             raise Refused('workspace_size_limit')
-        return path, query.getText(0, query.characterCount)
+        return path, query.getText(0, query.characterCount), 'showing' in state_flags(documents[0])
 
     def action_effect(self, policy, target, role, name, action):
         if ('invoke' in policy.effects and action == 'click'
@@ -509,7 +519,7 @@ class Desktop:
             before = texts(target.frame)
             return lambda: self.verify_digit(target.app, target, before, name)
         if action == 'page.save' and action in policy.effects and role == 'frame':
-            document, buffer = self.document_contents(target)
+            document, buffer, _ = self.document_contents(target)
             # GtkSourceView appends an implicit final newline on disk.
             expected = buffer + '\n'
             if expected == self.workspace.read(document):
@@ -520,11 +530,16 @@ class Desktop:
     def prepare_close(self, app):
         application = self.process(app)
         browser_pids = browser.process_tree(application.process.pid) if app == 'browser' else {}
+        editor_showing = None
         if application.document:
             records, frame, _, _ = self.match(app)
             if not records or frame is None:
                 raise Refused('window_unavailable_or_ambiguous')
-            document, buffer = self.document_contents(Target(app, records[0], frame, None))
+            # A separate LoopTeach window can change GTK's accessibility
+            # showing state. Closing still requires one exact, inspectable
+            # buffer and a byte-for-byte readback from the authorized file.
+            document, buffer, editor_showing = self.document_contents(
+                Target(app, records[0], frame, None), closing=True)
             saved = self.workspace.read(document)
             if saved != buffer + '\n' and not (saved == buffer == ''):
                 raise Refused('document_has_unsaved_changes')
@@ -537,7 +552,10 @@ class Desktop:
             if any(row['pid'] in (browser_pids or {application.process.pid})
                    for row in windows(sway('get_tree'))):
                 raise Refused('window_still_present')
-            return dict(app=app, state='stopped')
+            state = dict(app=app, state='stopped')
+            if editor_showing is not None:
+                state.update(bufferVerified=True, bufferShowingBeforeClose=editor_showing)
+            return state
 
         return Prepared(send, lambda: wait_for(verify, timeout=7))
 
