@@ -38,7 +38,7 @@ def setup(stack, root, workspace, paths, report):
     for principal in ('owner', 'delegate', 'observer'):
         token = read_private(root / 'credentials' / (principal + '.token')).strip()
         client, probes, auth = launch(stack, root / 'runtime/socket', paths, token,
-                                      server.child.pid, (str(workspace), str(root / 'credentials')))
+                                      server.child.pid, (str(workspace), str(root / 'credentials')), version='0.3')
         check(auth['result']['principal'] == principal)
         clients[principal] = client
         report[principal] = dict(direct_endpoints_denied=sorted(probes['endpoints']),

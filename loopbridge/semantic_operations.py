@@ -17,13 +17,14 @@ class Prepared:
 class Policy:
     text: bool = False
     document_text: bool = False
+    form_text: bool = False
     value: bool = False
     selection_roles: frozenset = frozenset()
     workspace_selection: bool = False
     effects: tuple = ()
 
     def mutations(self):
-        return ((['set_text'] if self.document_text else []) +
+        return ((['set_text'] if self.document_text or self.form_text else []) +
                 (['set_value'] if self.value else []) +
                 (['select'] if self.selection_roles else []) +
                 [effect for effect in self.effects])
@@ -35,7 +36,7 @@ POLICIES = {
     'files': Policy(selection_roles=frozenset(('table', 'tree table', 'layered pane')),
                     workspace_selection=True),
     'clocks': Policy(),
-    'browser': Policy(),
+    'browser': Policy(text=True, form_text=True, effects=('browser_form',)),
 }
 
 
@@ -97,6 +98,9 @@ class SemanticOperations:
         if method == 'element.get_text' and 'Text' in interfaces and policy.text:
             if policy.document_text and 'multi_line' not in flags:
                 raise Refused('operation_outside_app_policy')
+            if policy.form_text:
+                from . import browser
+                browser.control(target.frame, node, {'demo-name'})
             return dict(**semantic_text(node), source='atspi')
         if method == 'element.get_value' and 'Value' in interfaces and policy.value:
             value = node.queryValue()
@@ -121,23 +125,38 @@ class SemanticOperations:
         if method == 'element.set_text':
             if not {'EditableText', 'Text'} <= set(interfaces):
                 raise Refused('unsupported_interface')
-            if not policy.document_text or not {'editable', 'multi_line'} <= flags:
-                raise Refused('operation_outside_app_policy')
             text = params['text']
+            if policy.form_text:
+                from . import browser
+                browser.control(target.frame, node, {'demo-name'})
+                browser.allowed_text(text)
+            elif not policy.document_text or not {'editable', 'multi_line'} <= flags:
+                raise Refused('operation_outside_app_policy')
             if len(text.encode('utf-8')) > 3000 or '\x00' in text:
                 raise Refused('invalid_text')
             previous = semantic_text(node)
             if not previous['truncated'] and previous['text'] == text:
                 raise Refused('no_change')
+            if policy.form_text and previous['length']:
+                raise Refused('browser_nonempty_field')
 
             def verify():
                 query = fresh().queryText()
                 if query.characterCount != len(text) or query.getText(0, len(text)) != text:
                     raise Refused('result_not_confirmed')
-                return dict(characters=len(text))
+                return dict(characters=len(text), execution='firefox_native' if policy.form_text else 'atspi')
 
-            return Prepared(lambda: fresh().queryEditableText().setTextContents(text),
-                            lambda: wait_for(verify, timeout=3))
+            def send():
+                node = fresh()
+                if policy.form_text:
+                    browser.control(target.frame, node, {'demo-name'})
+                    if node.queryText().characterCount != 0:
+                        raise Refused('browser_nonempty_field')
+                    browser.browser_native.call(self.desktop.apps[app].profile, 'text', text)
+                    return None
+                return node.queryEditableText().setTextContents(text)
+
+            return Prepared(send, lambda: wait_for(verify, timeout=3))
 
         if method == 'element.set_value':
             if 'Value' not in interfaces:
@@ -214,6 +233,9 @@ class SemanticOperations:
             if 'Action' not in interfaces:
                 raise Refused('unsupported_interface')
             action_index(node.queryAction())
+            if policy.form_text:
+                from . import browser
+                return browser.prepare_action(self.desktop, target, requested, fresh)
             verify = self.desktop.action_effect(policy, target, role, name, requested)
 
             def send():

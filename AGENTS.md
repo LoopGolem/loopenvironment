@@ -4,7 +4,7 @@ Scope: **LoopEnvironment only** — an open-source environment for existing Linu
 
 ## Current project phase
 
-ADR 0010 defines the current product scope. LoopBridge V0.3 and LoopTeach V0.1 provide local supervised operation and structured teaching. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See docs/LOOPBRIDGE_V0_3.md, docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
+ADR 0010 defines the current product scope. LoopBridge V0.4 and LoopTeach V0.2 add practical supervised browser, workspace and teaching flows. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See docs/LOOPBRIDGE_V0_4.md, docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
 
 ## Non-negotiable product boundaries
 
@@ -14,7 +14,7 @@ ADR 0010 defines the current product scope. LoopBridge V0.3 and LoopTeach V0.1 p
 - Initial setup establishes a master/responsible owner principal, whether controlled by human, AI or software.
 - Agent clients may run outside the guest; authority derives from authentication and grants, not biological labels.
 - Owner/delegate takeover requires explicit trusted authorization, not automatic physical pointer motion.
-- Native LoopTeach supports app-specific teaching through a structured CLI (configurable Super+click remains a design target); annotations do not authorize actions.
+- Native LoopTeach supports app-specific teaching through GTK and a structured CLI (configurable Super+click remains a design target); annotations do not authorize actions.
 - Different transports must preserve the same agent-facing conceptual API.
 - Deny unauthorized operations; no default remote control or privileged fallback.
 - The product does not require a particular proprietary agent, account or cloud service.

@@ -131,8 +131,18 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual(picker.find('editor', 'new_window', original),
                          dict(status='ambiguous', reason='duplicate_context'))
         desktop.frame = Node('frame', 'new document', Node('panel', '', button))
+        contextual = picker.find('editor', 'new_window', original)
+        self.assertEqual(contextual['matchQuality'], 'strong_contextual')
+        desktop.frame = Node('frame', 'new document', button, Node('panel', '', Node('button', 'Save')))
+        self.assertEqual(picker.find('editor', 'new_window', original)['status'], 'ambiguous')
+        desktop.frame = Node('frame', 'new document',
+                             Node('panel', '', Node('panel', '', Node('panel', '', button))))
+        self.assertEqual(picker.find('editor', 'new_window', original)['status'], 'unresolved')
+        desktop.frame = Node('frame', 'new document', Node('menu item', 'Different control', button))
         self.assertEqual(picker.find('editor', 'new_window', original),
                          dict(status='unresolved', reason='evidence_changed'))
+        picker.window = lambda target: {**WINDOW, 'build': 'new'}
+        self.assertEqual(picker.find('editor', 'new_window', original)['status'], 'incompatible')
 
     def test_incomplete_search_and_protected_targets_fail_closed(self):
         button = Node('button', 'Save')

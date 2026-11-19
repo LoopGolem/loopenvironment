@@ -151,7 +151,12 @@ def perform(report, stack, root, workspace, server, paths):
     if result['status'] == 'confirmed':
         deadline = time.monotonic() + 5
         while True:
-            observed = delegate.call('window.list', **SESSION, app='files')['windows']
+            delegate.send(dict(method='window.list', params=dict(**SESSION, app='files')))
+            reply = json.loads(delegate.line())
+            if 'error' in reply:
+                check(reply['error'] == 'target_unavailable')
+                report['file_manager_observation'] = reply['error']
+            observed = reply.get('result', {}).get('windows', [])
             report['file_manager_semantic'] = [row['semantic'] for row in observed]
             if observed and observed[0]['ref']:
                 delegate.send(dict(method='element.tree', params=dict(

@@ -116,7 +116,7 @@ def serve(root, identities, mode, workspace=None):
             endpoint.unlink()
         broker_options = {}
         if mode == 'desktop':
-            from .desktop import CATALOG
+            from .catalog import CATALOG
             from .desktop_broker import DesktopBroker
             from .teaching import AnnotationStore
             broker_class, session, catalog = DesktopBroker, DESKTOP_SESSION, CATALOG

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>LoopBridge local form</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; form-action file:">
+<h1>LoopBridge local form</h1>
+<form action="receipt.html" method="get">
+  <label for="demo-name">Demo name</label>
+  <input id="demo-name" name="name" maxlength="40" required autocomplete="off">
+  <fieldset>
+    <legend>Demo category</legend>
+    <label><input id="alpha" type="radio" name="category" value="alpha" checked>Alpha</label>
+    <label><input id="beta" type="radio" name="category" value="beta">Beta</label>
+  </fieldset>
+  <label for="private-field">Private field</label>
+  <input id="private-field" type="password" autocomplete="off">
+  <button id="submit" type="submit">Submit demo</button>
+</form>
+</html>

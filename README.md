@@ -87,6 +87,8 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.3 and LoopTeach V0.1.** The experimental service adds capability-based AT-SPI policies, multiple workspace documents, and persistent teaching with fresh target resolution. See the [contract and demo](docs/LOOPBRIDGE_V0_3.md).
 
+**LoopBridge V0.4 and LoopTeach V0.2.** The practical milestone adds the offline Firefox form profile, nested workspace operations, a GTK teacher and annotation search. See the [contract and qualification](docs/LOOPBRIDGE_V0_4.md).
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)

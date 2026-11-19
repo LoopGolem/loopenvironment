@@ -89,12 +89,19 @@ def main():
     teacher = subparsers.add_parser('teach')
     teacher.add_argument('--socket', required=True)
     teacher.add_argument('--token-file', type=Path, required=True)
+    gui = subparsers.add_parser('teach-gui')
+    gui.add_argument('--socket', required=True)
+    gui.add_argument('--token-file', type=Path, required=True)
+    gui.add_argument('--demo', action='store_true')
     args = parser.parse_args()
     try:
         if args.command == 'provision':
             provision(args.directory)
         elif args.command == 'serve':
             service(args)
+        elif args.command == 'teach-gui':
+            from .teach_gui import run
+            return run(args.socket, read_private(args.token_file).rstrip('\n'), args.demo)
         elif args.command == 'teach':
             from .teach_cli import teach
             with socket.socket(socket.AF_UNIX) as sock:
@@ -110,7 +117,7 @@ def main():
     except Fault as error:
         print('loopbridge: ' + error.message, file=sys.stderr)
         return 1
-    except (OSError, RuntimeError, EOFError, ValueError, KeyError, TypeError, RecursionError):
+    except (ImportError, OSError, RuntimeError, EOFError, ValueError, KeyError, TypeError, RecursionError):
         print('loopbridge: startup, transport or input failed', file=sys.stderr)
         return 1
     return 0

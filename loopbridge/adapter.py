@@ -150,7 +150,7 @@ class Adapter:
         except (OSError, EOFError):
             self.faulted = True
             raise Unavailable from None
-        return self.receive({'send': 7, 'confirm': 22}.get(method, 12))
+        return self.receive({'send': 7, 'confirm': 35}.get(method, 12))
 
     def close(self):
         if self.process.is_alive() and not self.faulted:

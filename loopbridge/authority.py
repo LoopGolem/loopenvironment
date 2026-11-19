@@ -11,8 +11,8 @@ from .teaching import CAPABILITIES as TEACH_CAPABILITIES
 CAPABILITIES = frozenset(('session.discover', 'desktop.observe', 'desktop.control',
                           'identity.admin'))
 TARGET = 'calculator.digit7'
-MUTATIONS = frozenset(('desktop.control', 'app.launch', 'app.close', 'workspace.write'))
-DESKTOP_CAPABILITIES = CAPABILITIES | MUTATIONS | {'workspace.read'} | TEACH_CAPABILITIES
+MUTATIONS = frozenset(('desktop.control', 'app.launch', 'app.close', 'workspace.write', 'desktop.input'))
+DESKTOP_CAPABILITIES = CAPABILITIES | MUTATIONS | {'workspace.read', 'desktop.capture'} | TEACH_CAPABILITIES
 
 
 def fail(message, code=-32001):
@@ -114,7 +114,7 @@ class Session:
         scopes = {'*'}
         if capability.startswith('workspace.'):
             scopes.add('workspace')
-        elif self.catalog and capability in ({'desktop.observe', 'desktop.control', 'app.launch', 'app.close'} | TEACH_CAPABILITIES):
+        elif self.catalog and capability in ({'desktop.observe', 'desktop.control', 'app.launch', 'app.close', 'desktop.input', 'desktop.capture'} | TEACH_CAPABILITIES):
             scopes.update('app:' + app for app in self.catalog)
         elif not self.catalog:
             scopes.add(TARGET)

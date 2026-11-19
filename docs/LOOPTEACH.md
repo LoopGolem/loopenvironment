@@ -1,6 +1,6 @@
 # LoopTeach — native application-semantic teaching tool
 
-**Status:** V0.1 provides an experimental structured CLI, SQLite annotations and live target matching. The overlay, intercepted hotkey and bundled catalog remain design targets. See the [V0.1 contract and evidence](LOOPBRIDGE_V0_3.md).
+**Status:** V0.2 adds a GTK teacher, annotation search and conservative contextual matches to the structured CLI and SQLite store. The overlay, intercepted hotkey and bundled catalog remain design targets. See the [V0.2 contract and evidence](LOOPBRIDGE_V0_4.md).
 
 ## Purpose
 
@@ -74,4 +74,4 @@ Owner-created profiles may later be exported to multiple installations or shared
 4. Read annotations through the same authorized Bridge observation model; prove that they do not grant input privilege.
 5. Add profile versioning, tests across upgrades/locales, and a small verified bundled catalog.
 
-LoopTeach V0.1 is a bounded implementation on the supervised desktop. The historical M1.1/M1.2 results predate it. See [operator model](OPERATOR_MODEL.md), [LoopBridge](LOOPBRIDGE.md) and [ADR 0009](DECISIONS/0009-native-loopteach.md).
+LoopTeach V0.2 is a bounded implementation on the supervised desktop. The historical M1.1/M1.2 results predate it. See [operator model](OPERATOR_MODEL.md), [LoopBridge](LOOPBRIDGE.md) and [ADR 0009](DECISIONS/0009-native-loopteach.md).

@@ -6,7 +6,7 @@ import os
 
 from .adapter import Refused
 from .semantic_operations import actions, semantic_signature, state_flags
-from .teaching import compare, match_status
+from .teaching import compare, match_status, normalized_ancestry
 
 MAX_NODES = 512
 MAX_DEPTH = 40
@@ -60,7 +60,7 @@ class Picker:
         if role not in ROLES or 'showing' not in flags or 'protected' in flags:
             return None
         # File-manager names are redacted in its observation policy.
-        if target.app == 'files':
+        if target.app in ('files', 'browser'):
             return None
         name = self.name(target.app, node, role)
         labels, overflow = actions(node, interfaces, limit=64)
@@ -93,8 +93,10 @@ class Picker:
     def find(self, app, ref, evidence):
         target, frame = self.desktop.resolve(app, ref)
         window = self.window(target)
+        if any(window[key] != evidence['window'][key] for key in ('application', 'build')):
+            return dict(status='incompatible', reason='application_or_build_changed')
         if window != evidence['window']:
-            return dict(status='unresolved', reason='window_or_build_changed')
+            return dict(status='unresolved', reason='window_context_changed')
         pending = [((), frame, ())]
         visited, candidates, complete = 0, [], True
         # DFS with the structural context of each node. Child indexes are used
@@ -110,10 +112,11 @@ class Picker:
                 continue
             name = self.name(app, node, role)
             if (role == evidence['role'] and name == evidence['name']
-                    and list(ancestry) == evidence['ancestry']):
+                    and normalized_ancestry(ancestry) == normalized_ancestry(evidence['ancestry'])):
                 fresh = self.describe(target, window, node, list(ancestry))
-                if fresh is not None and compare(evidence, fresh):
-                    candidates.append((path, node))
+                quality = compare(evidence, fresh) if fresh is not None else None
+                if quality:
+                    candidates.append((path, node, quality))
                     if len(candidates) == 2:
                         break
             count = node.childCount
@@ -128,7 +131,7 @@ class Picker:
             reason = ('duplicate_context' if status == 'ambiguous' else
                       'incomplete_search' if pending or not complete else 'evidence_changed')
             return dict(status=status, reason=reason)
-        path, node = candidates[0]
-        return dict(status='matched', element=self.desktop.describe(target, path, node),
+        path, node, quality = candidates[0]
+        return dict(status='matched', matchQuality=quality, element=self.desktop.describe(target, path, node),
                     criteria=['application_build', 'window_context', 'role', 'name',
                               'semantic_interfaces', 'native_actions', 'ancestry'])
