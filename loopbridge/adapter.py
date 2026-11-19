@@ -14,6 +14,12 @@ class Unavailable(RuntimeError):
     pass
 
 
+class Refused(Unavailable):
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)
+
+
 class Fixture:
     source = 'fixture_query'
 
@@ -40,7 +46,7 @@ class Fixture:
         pass
 
 
-def worker(channel, mode):
+def worker(channel, mode, runtime, workspace):
     os.setsid()
     # Only this process imports or touches session accessibility objects.
     adapter = None
@@ -48,6 +54,9 @@ def worker(channel, mode):
         if mode == 'calculator':
             from .calculator import Calculator
             adapter = Calculator()
+        elif mode == 'desktop':
+            from .desktop import Desktop
+            adapter = Desktop(runtime, workspace)
         else:
             adapter = Fixture()
         channel.send((True, adapter.source))
@@ -71,6 +80,10 @@ def worker(channel, mode):
                     prepared = None
                     prepared = adapter.prepare(*references.pop(argument))
                     result = None
+                elif method == 'desktop.prepare':
+                    prepared = None
+                    prepared = adapter.prepare_operation(*argument)
+                    result = None
                 elif method == 'send':
                     if time.monotonic() >= argument:
                         raise Unavailable
@@ -81,7 +94,15 @@ def worker(channel, mode):
                     prepared = None
                     if len(encode(result)) > 4096:
                         raise Unavailable
+                elif method == 'desktop.read':
+                    result = adapter.query(*argument)
+                    if len(encode(result)) > 6800:
+                        raise Refused('response_limit')
+                else:
+                    raise Refused('unsupported_method')
                 channel.send((True, result))
+            except Refused as error:
+                channel.send((False, error.reason))
             except Exception:
                 channel.send((False, None))
     except (Exception, KeyboardInterrupt):
@@ -94,10 +115,10 @@ def worker(channel, mode):
 
 
 class Adapter:
-    def __init__(self, mode):
+    def __init__(self, mode, runtime=None, workspace=None):
         ctx = multiprocessing.get_context('spawn')
         self.channel, child = ctx.Pipe()
-        self.process = ctx.Process(target=worker, args=(child, mode))
+        self.process = ctx.Process(target=worker, args=(child, mode, runtime, workspace))
         self.process.start()
         child.close()
         self.faulted = False
@@ -116,6 +137,8 @@ class Adapter:
             self.faulted = True
             raise Unavailable from None
         if not ok:
+            if value is not None:
+                raise Refused(value)
             raise Unavailable
         return value
 
@@ -127,7 +150,7 @@ class Adapter:
         except (OSError, EOFError):
             self.faulted = True
             raise Unavailable from None
-        return self.receive(7 if method == 'send' else 12)
+        return self.receive({'send': 7, 'confirm': 22}.get(method, 12))
 
     def close(self):
         if self.process.is_alive() and not self.faulted:

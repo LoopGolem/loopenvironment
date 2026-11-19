@@ -6,11 +6,13 @@ import os
 from pathlib import Path
 import socket
 import stat
+import tempfile
 
 from .adapter import Adapter
 from .broker import Broker, Server
 
 SESSION = 'calculator'
+DESKTOP_SESSION = 'desktop'
 
 
 def private_directory(path):
@@ -23,7 +25,8 @@ def private_directory(path):
 
 
 class Journal:
-    """A surviving marker means delivery may still be pending."""
+    """Pair a durable intent with an operation-specific resolution receipt."""
+
     def __init__(self, folder):
         self.folder = folder
 
@@ -34,32 +37,74 @@ class Journal:
         finally:
             os.close(fd)
 
+    def read(self, path):
+        with path.open('rb') as source:
+            value = source.read(34)
+        if len(value) != 33 or value[-1:] != b'\n':
+            raise OSError('invalid_journal_record')
+        token = value[:-1].decode('ascii', errors='replace')
+        if any(char not in '0123456789abcdef' for char in token):
+            raise OSError('invalid_journal_record')
+        return token
+
+    def intent(self, session):
+        try:
+            return self.read(self.folder / (session + '.pending'))
+        except FileNotFoundError:
+            return None
+
     def blocked(self, session):
         try:
-            (self.folder / (session + '.pending')).lstat()
-        except FileNotFoundError:
-            return False
+            pending = self.intent(session)
+            try:
+                receipt = self.read(self.folder / (session + '.resolved'))
+            except FileNotFoundError:
+                receipt = None
+            return pending != receipt
         except OSError:
             return True
-        return True
+
+    def write(self, path, operation):
+        # Only an unpublished temporary file can be removed. The authoritative
+        # intent is never unlinked, including after successful confirmation.
+        fd, name = tempfile.mkstemp(dir=self.folder, prefix='.journal-')
+        published = False
+        try:
+            with os.fdopen(fd, 'w') as output:
+                output.write(operation + '\n')
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(name, path)
+            published = True
+            self.sync()
+        finally:
+            if not published:
+                os.unlink(name)
 
     def mark(self, session, operation):
-        path = self.folder / (session + '.pending')
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, 'w') as output:
-            output.write(operation + '\n')
-            output.flush()
-            os.fsync(output.fileno())
-        self.sync()
+        if self.blocked(session):
+            raise OSError('journal_blocked')
+        self.write(self.folder / (session + '.pending'), operation)
 
     def clear(self, session):
-        (self.folder / (session + '.pending')).unlink()
-        self.sync()
+        # Called only with independently confirmed state or proved non-dispatch.
+        # If the receipt survives an interrupted sync, its matching ID still
+        # proves resolution. An absent, malformed or different receipt blocks.
+        operation = self.intent(session)
+        if operation is None:
+            raise OSError('journal_intent_missing')
+        self.write(self.folder / (session + '.resolved'), operation)
 
 
 @contextmanager
-def serve(root, identities, mode):
+def serve(root, identities, mode, workspace=None):
     root = private_directory(Path(root))
+    # Persist the runtime directory entry before accepting a journal intent.
+    parent_fd = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
     # Lock the directory inode for this lifecycle. Start competitors without
     # touching the existing endpoint or pending marker.
     lock = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -69,9 +114,21 @@ def serve(root, identities, mode):
         endpoint = sockets / 'control.sock'
         if endpoint.is_socket():
             endpoint.unlink()
-        adapter = Adapter(mode)
+        if mode == 'desktop':
+            from .desktop import CATALOG
+            from .desktop_broker import DesktopBroker
+            broker_class, session, catalog = DesktopBroker, DESKTOP_SESSION, CATALOG
+        else:
+            broker_class, session, catalog = Broker, SESSION, ()
+        journal = Journal(root)
+        # Switching modes must not hide an unresolved operation on this runtime.
+        legacy = SESSION if session == DESKTOP_SESSION else DESKTOP_SESSION
+        if journal.blocked(legacy):
+            raise OSError('unresolved_operation_in_other_mode')
+        adapter = Adapter(mode, root, workspace)
         try:
-            broker = Broker(identities, {SESSION: adapter}, os.getuid(), Journal(root))
+            broker = broker_class(identities, {session: adapter}, os.getuid(), journal,
+                                  catalog=catalog, workspace=bool(workspace))
             with socket.socket(socket.AF_UNIX) as listener:
                 listener.bind(str(endpoint))
                 try:

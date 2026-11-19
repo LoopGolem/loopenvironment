@@ -1,0 +1,185 @@
+{
+  "result": "GO",
+  "stage": "completed",
+  "isolation": {
+    "owner": {
+      "denied_endpoints": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "denied_devices": 12,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "private_paths_denied": 4,
+      "no_inherited_sockets": true
+    },
+    "delegate": {
+      "denied_endpoints": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "denied_devices": 12,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "private_paths_denied": 4,
+      "no_inherited_sockets": true
+    },
+    "observer": {
+      "denied_endpoints": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "denied_devices": 12,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "private_paths_denied": 4,
+      "no_inherited_sockets": true
+    },
+    "invalid": {
+      "denied_endpoints": [
+        "abstract_canary",
+        "atspi_bus",
+        "pipewire",
+        "proc_root_atspi_bus",
+        "proc_root_pipewire",
+        "proc_root_session_bus",
+        "proc_root_sway",
+        "proc_root_system_bus",
+        "proc_root_wayland",
+        "proc_root_x11",
+        "session_bus",
+        "sway",
+        "system_bus",
+        "wayland",
+        "x11"
+      ],
+      "denied_devices": 12,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "private_paths_denied": 4,
+      "no_inherited_sockets": true
+    }
+  },
+  "catalog": [
+    {
+      "app": "browser",
+      "application_id": "firefox-esr",
+      "installed": true,
+      "launch_supported": false,
+      "state": "stopped",
+      "mutations": []
+    },
+    {
+      "app": "calculator",
+      "application_id": "org.gnome.Calculator",
+      "installed": true,
+      "launch_supported": true,
+      "state": "stopped",
+      "mutations": [
+        "invoke"
+      ]
+    },
+    {
+      "app": "editor",
+      "application_id": "org.gnome.TextEditor",
+      "installed": true,
+      "launch_supported": true,
+      "state": "stopped",
+      "mutations": [
+        "set_text",
+        "page.save"
+      ]
+    },
+    {
+      "app": "files",
+      "application_id": "org.gnome.Nautilus",
+      "installed": true,
+      "launch_supported": true,
+      "state": "stopped",
+      "mutations": []
+    }
+  ],
+  "workspace_write_sha256": "a5157673d4277db95d66792d3eaa5433abb0d5fc2bdd18b938ee5582470c9d24",
+  "workspace_traversal_refused": true,
+  "editor_launch": "confirmed",
+  "editor": {
+    "scope": "editor",
+    "observed_edit": true,
+    "observer_mutation_denied": true,
+    "save": "confirmed",
+    "ui_file_verified": true,
+    "file_sha256": "78261ab9b58139cc004a92550630ca20e35ac347a06bb53952fb13df8dc45690"
+  },
+  "revocation_verified": true,
+  "calculator": "confirmed",
+  "browser": "launch_unsupported",
+  "file_manager": "confirmed",
+  "file_manager_semantic": [
+    "correlated"
+  ],
+  "file_manager_tree": "confirmed",
+  "running_together": [
+    "calculator",
+    "editor",
+    "files"
+  ]
+}

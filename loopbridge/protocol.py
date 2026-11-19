@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""LoopBridge V0.1, newline-framed JSON-RPC subset."""
+"""LoopBridge V0.2, newline-framed JSON-RPC subset."""
 from collections import deque
 import json
 import socket
 import time
 
-VERSION = '0.1'
+VERSION = '0.2'
+VERSIONS = ('0.1', VERSION)
 MAX_FRAME = 8192
 
 
@@ -32,7 +33,7 @@ class Channel:
 
 def request(value):
     if (not isinstance(value, dict) or set(value) != {'jsonrpc', 'version', 'id', 'method', 'params'}
-            or value['version'] != VERSION or value['jsonrpc'] != '2.0' or type(value['id']) is not int
+            or value['version'] not in VERSIONS or value['jsonrpc'] != '2.0' or type(value['id']) is not int
             or not isinstance(value['method'], str) or not isinstance(value['params'], dict)):
         raise Fault(-32600, 'invalid_request')
     return value['id'], value['method'], value['params']
@@ -95,10 +96,12 @@ class DeadlineChannel(Channel):
             if not chunk:
                 raise EOFError
             self.pending.extend(chunk)
-            if len(self.pending) > MAX_FRAME:
+            if b'\n' not in self.pending and len(self.pending) >= MAX_FRAME:
                 raise Fault(-32600, 'frame_limit')
         raw, _, rest = self.pending.partition(b'\n')
         self.pending = bytearray(rest)
+        if len(raw) >= MAX_FRAME:
+            raise Fault(-32600, 'frame_limit')
         try:
             return json.loads(raw, object_pairs_hook=unique_object,
                               parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
