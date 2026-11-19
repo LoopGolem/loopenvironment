@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Create an independent Linux operating system where **normal visual desktop interaction and structured machine-readable operation are both first-class**. Any authenticated principal may be controlled by a human, AI, script or external orchestrator; the OS does not need to classify its controller's nature.
+Create an open-source **agent-oriented environment for existing Linux**, centered on LoopBridge. Structured machine operation is the preferred interface for agents; the normal graphical desktop stays available for human observation/control and compatibility fallbacks. An authenticated principal may be controlled by a person, AI, script or external service without the environment classifying its nature.
 
 A master/responsible owner is provisioned at installation and delegates access. LoopBridge is the native operational interface, not a required in-guest agent process. See [operator model](OPERATOR_MODEL.md).
 
@@ -24,12 +24,12 @@ A native **LoopTeach** tool will let an authorized operator identify an element 
 
 A session may run without a viewer. Independent sessions are preferred by default but shared control and observation are possible through explicit grants. The owner or delegated authority—not an automatically privileged "human"—can request takeover; no physical mouse event proves that authority. An owner can be operated by automation, including unattended VM provisioners.
 
-LoopEnvironment remains a conventional usable Linux OS, on supported physical hardware or in a VM; hardware coverage and headless rendering remain technical qualification tasks. See [interaction](INTERACTION_MODEL.md) and [LoopTeach](LOOPTEACH.md).
+LoopEnvironment runs on conventional Linux, physically or in a VM. A preconfigured image is optional; host compatibility and headless rendering remain qualification tasks. See [interaction](INTERACTION_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
 ## Product principles
 
 1. **Operator-neutral ownership.** Authenticate principals and their capabilities, not biological human vs AI.
-2. **Visual and structured parity in operation.** Expose what the OS can really observe; never invent missing semantics.
+2. **Structured-first operation with visual observability.** Expose only what Linux and adapters can really observe; never invent missing semantics.
 3. **Native teaching.** LoopTeach stores app-scoped operator annotations with provenance and careful re-identification.
 4. **Explicit delegation.** Owner/bootstrap, scope, lease, revocation and audit define authority.
 5. **Distributed enforcement.** Trusted compositor, kernel and services apply policy; Bridge is no universal syscall interceptor.
@@ -52,7 +52,7 @@ LoopEnvironment remains a conventional usable Linux OS, on supported physical ha
 - Allowing untrusted network clients to control a desktop by default.
 - Automatically granting root, full disk, camera/microphone, passwords, or unrestricted internet access.
 - Promising lossless rollback of actions outside the machine (emails sent, purchases, remote edits).
-- Delivering a production-ready general-purpose desktop distribution during the API proof of concept.
+- Requiring a new Linux distribution or ISO for LoopBridge to work.
 
 ## Success criteria
 
@@ -60,4 +60,4 @@ Prove a real GUI and a structured operational model, enforce authenticated scope
 
 ## Open design questions
 
-Owner/credential bootstrapping and recovery, principal-to-device binding, delegated administration, session ownership and preemption barriers, compositor choice, structured schema, LoopTeach profiles/matching, RPC transport, distribution/update format and hardware support remain unresolved.
+Owner/credential bootstrapping and recovery, principal-to-device binding, delegated administration, session ownership and preemption barriers, compositor choice, structured schema, LoopTeach profiles/matching, RPC transport, Linux packaging/update choices, optional image format and hardware support remain unresolved.

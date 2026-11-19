@@ -1,26 +1,26 @@
 # LoopEnvironment — Product Definition
 
-**Version:** 0.2
+**Version:** 0.3
 **Status:** Accepted product intent, not an implemented or security-validated system.
-**Scope:** LoopEnvironment OS, native LoopBridge, owner/operator identity model and planned LoopTeach. External controllers are provider-neutral.
+**Scope:** LoopEnvironment on existing Linux, central LoopBridge service, owner/operator identity model and planned LoopTeach. External controllers are provider-neutral.
 
-This definition incorporates accepted clarifications ADR 0008–0009 while preserving ADRs 0001–0007 as historical records. It records product goals, not selections of Linux base, compositor, RPC protocol, language, image format or implementation.
+This definition incorporates ADRs 0008–0010 while preserving earlier ADRs as historical records; ADR 0010 supersedes ADR 0001's standalone-OS requirement. It records product goals, not selections of Linux base, compositor, RPC protocol, language, image format or implementation.
 
 ## 1. Purpose
 
-LoopEnvironment is a complete open-source Linux OS with **dual native operation**: a real graphical environment and a structured machine-readable model of that environment. A principal operating it may be controlled by a person, AI, program or remote service; it need not run an agent inside the OS. Conventional Linux apps and user programs remain supported.
+LoopEnvironment is an open-source **environment for existing Linux**, not an independent operating system. Its central LoopBridge service exposes a permissioned structured model of sessions, application interfaces and supported resources, with authorized operations and events. A principal may be operated by a person, AI, program or remote service, without an in-guest agent. Native/semantic actions are preferred; the desktop remains available for people to observe/control and as fallback. Conventional Linux apps remain supported.
 
-LoopBridge provides authenticated, scoped and vendor-neutral operations. LoopTeach will be a native tool for recording and later retrieving application-specific semantic annotations through LoopBridge. Installation may be physical or virtual, interactive or unattended; the latter can establish an owner without a biological-human operator.
+LoopBridge provides authenticated, scoped and vendor-neutral operations. LoopTeach will be a native tool for recording and later retrieving application-specific semantic annotations through LoopBridge. Environment setup may be on physical Linux or in a VM, interactive or unattended; either can establish an owner without a biological-human operator. Preconfigured VM images are an optional convenience.
 
 ## 2. Accepted product principles
 
 - **Normal Linux:** do not enforce a closed application catalog or specific AI provider.
 - **Principal-neutral:** security is based on authenticated identity, grants and session scope, never biology or client implementation.
 - **Responsible owner:** initial setup creates an ultimate master/responsible owner which may delegate, revoke and administer sessions, whether controlled by a person or AI.
-- **Dual views:** visual rendering and permissioned structured observation/action for the same real session, with explicit semantic gaps.
+- **Structured-first, visually observable:** prefer permissioned native/semantic actions; preserve visual observation and authorized fallback for missing semantics.
 - **Native LoopTeach:** operator-authored app-specific annotations may inform future sessions only when re-identified safely.
 - **Mandatory mediation:** untrusted local and external clients must use authorized Bridge capabilities for graphical operation.
-- **Distributed OS enforcement:** trusted compositor/input, kernel and narrow services apply policy; no universal syscall interception.
+- **Distributed Linux enforcement:** trusted compositor/input, the existing Linux kernel and narrow services apply policy; no universal syscall interception.
 - **Separated capabilities:** observation, capture, teaching, input and administration are not interchangeable.
 
 See [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0009](DECISIONS/0009-native-loopteach.md).
@@ -93,8 +93,8 @@ Without any active authorized viewer, avoid unnecessary continuous capture, vide
 
 ## 11. Deliberate non-goals and experiments
 
-Do not initially build a new kernel, hypervisor, bespoke browser, office suite or full distribution. No decision mandates a compositor fork, universal GUI introspection, perfect annotation matching or classification of all syscalls.
+Do not require a new kernel, hypervisor, bespoke browser, office suite or standalone distribution. No decision mandates a compositor fork, universal GUI introspection, perfect annotation matching or classification of all syscalls.
 
-M1.1 and M1.2 have bounded GO evidence, not shipping OS guarantees. The M1.3 preflight reported NO-GO for its attempted input preemption path; its [historical evidence](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved. The subsequent [M1.3A authority proof](labs/M1_3A_SESSION_AUTHORITY.md) qualifies only its bounded control plane; real preemption remains unqualified. LoopTeach is a native future product capability, not an implemented M1 feature.
+M1.1 and M1.2 have bounded GO evidence, not shipping environment guarantees. The M1.3 preflight reported NO-GO for its attempted input preemption path; its [historical evidence](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved. The subsequent [M1.3A authority proof](labs/M1_3A_SESSION_AUTHORITY.md) qualifies only its bounded control plane; real preemption remains unqualified. LoopTeach is a native future product capability, not an implemented M1 feature.
 
-A custom image follows reproducible evidence of the security and interaction properties; see [architecture](ARCHITECTURE.md), [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md) and [roadmap](ROADMAP.md).
+An optional image may follow reproducible evidence of the security and interaction properties and a separate maintenance justification; see [architecture](ARCHITECTURE.md), [operator model](OPERATOR_MODEL.md), [LoopTeach](LOOPTEACH.md) and [roadmap](ROADMAP.md).

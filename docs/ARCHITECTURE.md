@@ -1,10 +1,10 @@
-# System architecture
+# Environment architecture
 
-**Status:** conceptual architecture with bounded prototypes; no bootable OS or stable Bridge runtime is implemented.
+**Status:** conceptual Linux environment architecture with bounded prototypes; no stable or production-secure Bridge runtime has been released.
 
 ## Boundaries
 
-LoopEnvironment is an independent Linux OS whose real graphical sessions are also operable through structured, permissioned interfaces. A **principal** may be controlled by a person, AI or script inside or outside the OS. No LLM or in-guest agent process is mandatory.
+LoopEnvironment is a set of installable services and integrations for **existing Linux**, centered on LoopBridge. Real sessions and supported resources should be operable through structured, permissioned interfaces. A **principal** may be controlled by a person, AI or script inside or outside the host; no LLM, special kernel or standalone distribution is mandatory.
 
 An initial owner principal is bound during secure interactive or unattended provisioning and manages delegates and sessions. LoopBridge is the native API/authority. LoopTeach is a planned native semantic annotation application. See [operator model](OPERATOR_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
@@ -33,13 +33,13 @@ An initial owner principal is bound during secure interactive or unattended prov
     | Kernel, narrow privileged services, isolation          |
     +--------------------------------------------------------+
 
-LoopTeach feeds application-scoped descriptions into the semantic observation layer as **data**, not authorization. Compositor, OS base and transport remain experiment choices.
+LoopTeach feeds application-scoped descriptions into the semantic observation layer as **data**, not authorization. Prefer structured/native actions when reliable; visual input is an authorized fallback. Existing solutions such as Cua Driver are research/reuse candidates, not selected dependencies. Compositor, Linux host base and transport remain experiment choices.
 
 ## Core components
 
 ### Linux base and graphical session
 
-- Bootable OS with predictable user/session lifecycle.
+- Reuse an existing Linux distribution's boot, kernel, packages and session lifecycle; add only qualified environment services.
 - Real graphical session, compatible with conventional Linux applications.
 - Support for virtual displays and observing the session when requested.
 - Preserve trusted local operation/recovery even if the Bridge client endpoint fails, without granting unmediated access to external agents. Exact input-policy failure and recovery behavior requires qualification.
@@ -59,7 +59,7 @@ Adapters encapsulate compositor, accessibility bus, portals, and app-specific in
 
 ### Distribution and lifecycle
 
-The final OS must have documented provenance, boot/update/rollback behavior, software supply-chain tracking, and support for physical as well as virtual deployment. A custom image is postponed until semantic interaction works on an existing distribution.
+Installable environment components need documented provenance, upgrade/rollback guidance, software supply-chain tracking and physical/virtual host compatibility. An optional preconfigured VM image may simplify onboarding later, but is not a prerequisite or evidence of better capability.
 
 ## Deployment neutrality
 
@@ -85,7 +85,7 @@ See [operator model](OPERATOR_MODEL.md), [interaction model](INTERACTION_MODEL.m
 
 ## Expected data flow
 
-1. Installation securely establishes an initial master/responsible owner.
+1. Environment bootstrap securely establishes an initial master/responsible owner.
 2. Owner creates/delegates principals, permissions and session policies.
 3. A local or remote client authenticates to LoopBridge as a principal.
 4. Client receives a permitted structured snapshot, including reliably matched LoopTeach annotations with distinct provenance.

@@ -1,8 +1,14 @@
 # LoopBridge: native structured operator interface
 
-**Status:** architecture contract and exploratory protocol design; there is no implemented API.
+**Status:** architecture contract with bounded experimental implementations; there is no stable or production-ready public API.
 
-LoopBridge belongs to LoopEnvironment. It is the vendor-neutral structured interface for **authenticated operator principals** and their clients, whether controlled by people, AI or services, local or external. The owner and delegates determine capabilities and session scope; the OS does not infer a controller's biological identity. Physical input requires trusted session/principal binding and compositor enforcement, not necessarily per-event RPC. See [operator model](OPERATOR_MODEL.md), [product definition](PRODUCT_DEFINITION.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
+LoopBridge is the **central service of LoopEnvironment on existing Linux**. It is the vendor-neutral structured interface for **authenticated operator principals** and their clients, whether controlled by people, AI or services, local or external. The owner and delegates determine capabilities and session scope; the environment does not infer a controller's biological identity. Physical input requires trusted session/principal binding and compositor enforcement, not necessarily per-event RPC. See [operator model](OPERATOR_MODEL.md), [product definition](PRODUCT_DEFINITION.md), [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0007](DECISIONS/0007-unified-input-mediation.md).
+
+## Structured-first operation and backend reuse
+
+LoopBridge is a trusted authority and integration boundary, not an AI planner, kernel or requirement to reimplement every desktop backend. Prefer supported Linux, application and semantic APIs to visual actions; preserve desktop capture and input for permitted observation/fallback. Cua Driver's exact-target decisions, structured results, permissions and compositor integrations are **research candidates**, not adopted dependencies. Any external adapter must remain behind Bridge grants and trusted input/semantic enforcement, with no direct untrusted-client bypass.
+
+LoopBridge must be usable on an existing Linux host without requiring a dedicated ISO or VM image.
 
 ## Untrusted client isolation
 

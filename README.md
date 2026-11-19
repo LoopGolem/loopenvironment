@@ -1,20 +1,20 @@
 # LoopEnvironment
 
-**An open-source Linux OS with native graphical and structured interfaces, usable by authenticated operators controlled by people, AI or other software.**
+**An open-source agent-oriented Linux environment, centered on LoopBridge: structured, permissioned access for operators controlled by people, AI or other software.**
 
-> **Status: design / pre-alpha.** LoopEnvironment is a proposed operating system, not a downloadable distribution yet. This repository contains product and architecture documentation plus bounded M1.1/M1.2 experiments. No image, ISO, installer, stable API, or security-certified runtime is available.
+> **Status: design / pre-alpha.** LoopEnvironment is **not a standalone operating system**. It is an environment for existing Linux installations (Debian is the current lab base), centered on LoopBridge. M1.1–M1.3B contain bounded experiments, not a production-ready service, stable API or security certification. A preconfigured VM image is an optional future convenience, not a requirement.
 
 ## The idea
 
-LoopEnvironment exposes **two native ways to operate a real Linux computer**: the familiar rendered desktop and a permissioned, machine-readable view of sessions, windows, controls, actions and events. JSON is one possible representation, not a selected transport. Missing application semantics are reported honestly; visual inspection and conventional input remain separate fallbacks.
+LoopEnvironment prioritizes **structured machine operation**: authorized clients observe sessions, applications, supported system resources, controls, states and events, and invoke permitted actions through LoopBridge. An agent should prefer native APIs and semantic operations rather than pixels and clicks. The real graphical desktop remains available for human observation/control and for compatibility fallbacks. Missing semantics must be reported honestly; JSON is one possible representation, not a selected transport.
 
-The operating system authenticates **principals** and applies roles/capabilities, not biological classifications. Installation establishes a **master/responsible owner**, which may be controlled by a person, AI or automation. That owner delegates grants, administers sessions and may explicitly authorize a control handoff. No physical input is inherently a privileged "human" takeover.
+The environment's authority model authenticates **principals** and applies roles/capabilities, not biological classifications. Installation establishes a **master/responsible owner**, which may be controlled by a person, AI or automation. That owner delegates grants, administers sessions and may explicitly authorize a control handoff. No physical input is inherently a privileged "human" takeover.
 
 An agent does **not** need to run as a process in LoopEnvironment. Clients can operate locally under isolation or connect from outside via authenticated transports. Interactive installation and secure unattended VM provisioning must lead to the same owner-authority semantics.
 
 **LoopTeach** is a planned native tool to let authorized operators explain what a particular application's controls mean, then expose confidently re-identified annotations through LoopBridge when that app runs again. The product requires no specific model, proprietary vendor or closed app catalog.
 
-All these are design targets, not released OS capabilities. See [operator model](docs/OPERATOR_MODEL.md), [LoopTeach](docs/LOOPTEACH.md) and [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md).
+All these are design targets, not released environment capabilities. See [operator model](docs/OPERATOR_MODEL.md), [LoopTeach](docs/LOOPTEACH.md) and [ADR 0008](docs/DECISIONS/0008-operator-neutral-authority.md).
 
 ## What makes it different?
 
@@ -22,16 +22,16 @@ All these are design targets, not released OS capabilities. See [operator model]
 | --- | --- |
 | Operator-neutral | Authenticate principals and scopes, not whether an operator is biologically human or an AI. |
 | Owner-configured | A master/responsible initial owner delegates capabilities, sessions and authority. |
-| Visual and structured | A real Linux GUI plus a structured model of observable elements, state, actions and events. |
+| Structured-first, visual when useful | Machine-readable state/actions, human-visible desktop, and explicitly authorized fallback. |
 | Teachable | Native LoopTeach can annotate application-specific controls and reuse meaning on later launches. |
 | Compatible | Normal Linux applications remain usable even without a semantic profile. |
 | Mandatory mediation | Untrusted operators must not bypass trusted Bridge/OS input boundaries. |
-| Deployment-neutral | Physical and VM installation, interactive or unattended onboarding, vendor-independent API. |
+| Existing-Linux first | Installable services on an existing Linux host; optional preconfigured VM image. |
 | Open source | Apache-2.0 original code with third-party licenses preserved. |
 
 ## LoopBridge: the native agent interface
 
-**LoopBridge belongs to the OS.** It exposes session/window discovery, accessible state, semantic actions, ordinary input fallbacks, events, captures and administrative capabilities to authenticated principals. It is not an LLM or agent runtime.
+**LoopBridge is the central LoopEnvironment service, not an agent runtime or kernel replacement.** It exposes session/window discovery, accessible state, semantic actions, ordinary input fallbacks, events, captures and administrative capabilities to authenticated principals. It is not an LLM or agent runtime.
 
 Authority is established by owner-delegated grants: observing does not permit control; teaching does not permit invoking actions; screenshots, clipboard, file access and administration require separate scopes. An authorized owner or delegate may request control transfer; the system must enforce cancellation/preemption at trusted boundaries rather than infer a "human" from an input device.
 
@@ -63,7 +63,7 @@ The compositor and other trusted OS services enforce their own policy boundaries
 
 **M0.5 — feasibility research complete.** The [study recommendations](docs/research/M0_5_RECOMMENDATIONS.md) identify candidates for experiments. [ADR 0006](docs/DECISIONS/0006-mandatory-agent-mediation.md) records the accepted agent isolation requirement.
 
-**M1.1 — Semantic Feasibility: experiment recorded.** The [local diagnostic and evidence](docs/labs/M1_1_VIRTUALBOX.md) demonstrate three clean GNOME Calculator launches, window/tree correlation, a semantic action with independently queried result and stale-reference rejection on the existing VirtualBox/Sway output. Synthetic/headless output remains unvalidated. This is not a LoopBridge implementation. Later M1 experiments will verify authorized access from an isolated agent, view-only observation and local human takeover before image work begins.
+**M1.1 — Semantic Feasibility: experiment recorded.** The [local diagnostic and evidence](docs/labs/M1_1_VIRTUALBOX.md) demonstrate three clean GNOME Calculator launches, window/tree correlation, a semantic action with independently queried result and stale-reference rejection on the existing VirtualBox/Sway output. Synthetic/headless output remains unvalidated. This is not a full LoopBridge implementation. Subsequent experiments cover isolated agents, authorization and owner/delegate control; an image is not a mandatory gate.
 
 **M1.2 — Authorization and Events: bounded experiment recorded.** The [lab report and evidence](docs/labs/M1_2_AUTHORIZATION_EVENTS.md) demonstrate a provisioned client in explicit Bubblewrap namespaces, denied direct session access, expired-reference rejection and query-derived events with gap detection and snapshot recovery. This is a fixture-specific prototype, not a stable or production-secure LoopBridge. Native upstream event completeness and broader isolation remain unvalidated.
 
@@ -79,13 +79,17 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **M1.3B.1 — Delivery & Acknowledgement:** the [candidate contract](docs/design/DELIVERY_ACKNOWLEDGEMENT_V1.md) specifies operation states, a joint takeover barrier and a nested testbed acceptance matrix. A bounded cooperative-receiver POC is technically plausible; no patch or takeover was implemented, and arbitrary-app acknowledgements remain unavailable.
 
+**M1.3B.2 — Nested build preflight: PARTIAL (local result, 2026-11-18).** The Meson configure exited 1 on incomplete wlroots/Sway source trees, so neither a child binary nor nested smoke test existed. Cleanup passed without modifications to the parent Sway or system installation. **Isolation, ACK and takeover were not tested.** The local logs/report were not yet versioned; this summary does not certify their evidence. The earlier late AT-SPI effect/NO-GO remains in force.
+
+**Next focus:** study Cua Driver's implementation and reuse opportunities, then consolidate **LoopBridge Core V0.1** on existing Linux. See [ADR 0010](docs/DECISIONS/0010-linux-environment-not-os.md) and the [roadmap](docs/ROADMAP.md).
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)
 - [Owner and operator identity model](docs/OPERATOR_MODEL.md)
 - [LoopTeach — native semantic teaching](docs/LOOPTEACH.md)
 - [Vision and boundaries](docs/VISION.md)
-- [System architecture](docs/ARCHITECTURE.md)
+- [Environment architecture](docs/ARCHITECTURE.md)
 - [LoopBridge API and transport design](docs/LOOPBRIDGE.md)
 - [Interaction and human-control model](docs/INTERACTION_MODEL.md)
 - [Security and threat model](docs/SECURITY_MODEL.md)
@@ -96,7 +100,7 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 ## License and contributions
 
-The repository includes the [Apache License, Version 2.0](LICENSE). New project-owned source code and documentation are intended to be contributed under that license unless a file explicitly states otherwise. The Linux kernel and packaged third-party software have their **own** licenses; a future system image will not be uniformly Apache-licensed.
+The repository includes the [Apache License, Version 2.0](LICENSE). New project-owned source code and documentation are intended to be contributed under that license unless a file explicitly states otherwise. The Linux kernel and packaged third-party software have their **own** licenses; an optional future system image will not be uniformly Apache-licensed.
 
 The project welcomes thoughtful design discussion, accessibility expertise, security review, and reproducible research. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

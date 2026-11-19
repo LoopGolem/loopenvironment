@@ -2,11 +2,11 @@
 
 ADRs preserve **why** a decision was made, its status, and what remains undecided. They are not implementation checklists or proof that a feature already works.
 
-**Current interpretation:** [ADR 0008](0008-operator-neutral-authority.md) replaces earlier human-specific takeover assumptions with owner/delegate principal authority; the historical decisions remain preserved. [ADR 0009](0009-native-loopteach.md) adds native LoopTeach as a planned, not implemented, capability.
+**Current interpretation:** [ADR 0010](0010-linux-environment-not-os.md) supersedes ADR 0001's standalone-OS requirement. LoopEnvironment is an existing-Linux environment centered on LoopBridge; images are optional. [ADR 0008](0008-operator-neutral-authority.md) maintains principal-neutral authority and [ADR 0009](0009-native-loopteach.md) adds planned LoopTeach. Earlier ADR texts remain preserved.
 
 | ADR | Decision | Status |
 | --- | --- | --- |
-| [0001](0001-os-product-boundaries.md) | Independent agent-oriented operating system | Accepted |
+| [0001](0001-os-product-boundaries.md) | Independent agent-oriented operating system | Superseded by 0010 (historical) |
 | [0002](0002-native-loopbridge.md) | Native, provider-neutral LoopBridge | Accepted |
 | [0003](0003-open-source-and-licensing.md) | Open development and Apache-2.0 for original work | Accepted |
 | [0004](0004-desktop-and-human-observation.md) | Real GUI, semantic-first control, human observation | Accepted |
@@ -15,6 +15,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0007](0007-unified-input-mediation.md) | Unified input mediation and distributed enforcement | Accepted; clarified by 0008 |
 | [0008](0008-operator-neutral-authority.md) | Owner/principal-neutral authority and delegated takeover | Accepted |
 | [0009](0009-native-loopteach.md) | Native LoopTeach and persistent application semantics | Accepted product direction |
+| [0010](0010-linux-environment-not-os.md) | Agent-oriented Linux environment, central LoopBridge, optional image | Accepted; supersedes 0001 |
 
 ## ADR workflow
 

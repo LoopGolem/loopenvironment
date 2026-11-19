@@ -8,15 +8,17 @@ Original source files and documentation contributed to this repository, unless a
 
 ## What it does not cover
 
-A future LoopEnvironment image will include Linux and third-party packages under diverse licenses:
+An **optional** future LoopEnvironment VM image would bundle Linux and third-party packages under diverse licenses:
 
 - The Linux kernel is under GPL-2.0-only (with relevant notices/exceptions).
 - Desktop, compositor, accessibility, networking, crypto and system utilities retain their respective licenses.
 - Some packages may impose source-offer, license notice, attribution, modification-disclosure or redistribution obligations.
 
-**We must not advertise the entire binary distribution as uniformly Apache-2.0.** The OS is intended to be fully open source, with all bundled components evaluated for compatible redistribution and their actual licenses respected. Apache-2.0 on project-owned code does not erase copyleft obligations in upstream work.
+**We must not advertise an optional binary image as uniformly Apache-2.0.** LoopEnvironment runs on an existing Linux distribution; bundled components retain their actual licenses and any copyleft obligations. Apache-2.0 on project-owned code does not erase copyleft obligations in upstream work.
 
-## Before distributing an image
+## Before distributing an optional image or installable packages
+
+Even without an image, document Linux package dependencies, license provenance, installer/uninstaller behavior and update responsibilities.
 
 - Maintain a package/dependency inventory and license manifest, ideally machine-readable.
 - Include copyright notices, licenses and any required source or source offers.

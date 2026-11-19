@@ -4,9 +4,9 @@
 
 ## Two complementary channels
 
-**Structured channel:** LoopBridge offers permitted window/session metadata, accessible elements, action descriptions, states, lifecycle and events. JSON can represent this data but does not define the transport.
+**Structured channel (preferred for agents):** LoopBridge offers permitted window/session metadata, accessible elements, action descriptions, states, lifecycle and events. Authorized adapters may also expose native system/application operations. JSON can represent this data but does not define the transport.
 
-**Visual channel:** an ordinary rendered Linux desktop plus separately authorized frame capture and conventional keyboard/pointer control. It remains useful for applications with missing accessibility metadata.
+**Visual channel:** an ordinary rendered Linux desktop for human observation/control plus separately authorized capture and conventional keyboard/pointer fallback. Agents need not see pixels when a sufficient structured operation exists; visual interaction remains useful where semantics are missing.
 
 The model is **operator-neutral**: both channels can be used by authenticated principals controlled by people, AI or software outside the OS. Live semantic facts may be enriched by LoopTeach annotations with separate provenance; annotations are not trusted authority or universal semantic coverage. See [LoopTeach](LOOPTEACH.md).
 

@@ -1,10 +1,10 @@
 # Roadmap
 
-This roadmap tracks completed and planned milestones. The desktop proof is the gate for building the first bootable image.
+This roadmap retains historical experiment milestones and applies [ADR 0010](DECISIONS/0010-linux-environment-not-os.md): LoopEnvironment is an environment on existing Linux, centered on LoopBridge. A VM image is optional, not the next required gate.
 
 ## M0 — Product and architecture foundation
 
-**Goal:** document an independent open-source OS, its native LoopBridge, security posture, open questions, contribution rules, and licensing.
+**Historical goal:** document an agent-oriented Linux product and its LoopBridge, security posture, open questions, contribution rules, and licensing. The standalone-OS boundary is superseded by ADR 0010.
 
 **Completion:** repository contains a clear README, vision, architecture, initial Bridge contract, human-interaction model, security model, licensing guidance and ADRs. Documentation must distinguish accepted decisions from proposals.
 
@@ -60,6 +60,12 @@ The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISION
 
 **Status:** [candidate specification and feasibility analysis](design/DELIVERY_ACKNOWLEDGEMENT_V1.md) recorded, without implementation or execution of the proposed matrix. Defines delivery versus processing/effects, operation states, authenticated fencing/receipts and conservative blocking. A nested patched Sway testbed with a cooperative receiver is a plausible bounded next POC; this is not GO for M1.3B or arbitrary applications. M1.3B.2 requires separate review and authorization for missing build dependencies; no package installation or parent-compositor change is authorized by this specification.
 
+##### M1.3B.2 — Nested Sway build/smoke feasibility (PARTIAL)
+
+**Local result reported on 2026-11-18; evidence files not yet committed to `main`.** Meson exited 1 because local wlroots lacked `include/wlr/config.h.in` and `wlroots.syms`, while Sway lacked `config.in` and `sway.desktop`. The private wlroots subproject failed configure and Meson detected system wlroots. No nested binary or Pixman one-output smoke was executed (**BUILD_FAIL**, **NESTED_FAIL** as not run). Parent Sway remained running with unchanged PID, sockets and `Virtual-1`; no install/download/configuration change and cleanup passed (**CLEANUP_PASS**). **ISOLATION_NOT_YET_VALIDATED**, **ACK_NOT_TESTED**, **TAKEOVER_NOT_TESTED**. This is PARTIAL, not GO or a new proof that nested enforcement is impossible. Historical late AT-SPI effect and unmodified-Sway NO-GO remain valid.
+
+The user reported local-only evidence under `docs/labs/M1_3B2_NESTED_SMOKE_01.md` and `docs/labs/evidence/M1_3B2_NESTED_SMOKE_01/` (`configure.log`, `result.json`, `parent-after-cleanup.json`). These paths are **not verified remote artifacts**. A future rerun requires complete upstream tarballs with verified SHA-256 and separate authorization; this change does not authorize downloads/builds/installation.
+
 **Preserved historical preflight — Fallback and Human Control:**
 
 **Status:** preflight stopped with NO-GO for the investigated approach; [assessment and evidence](labs/M1_3_FALLBACK_HUMAN_CONTROL.md). A real Foot semantic gap and isolated clipboard endpoint denials were observed. Target-bound conventional input and safe compositor-side preemption were not qualified; the existing-session portal RemoteDesktop/EIS availability check did not provide an alternative. No capture/observer/takeover or 30-second idle encoding proof was performed. This is not evidence of a demonstrated bypass or universal Sway impossibility. The complete M1 gate and image work remain blocked.
@@ -74,13 +80,17 @@ The study proposes technologies for M1 experiments. Accepted [ADR 0008](DECISION
 
 **Status:** accepted product direction, **not** part of current runtime experiments. Specify application-scoped annotations and provenance; later demonstrate a trusted target picker (preferred configurable Super+click plus alternatives), saved-profile lookup after restart, correct/ambiguous-match handling, and permission separation. A curated tested profile set for bundled applications is a future distribution goal. [LoopTeach design](LOOPTEACH.md) · [ADR 0009](DECISIONS/0009-native-loopteach.md).
 
-## M2 — First bootable environment image
+## Next focus — Cua Driver comparison and LoopBridge Core V0.1
 
-**Goal:** package the proven interaction service into a maintainable Linux image suitable for a virtual machine.
+Compare Cua Driver's implementations, exact targeting, permission/consent model, results, Linux backend and compositor integrations with our M1 evidence; document reuse/build trade-offs before adopting a dependency. Consolidate the current bounded identity/grant/session prototype into an **experimental LoopBridge Core V0.1** service on existing Debian with a small authenticated structured API, honest outcome states, negative isolation tests and independent clients. None of this waives M1.3B/1.3C gates or qualifies production security.
 
-**Demonstrate:** deterministic startup, user/session provisioning, basic graphics, permitted client connection, logging, a clean reboot, and install/update/rollback design. Reuse existing tools; do not implement a kernel or hypervisor.
+## M2 — Reproducible installation on existing Linux
 
-**Gate:** full M1 scenario works **inside** the image with measured CPU, RAM, storage and startup cost.
+**Goal:** package the validated environment services for existing Linux installations, not build a mandatory standalone ISO/image.
+
+**Demonstrate:** package install/uninstall/upgrades, secure owner bootstrap design, consistent service/session provisioning, diagnostics, recovery and update provenance, basic graphics, host compatibility and measured resource costs.
+
+**Gate:** the applicable complete M1 proof is reproducible on a supported Linux host; an optional preconfigured image needs a separate maintenance/value justification.
 
 ## M3 — External interoperability and authorized session handoff
 
@@ -92,15 +102,15 @@ Any claim of remote interactive takeover requires evidence that an authenticated
 
 **Gate:** documented protocol/SDK examples and repeatable compatibility/security test suite.
 
-## M4 — Distribution and hardening
+## M4 — Environment hardening and optional images
 
-**Goal:** release a clearly labeled experimental image with documented update provenance, dependency licenses, supported virtualization platforms, known limitations and security procedures.
+**Goal:** release qualified Linux environment packages with documented provenance, host compatibility, third-party licenses, known limitations and security procedures. A preconfigured VM image may be offered only if it simplifies deployment enough to justify ongoing maintenance.
 
-**Gate:** image build and verification automation; update/rollback exercises; documented minimal system requirements; responsible vulnerability reporting channel.
+**Gate:** package verification automation, upgrade/rollback exercises, documented minimum requirements and vulnerability reporting. Any optional image needs additional integrity and licensing gates.
 
 ## Later candidates (not committed releases)
 
-- Physical-hardware installation and hardware compatibility matrix.
+- Broader Linux distribution and physical-hardware compatibility matrix.
 - More complete accessibility and application-specific adapters.
 - Remote authenticated operation, if threat-model and tests support it.
 - Multimedia, multi-display, multi-seat, network policy and resource profiles.
