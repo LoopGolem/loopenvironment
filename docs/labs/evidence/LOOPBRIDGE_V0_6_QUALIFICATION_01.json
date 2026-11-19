@@ -92,7 +92,8 @@
       "turnstileInteraction": "PARTIAL; security-check notice shown; no visible control or acceptance observed",
       "commercialOutcome": "UNKNOWN; no receipt, protocol, quote, plan or offer verified",
       "replayed": false,
-      "purchaseOrPayment": false
+      "purchaseOrPayment": false,
+      "bridgeStatusMeaning": "The initial verifier treated changed visible UI as confirmed; this was only an intermediate security notice, not commercial confirmation. The verifier was tightened after the attempt to require a fresh Firefox response document."
     },
     "elapsedSeconds": 0.633
   },
