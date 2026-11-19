@@ -1,0 +1,219 @@
+{
+  "base": "c9c01a6fbbb2903a225bb4115f180ab64ea12313",
+  "unitAndFixtureCasesPassed": 152,
+  "privateDesktopMcp": {
+    "result": "GO",
+    "stage": "completed",
+    "operator": "scripted_independent_mcp_client",
+    "startupSeconds": 1.464,
+    "twoPrivateNamespaces": [
+      "ipc",
+      "mnt",
+      "net",
+      "pid",
+      "user"
+    ],
+    "visual": {
+      "width": 240,
+      "height": 180,
+      "bytes": 2246,
+      "verifiedDigest": true,
+      "move": {
+        "delivery": "wayland_roundtrip",
+        "applicationOutcome": "unverified"
+      },
+      "click": {
+        "delivery": "wayland_roundtrip",
+        "applicationOutcome": "unverified"
+      },
+      "staleRefused": true
+    },
+    "mission": {
+      "secondsByStage": {
+        "resources": 0.005,
+        "browser": 4.096,
+        "report": 3.132,
+        "web_confirmation": 0.551
+      },
+      "stage": "web_confirmation",
+      "outside_destination": "web_destination_denied",
+      "stale_reference": "stale_reference",
+      "browser": {
+        "rows": [
+          [
+            "R-101",
+            "Harbor sensor",
+            "north",
+            "12"
+          ],
+          [
+            "R-104",
+            "Harbor gateway",
+            "north",
+            "9"
+          ]
+        ],
+        "source": "firefox_dom",
+        "protected_control_hidden": true,
+        "report_confirmation": "confirmed"
+      },
+      "outside_workspace": "workspace_path_or_operation_unavailable",
+      "report": {
+        "path": "harbor-report.txt",
+        "sha256": "73e855c3fbe93498529e33c174fabc3e94c2a94fd4534361176d386c000b76f7",
+        "annotation_match": "exact",
+        "verified": true
+      }
+    },
+    "mcpSeconds": 7.953,
+    "independentDiskRead": true,
+    "clientIsolation": {
+      "endpointAttempts": 18,
+      "observerDeniedControl": true,
+      "siblingReferenceDenied": true,
+      "siblingLeaseDenied": true
+    },
+    "abruptClientExitReleasedLease": true,
+    "unexpectedCompositorExit": {
+      "phase": "failed",
+      "cleanup": true,
+      "reply": "transport_closed",
+      "unknownIntentPreserved": true,
+      "replayed": false
+    },
+    "manualReplacement": {
+      "newWorkspace": true,
+      "oldFencePreserved": true,
+      "automatic": false
+    },
+    "normalShutdown": true,
+    "unexpectedWorkerExit": {
+      "phase": "failed",
+      "cleanup": true,
+      "reportPreserved": true
+    },
+    "blockedRootPreserved": true,
+    "elapsedSeconds": 21.108
+  },
+  "independentFailureRun": {
+    "result": "GO",
+    "stage": "completed",
+    "operator": "scripted_independent_mcp_client",
+    "startupSeconds": 1.385,
+    "twoPrivateNamespaces": [
+      "ipc",
+      "mnt",
+      "net",
+      "pid",
+      "user"
+    ],
+    "abruptClientExitReleasedLease": true,
+    "unexpectedCompositorExit": {
+      "phase": "failed",
+      "cleanup": true,
+      "reply": "transport_closed",
+      "unknownIntentPreserved": true,
+      "replayed": false
+    },
+    "manualReplacement": {
+      "newWorkspace": true,
+      "oldFencePreserved": true,
+      "automatic": false
+    },
+    "normalShutdown": true,
+    "unexpectedWorkerExit": {
+      "phase": "failed",
+      "cleanup": true,
+      "reportPreserved": true
+    },
+    "blockedRootPreserved": true,
+    "elapsedSeconds": 9.688
+  },
+  "legacyGraphicalReplays": {
+    "v0.1": {
+      "result": "GO",
+      "stage": "completed"
+    },
+    "v0.2": {
+      "result": "GO",
+      "stage": "completed"
+    },
+    "v0.3": {
+      "result": "GO",
+      "stage": "completed"
+    },
+    "v0.4": {
+      "result": "GO",
+      "stage": "completed",
+      "gtk_teacher": {
+        "toolkit": "GTK4",
+        "widget_events": "scripted",
+        "role": "observer",
+        "match": "exact",
+        "provenance": {
+          "element": "atspi",
+          "annotation": "operator_annotation",
+          "association": "context_match"
+        },
+        "criteria": [
+          "application_build",
+          "window_context",
+          "role",
+          "name",
+          "semantic_interfaces",
+          "native_actions",
+          "ancestry"
+        ],
+        "fresh_process": true,
+        "stale_ref_refused": true
+      }
+    },
+    "v0.5RpcTeaching": {
+      "result": "GO",
+      "stage": "completed",
+      "elapsed_seconds": 9.761
+    },
+    "v0.5GtkTeaching": {
+      "result": "PARTIAL",
+      "stage": "teach_seed",
+      "elapsed_seconds": 6.407,
+      "failure": "AssertionError",
+      "gtk_teacher": {
+        "toolkit": "GTK4",
+        "input": "scripted_widget_events",
+        "revision": 3,
+        "review": "approved",
+        "match": "exact"
+      }
+    },
+    "v0.5GtkTeachingOnBase": {
+      "result": "PARTIAL",
+      "stage": "teach_seed",
+      "elapsed_seconds": 6.085,
+      "failure": "AssertionError",
+      "gtk_teacher": {
+        "toolkit": "GTK4",
+        "input": "scripted_widget_events",
+        "revision": 3,
+        "review": "approved",
+        "match": "exact"
+      }
+    },
+    "v0.5HeadlessProbe": {
+      "result": "GO",
+      "stage": "qualified_private_capture_and_input",
+      "elapsed_seconds": 2.812
+    }
+  },
+  "actualModel": {
+    "result": "PARTIAL",
+    "codexCliVersion": "0.170.0",
+    "modelRun": false
+  },
+  "publicQuote": {
+    "result": "NO-GO",
+    "privateHttps": false,
+    "turnstileObserved": false,
+    "commercialSubmission": false
+  }
+}

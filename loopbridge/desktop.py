@@ -17,6 +17,7 @@ from .workspace import Workspace
 from .web import Web
 from .web_native import page_of
 from .teaching_picker import Picker
+from .private_effects import Effects
 from .semantic_operations import (POLICIES, Prepared, SemanticOperations, actions,
                                   semantic_signature, short, state_flags)
 
@@ -63,6 +64,7 @@ class Desktop:
         self.operations = SemanticOperations(self)
         self.picker = Picker(self)
         self.web = Web(self)
+        self.effects = Effects()
 
     def close(self):
         for app in self.apps.values():
@@ -286,6 +288,10 @@ class Desktop:
         return dict(elements=matches, next=None, truncated=omitted or bool(pending), searched=visited)
 
     def query(self, method, app, params):
+        if method == 'session.capture':
+            return self.effects.acquire()
+        if method == 'session.capture.read':
+            return self.effects.read(params['ref'], params['index'])
         if method == 'web.discover':
             return self.web.discover(app, params['ref'])
         if method == 'teach.capture':
@@ -438,6 +444,9 @@ class Desktop:
         return Prepared(send, lambda: wait_for(verify, timeout=30))
 
     def prepare_operation(self, method, app, params):
+        if method.startswith('session.pointer.'):
+            return self.effects.prepare(method.rsplit('.', 1)[1], params['ref'], params['x'], params['y'],
+                                        lambda: {app.identity for app in self.apps.values()})
         if method in ('browser.open_fixture', 'web.open'):
             current = self.apps.get(app)
             if app != 'browser':

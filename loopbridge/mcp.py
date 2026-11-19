@@ -9,10 +9,13 @@ import socket
 import sys
 
 from .__main__ import read_private
-from .protocol import Fault, RPC, unique_object
+from .protocol import VERSION, Fault, RPC, unique_object
 
 MCP_VERSION = '2025-11-25'
 SUPPORTED = (MCP_VERSION, '2025-06-18')
+MODERN = '2026-07-28'
+META_PREFIX = 'io.modelcontextprotocol/'
+PROTOCOL_META = META_PREFIX + 'protocolVersion'
 MAX_MESSAGE = 65536
 SESSION_URI = 'loopbridge://session/'
 LEASE = 'lease epoch generation:i'
@@ -45,10 +48,15 @@ def write(method, description, extra):
 
 TOOLS = {
     'sessions_list': Tool('discover', 'List authorized sessions.'),
+    'session_capture': Tool('session.capture', 'Capture the authorized private output. A short-lived ref retrieves the PNG.', 'session'),
+    'session_capture_read': Tool('session.capture.read', 'Read one numbered base64 PNG chunk from a live capture.', 'session ref index:i'),
+    'session_pointer_click': write('session.pointer.click', 'Click at private output pixel coordinates using a fresh capture ref.', 'ref x:i y:i'),
+    'session_pointer_move': write('session.pointer.move', 'Move the pointer within the identified private window.', 'ref x:i y:i'),
     'session_features': Tool('session.features', 'Inspect backend availability and limits.', 'session'),
     'session_recovery_status': Tool('session.recovery', 'Read recovery eligibility as an authorized administrator.',
                                     'session'),
     'session_snapshot': Tool('snapshot', 'Read phase, epoch and available capabilities.', 'session'),
+    'session_access': Tool('session.access', 'Read your effective grants by scope in this session.', 'session'),
     'apps_list': Tool('app.list', 'List visible supervised application profiles.', 'session'),
     'windows_list': Tool('window.list', 'List identified windows and fresh window references.', 'session app'),
     'lease_acquire': Tool('acquire', 'Acquire a bounded session lease in seconds.', 'session ttl:i', True),
@@ -69,6 +77,7 @@ TOOLS = {
     'element_find': Tool('element.find', 'Find a unique AT-SPI target. Empty filters impose no constraint.',
                          'session ref role name interface action'),
     'element_get_text': Tool('element.get_text', 'Read text from a live scoped AT-SPI element.', 'session ref'),
+    'app_launch': write('app.launch', 'Launch an authorized supervised desktop application.', 'app'),
     'app_open_document': write('app.open_document', 'Open an authorized workspace document in the supervised editor.',
                                'app document'),
     'app_close': write('app.close', 'Stop an application supervised by this service.', 'app'),
@@ -81,9 +90,66 @@ TOOLS = {
 }
 
 
+# Listing is advisory. Bridge revalidates grants, target identity and lease on
+# every call. Combine prerequisites on the same concrete target.
+SCOPES = {
+    'session.recovery': ('identity.admin',),
+    'window.list': ('desktop.observe',),
+    'web.open': ('app.launch',),
+    'web.discover': ('desktop.observe',),
+    'web.navigate': ('desktop.control', 'desktop.observe'),
+    'web.set_text': ('desktop.control', 'desktop.observe'),
+    'web.select': ('desktop.control', 'desktop.observe'),
+    'web.activate': ('desktop.control', 'desktop.observe'),
+    'workspace.list_at': ('workspace.read',),
+    'workspace.read': ('workspace.read',),
+    'workspace.write': ('workspace.read', 'workspace.write'),
+    'element.tree': ('desktop.observe',),
+    'element.search': ('desktop.observe',),
+    'element.find': ('desktop.observe',),
+    'element.get_text': ('desktop.observe',),
+    'element.set_text': ('desktop.observe', 'desktop.control'),
+    'element.invoke': ('desktop.observe', 'desktop.control'),
+    'app.launch': ('app.launch',),
+    'app.open_document': ('app.launch',),
+    'app.close': ('app.close',),
+    'teach.search': ('teach.read',),
+    'teach.resolve': ('desktop.observe', 'teach.read'),
+    'session.capture': ('desktop.capture',),
+    'session.capture.read': ('desktop.capture',),
+    'session.pointer.click': ('desktop.capture', 'desktop.input'),
+    'session.pointer.move': ('desktop.capture', 'desktop.input'),
+}
+
+
+def visible(method, grants, features):
+    if method in ('acquire', 'release'):
+        return any(cap in grants for cap in ('desktop.control', 'app.launch', 'app.close',
+                                             'workspace.write', 'desktop.input'))
+    required = SCOPES.get(method, ())
+    if not required:
+        return True
+    targets = set(grants.get(required[0], ()))
+    for cap in required[1:]:
+        targets.intersection_update(grants.get(cap, ()))
+    if method.startswith('session.capture'):
+        return '*' in targets and features.get('capture') == 'private_output'
+    if method.startswith('session.pointer.'):
+        return '*' in targets and features.get('input') == 'private_pointer'
+    if method.startswith('workspace.'):
+        return 'workspace' in targets
+    if method.startswith('web.'):
+        return 'app:browser' in targets
+    if method == 'app.open_document':
+        return 'app:editor' in targets and 'workspace' in grants.get('workspace.read', ())
+    if method == 'app.launch':
+        return any(scope.startswith('app:') and scope != 'app:browser' for scope in targets)
+    return bool(targets)
+
+
 class RpcError(Exception):
-    def __init__(self, code, message):
-        self.code, self.message = code, message
+    def __init__(self, code, message, data=None):
+        self.code, self.message, self.data = code, message, data
 
 
 class Server:
@@ -115,10 +181,29 @@ class Server:
         return dict(structuredContent=result, content=[dict(type='text', text=json.dumps(result))],
                     isError=result.get('status') in ('refused', 'unknown', 'unavailable'))
 
-    def request(self, method, params):
+    def list_tools(self):
+        try:
+            sessions = self.bridge.call('discover')['sessions']
+        except Fault as error:
+            if error.message != 'grant_denied':
+                raise
+            sessions = []
+        scopes = [(self.bridge.call('session.access', session=sid)['scopes'],
+                   self.bridge.call('session.features', session=sid)) for sid in sessions]
+        return [dict(name=name, description=tool.description, inputSchema=tool.schema(),
+                     outputSchema={'type': 'object'})
+                for name, tool in TOOLS.items()
+                if tool.method == 'discover' or any(visible(tool.method, *scope) for scope in scopes)]
+
+    def request(self, method, params, modern=False):
+        if method == 'server/discover' and modern:
+            if set(params) != {'_meta'}:
+                raise RpcError(-32602, 'invalid_discovery')
+            return dict(supportedVersions=[MODERN, *SUPPORTED], capabilities=dict(tools={}, resources={}),
+                        _meta={META_PREFIX + 'serverInfo': dict(name='LoopBridge', version=VERSION)})
         if method == 'ping':
             return {}
-        if method == 'initialize':
+        if method == 'initialize' and not modern:
             if (self.initialized or type(params.get('protocolVersion')) is not str
                     or type(params.get('capabilities')) is not dict
                     or type(params.get('clientInfo')) is not dict):
@@ -126,16 +211,14 @@ class Server:
             self.initialized = True
             requested = params['protocolVersion']
             return dict(protocolVersion=requested if requested in SUPPORTED else MCP_VERSION,
-                        serverInfo=dict(name='LoopBridge', version='0.5'),
+                        serverInfo=dict(name='LoopBridge', version=VERSION),
                         capabilities=dict(tools={}, resources={}))
-        if not self.ready:
+        if not modern and not self.ready:
             raise RpcError(-32002, 'not_initialized')
         if method == 'tools/list':
             if params.get('cursor') is not None:
                 raise RpcError(-32602, 'invalid_cursor')
-            return dict(tools=[dict(name=name, description=tool.description, inputSchema=tool.schema(),
-                                    outputSchema={'type': 'object'})
-                               for name, tool in TOOLS.items()])
+            return dict(tools=self.list_tools())
         if method == 'tools/call':
             return self.call_tool(params)
         if method == 'resources/list':
@@ -176,9 +259,27 @@ class Server:
                     self.ready = True
                 return None
             response['id'] = msg['id']
-            response['result'] = self.request(msg['method'], msg.get('params', {}))
+            params = msg.get('params', {})
+            meta = params.get('_meta', {})
+            modern = msg['method'] == 'server/discover' or (isinstance(meta, dict) and PROTOCOL_META in meta)
+            if modern:
+                version = meta.get(PROTOCOL_META) if isinstance(meta, dict) else None
+                if not isinstance(version, str) or not re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', version):
+                    raise RpcError(-32602, 'valid_protocol_version_required')
+                if version != MODERN:
+                    raise RpcError(-32022, 'Unsupported protocol version',
+                                   dict(requested=version, supported=[MODERN, *SUPPORTED]))
+                for field in ('clientInfo', 'clientCapabilities'):
+                    if META_PREFIX + field in meta and type(meta[META_PREFIX + field]) is not dict:
+                        raise RpcError(-32602, 'invalid_request_metadata')
+            result = self.request(msg['method'], params, modern)
+            if modern and msg['method'] != 'ping':
+                result['resultType'] = 'complete'
+            response['result'] = result
         except RpcError as error:
             response['error'] = dict(code=error.code, message=error.message)
+            if error.data is not None:
+                response['error']['data'] = error.data
         except Fault:
             response['error'] = dict(code=-32002, message='resource_unavailable')
         except (OSError, EOFError, AssertionError, ValueError):

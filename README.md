@@ -91,6 +91,8 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.5 and LoopTeach V0.3.** The experimental local MCP adapter connects independent clients to supervised browsing, editor and workspace operations. See the [contract, matrix and evidence](docs/LOOPBRIDGE_V0_5.md).
 
+**LoopBridge V0.6 — private agent workspace.** Managed Sway headless sessions run the existing adapters, host an isolated MCP client and offer separately scoped capture and pointer delivery. See the [run instructions and qualification matrix](docs/LOOPBRIDGE_V0_6.md).
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)

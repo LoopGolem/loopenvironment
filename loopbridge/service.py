@@ -97,7 +97,7 @@ class Journal:
 
 
 @contextmanager
-def serve(root, identities, mode, workspace=None):
+def serve(root, identities, mode, workspace=None, *, watch_adapter=False):
     root = private_directory(Path(root))
     # Persist the runtime directory entry before accepting a journal intent.
     parent_fd = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -138,7 +138,7 @@ def serve(root, identities, mode, workspace=None):
                     endpoint.chmod(0o600)
                     listener.listen(8)
                     with Server(broker, listener):
-                        yield endpoint
+                        yield (endpoint, adapter) if watch_adapter else endpoint
                 finally:
                     endpoint.unlink(missing_ok=True)
         finally:

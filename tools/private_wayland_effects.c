@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0
- * Minimal version-1 protocol bindings for the disposable private Sway probe.
- * No service endpoint calls this helper.
+ * Minimal version-1 protocol bindings for disposable private Sway.
  */
+#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +57,7 @@ struct state {
     struct wl_proxy *capture;
     struct wl_proxy *input;
     unsigned outputs;
-    uint32_t width, height, stride;
+    uint32_t width, height, stride, flags;
     unsigned char *pixels;
     size_t size;
     struct wl_buffer *buffer;
@@ -93,10 +93,9 @@ static void format(void *opaque, struct wl_proxy *frame, uint32_t kind,
         s->status = -1;
         return;
     }
-    char path[] = "/private/run/frame-XXXXXX";
-    int fd = mkstemp(path);
+    int fd = memfd_create("loopbridge-private-frame", MFD_CLOEXEC);
     s->size = (size_t)stride * height;
-    if (fd < 0 || unlink(path) < 0 || ftruncate(fd, (off_t)s->size) < 0) {
+    if (fd < 0 || ftruncate(fd, (off_t)s->size) < 0) {
         if (fd >= 0) close(fd);
         s->status = -1;
         return;
@@ -119,7 +118,8 @@ static void format(void *opaque, struct wl_proxy *frame, uint32_t kind,
 }
 
 static void flags(void *opaque, struct wl_proxy *frame, uint32_t value) {
-    (void)opaque; (void)frame; (void)value;
+    (void)frame;
+    ((struct state *)opaque)->flags = value;
 }
 
 static void ready(void *opaque, struct wl_proxy *frame, uint32_t hi, uint32_t lo, uint32_t nsec) {
@@ -132,7 +132,7 @@ static void failed(void *opaque, struct wl_proxy *frame) {
     ((struct state *)opaque)->status = -1;
 }
 
-static int capture(struct wl_display *display, struct state *s) {
+static int capture(struct wl_display *display, struct state *s, int raw) {
     if (!s->capture || !s->shm)
         return 2;
     struct wl_proxy *frame = wl_proxy_marshal_flags(s->capture, 0, &capture_frame, 1, 0,
@@ -147,6 +147,23 @@ static int capture(struct wl_display *display, struct state *s) {
             return 3;
     if (s->status < 0 || !s->pixels)
         return 3;
+    if (raw) {
+        if (s->width != 800 || s->height != 600 || s->flags > 1)
+            return 3;
+        for (unsigned y = 0; y < 180; y++) {
+            unsigned source_y = y * 600 / 180;
+            if (s->flags & 1)
+                source_y = 599 - source_y;
+            for (unsigned x = 0; x < 240; x++) {
+                uint32_t pixel;
+                memcpy(&pixel, s->pixels + source_y * s->stride + x * 800 / 240 * 4, 4);
+                if (putchar((pixel >> 16) & 255) == EOF || putchar((pixel >> 8) & 255) == EOF ||
+                    putchar(pixel & 255) == EOF)
+                    return 3;
+            }
+        }
+        return fflush(stdout) == 0 ? 0 : 3;
+    }
     int distinct = 0;
     uint32_t first;
     memcpy(&first, s->pixels, 4);
@@ -173,17 +190,19 @@ static uint32_t monotonic_ms(void) {
     return (uint32_t)((uint64_t)clock.tv_sec * 1000 + clock.tv_nsec / 1000000);
 }
 
-static int click(struct wl_display *display, struct state *s) {
+static int point(struct wl_display *display, struct state *s, unsigned x, unsigned y, int click) {
     if (!s->input)
         return 2;
     struct wl_proxy *device = wl_proxy_marshal_flags(s->input, 0, &pointer, 1, 0, NULL, NULL);
     if (wl_display_roundtrip(display) < 0)
         return 3;
     usleep(250000);
-    wl_proxy_marshal_flags(device, 1, NULL, 1, 0, monotonic_ms(), 400u, 300u, 800u, 600u);
+    wl_proxy_marshal_flags(device, 1, NULL, 1, 0, monotonic_ms(), x, y, 800u, 600u);
     wl_proxy_marshal_flags(device, 4, NULL, 1, 0);
     if (wl_display_roundtrip(display) < 0)
         return 3;
+    if (!click)
+        return 0;
     usleep(250000);
     wl_proxy_marshal_flags(device, 2, NULL, 1, 0, monotonic_ms(), 0x110u, 1u);
     wl_proxy_marshal_flags(device, 4, NULL, 1, 0);
@@ -201,7 +220,7 @@ static int click(struct wl_display *display, struct state *s) {
 int main(int argc, char **argv) {
     const char *runtime = getenv("XDG_RUNTIME_DIR");
     const char *display_name = getenv("WAYLAND_DISPLAY");
-    if (argc != 2 || !runtime || strcmp(runtime, "/private/run") || !display_name ||
+    if ((argc != 2 && argc != 4) || !runtime || strcmp(runtime, "/private/run") || !display_name ||
         strncmp(display_name, "wayland-", 8) || strchr(display_name, '/'))
         return 1;
     struct wl_display *display = wl_display_connect(NULL);
@@ -213,10 +232,19 @@ int main(int argc, char **argv) {
     wl_registry_add_listener(registry, &listener, &state);
     int result = wl_display_roundtrip(display);
     if (result >= 0 && state.outputs == 1) {
-        if (!strcmp(argv[1], "capture"))
-            result = capture(display, &state);
-        else if (!strcmp(argv[1], "click"))
-            result = click(display, &state);
+        if (argc == 2 && !strcmp(argv[1], "capture"))
+            result = capture(display, &state, 0);
+        else if (argc == 2 && !strcmp(argv[1], "frame"))
+            result = capture(display, &state, 1);
+        else if (argc == 2 && !strcmp(argv[1], "click"))
+            result = point(display, &state, 400, 300, 1);
+        else if (argc == 4 && (!strcmp(argv[1], "click") || !strcmp(argv[1], "move"))) {
+            char *end_x, *end_y;
+            unsigned long x = strtoul(argv[2], &end_x, 10);
+            unsigned long y = strtoul(argv[3], &end_y, 10);
+            result = (*argv[2] && *argv[3] && !*end_x && !*end_y && x < 800 && y < 600)
+                ? point(display, &state, (unsigned)x, (unsigned)y, !strcmp(argv[1], "click")) : 1;
+        }
         else
             result = 1;
     } else {

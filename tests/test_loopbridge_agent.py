@@ -3,7 +3,7 @@ import io
 import json
 import unittest
 
-from loopbridge.mcp import MCP_VERSION, Server, TOOLS
+from loopbridge.mcp import MCP_VERSION, MODERN, PROTOCOL_META, SCOPES, Server, TOOLS
 from loopbridge.protocol import Fault
 from loopbridge.web_native import WebError, exact_fields, member, page_of, plan
 
@@ -12,11 +12,17 @@ class Bridge:
     def __init__(self):
         self.calls = []
         self.outcome = None
+        self.scopes = {cap: ['*', 'workspace', 'app:editor', 'app:browser']
+                       for group in SCOPES.values() for cap in group}
 
     def call(self, method, **params):
         self.calls.append((method, params))
         if method == 'discover':
             return dict(sessions=['desktop'])
+        if method == 'session.access':
+            return dict(scopes=self.scopes)
+        if method == 'session.features':
+            return dict(capture='private_output', input='private_pointer')
         if method == 'snapshot':
             return dict(session=params['session'], phase='idle')
         if isinstance(self.outcome, Exception):
@@ -57,6 +63,23 @@ class MCPTests(unittest.TestCase):
         denied = self.request('tools/call', name='lease_acquire', arguments=dict(session='desktop', ttl=True))
         self.assertEqual(denied['error']['code'], -32602)
         self.assertEqual(self.bridge.calls[-1][0], 'snapshot')
+
+    def test_modern_discovery_and_grant_filtered_tools_without_initialize(self):
+        self.bridge.scopes = {'desktop.observe': ['app:editor'], 'desktop.capture': ['*']}
+        meta = {PROTOCOL_META: MODERN}
+        discovery = self.request('server/discover', _meta=meta)['result']
+        self.assertEqual(discovery['resultType'], 'complete')
+        self.assertEqual(discovery['supportedVersions'][0], MODERN)
+        unsupported = self.request('tools/list', _meta={PROTOCOL_META: '1900-01-01'})['error']
+        self.assertEqual(unsupported['code'], -32022)
+        self.assertIn(MODERN, unsupported['data']['supported'])
+        reply = self.request('tools/list', _meta=meta)['result']
+        self.assertEqual(reply['resultType'], 'complete')
+        names = {tool['name'] for tool in reply['tools']}
+        self.assertTrue({'session_capture', 'windows_list'} <= names)
+        self.assertTrue({'lease_acquire', 'web_discover', 'session_pointer_click',
+                         'workspace_write'}.isdisjoint(names))
+        self.assertFalse(self.server.ready)
 
     def test_forwards_refusal_and_unknown_without_retry_or_reauthorization(self):
         self.initialize()

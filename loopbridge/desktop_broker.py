@@ -6,9 +6,12 @@ from .adapter import Refused, Unavailable
 from .authority import Handle, fail
 from .broker import Broker, SCHEMA
 from .protocol import VERSION
+from .private_effects import available, private_id, OUTPUT, TTL
 from .teach_routes import SCHEMA as TEACH_SCHEMA, TeachRoutes
 
 READS = {
+    'session.capture': set(),
+    'session.capture.read': {'ref', 'index'},
     'window.list': {'app'},
     'window.inspect': {'ref'},
     'element.tree': {'ref', 'offset', 'depth'},
@@ -28,6 +31,8 @@ READS = {
     'workspace.read': {'path'},
 }
 WRITES = {
+    'session.pointer.click': ({'ref', 'x', 'y'}, 'desktop.input'),
+    'session.pointer.move': ({'ref', 'x', 'y'}, 'desktop.input'),
     'app.launch': ({'app'}, 'app.launch'),
     'app.open_document': ({'app', 'document'}, 'app.launch'),
     'app.open_directory': ({'app', 'directory'}, 'app.launch'),
@@ -52,7 +57,7 @@ EFFECT_REQUIREMENTS = {'page.save': (('workspace.write', 'workspace'),)}
 
 
 class DesktopBroker(Broker):
-    versions = ('0.2', '0.3', '0.4', VERSION)
+    versions = ('0.2', '0.3', '0.4', '0.5', VERSION)
     connection_limits = (60, 300, 160)
     schema = {method: fields for method, fields in SCHEMA.items()
               if method not in ('invoke7',)}
@@ -60,14 +65,15 @@ class DesktopBroker(Broker):
     schema.update({method: fields | {'session'} | LEASE
                    for method, (fields, _) in WRITES.items()})
     schema.update({'app.list': {'session'}, 'operation.status': {'session', 'operation'},
-                   'session.features': {'session'}, 'session.recovery': {'session'}})
+                   'session.features': {'session'}, 'session.recovery': {'session'},
+                   'session.access': {'session'}})
     schema.update({method: fields | {'session'} for method, fields in TEACH_SCHEMA.items()})
 
     def __init__(self, *args, annotation_store=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.teach = TeachRoutes(self, annotation_store)
 
-    def target(self, session, connection, params, grace=0):
+    def target(self, session, connection, params, grace=0, *, capture=False):
         if 'ref' in params:
             handle = connection.handles.get(params['ref'])
             if (handle is None or handle.session != session.id or handle.epoch != session.epoch
@@ -75,6 +81,8 @@ class DesktopBroker(Broker):
                     or self.clock() >= handle.expires + grace):
                 fail('stale_reference', -32002)
             app, token = handle.reference
+            if (app == '@capture') != capture:
+                fail('stale_reference', -32002)
             return app, {**params, 'ref': token}, handle
         app = params.get('app')
         if app is not None and app not in session.catalog:
@@ -101,12 +109,24 @@ class DesktopBroker(Broker):
                 return dict(phase=session.phase, policy='automatic_replacement_disabled',
                             unknownOperation=intent if not session.pending else None,
                             reuseMutableWorkspace=False, cancellationAssumed=False)
+        if method == 'session.access':
+            with session.lock:
+                session.require(principal, 'session.discover', '*')
+                targets = ('*', 'workspace', *('app:' + app for app in sorted(session.catalog)))
+                return dict(scopes={cap: [scope for scope in targets if session.permits(principal, cap, scope)]
+                                    for cap in self.capabilities(session, principal)})
+        if method.startswith(('session.capture', 'session.pointer.')):
+            return self.private_effect(session, connection, principal, method, params)
         if method == 'session.features':
             with session.lock:
                 session.require(principal, 'session.discover', '*')
-            return dict(capture='window_capture_unavailable', input='target_bound_input_unavailable',
-                        teaching='0.3', recovery='replacement_unqualified',
+            info = dict(capture='window_capture_unavailable', input='target_bound_input_unavailable',
+                        teaching='0.3', recovery='automatic_replacement_disabled',
                         sources=['atspi', 'linux_workspace', 'firefox_dom'])
+            if private := private_id():
+                info.update(privateId=private, capture='private_output' if available() else 'disabled',
+                            input='private_pointer' if available() else 'disabled')
+            return info
         if method == 'operation.status':
             with session.lock:
                 result = self.operations[session.id].get(params['operation'])
@@ -187,6 +207,41 @@ class DesktopBroker(Broker):
                     entry['ref'] = self.bind(session, connection, app, entry['ref'])
         return result
 
+    def private_effect(self, session, connection, principal, method, params):
+        pointer = method.startswith('session.pointer.')
+        args, handle = params, None
+        with session.lock:
+            session.require(principal, 'desktop.capture', '*')
+            if pointer:
+                session.require(principal, 'desktop.input', '*')
+            if not available():
+                fail('private_effect_unavailable', -32006)
+            if 'ref' in params:
+                _, args, handle = self.target(session, connection, params, capture=True)
+            revision = session.revision
+        if pointer:
+            if not all(type(params[key]) is int and 0 <= params[key] < bound
+                       for key, bound in zip(('x', 'y'), OUTPUT)):
+                fail('pointer_outside_private_output', -32602)
+            return self.dispatch(session, connection, params, 'desktop.prepare', (method, None, args),
+                                 '*', 'desktop.input', 'desktop.capture', handle)
+        try:
+            with self.io[session.id]:
+                result = self.adapters[session.id].call('desktop.read', (method, None, args))
+        except Refused as error:
+            fail(error.reason, -32006)
+        except Unavailable:
+            fail('capture_unavailable', -32006)
+        with session.lock:
+            session.require(principal, 'desktop.capture', '*')
+            if revision != session.revision or (handle and self.clock() >= handle.expires):
+                fail('snapshot_required', -32004)
+            if method == 'session.capture':
+                result.update(ref=self.bind(session, connection, '@capture', result['ref'], TTL),
+                              session=session.id, privateId=private_id(), epoch=session.epoch,
+                              revision=revision)
+        return result
+
     def require_events(self, session, principal):
         session.require(principal, 'session.discover', '*')
 
@@ -198,10 +253,10 @@ class DesktopBroker(Broker):
                         generation=session.generation, phase=session.phase, cursor=session.history.seq,
                         capabilities=self.capabilities(session, connection.principal))
 
-    def bind(self, session, connection, app, token):
+    def bind(self, session, connection, app, token, ttl=20):
         ref = secrets.token_hex(16)
         connection.handles[ref] = Handle(ref, session.id, session.epoch, session.generation,
-                                         session.revision, self.clock() + 20, (app, token))
+                                         session.revision, self.clock() + ttl, (app, token))
         if len(connection.handles) > 768:
             connection.handles.popitem(last=False)
         return ref

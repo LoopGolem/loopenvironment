@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""LoopBridge V0.5, newline-framed JSON-RPC subset."""
+"""LoopBridge, newline-framed JSON-RPC subset."""
 from collections import deque
 import json
 import socket
 import time
 
-VERSION = '0.5'
-VERSIONS = ('0.1', '0.2', '0.3', '0.4', VERSION)
+VERSION = '0.6'
+VERSIONS = ('0.1', '0.2', '0.3', '0.4', '0.5', VERSION)
 MAX_FRAME = 8192
 
 

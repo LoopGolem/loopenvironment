@@ -1,0 +1,27 @@
+name: LoopEnvironment regressions
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: Unit contracts
+            command: python3 -B -m unittest discover -s tests -p 'test_loopbridge_agent.py' &&
+                     python3 -B -m unittest discover -s tests -p 'test_loopbridge_semantic.py' &&
+                     python3 -B -m unittest discover -s tests -p 'test_private_workspace.py'
+          - suite: Unix sockets and fixtures
+            command: python3 -B -m unittest discover -s tests
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: ${{ matrix.command }}

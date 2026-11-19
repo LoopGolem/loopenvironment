@@ -17,19 +17,24 @@ def require(condition, reason):
 
 
 class Client:
-    def __init__(self, argv):
+    def __init__(self, argv, modern=False):
+        self.modern = modern
         self.process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         stderr=subprocess.DEVNULL, close_fds=True)
         self.sequence = 0
 
     def __enter__(self):
         try:
-            response = self.request('initialize', protocolVersion=VERSION, capabilities={},
-                                    clientInfo=dict(name='independent-mission', version='1'))
-            require(response['protocolVersion'] == VERSION, 'unexpected_protocol')
+            if self.modern:
+                response = self.request('server/discover')
+                require('2026-07-28' in response['supportedVersions'], 'unexpected_protocol')
+            else:
+                response = self.request('initialize', protocolVersion=VERSION, capabilities={},
+                                        clientInfo=dict(name='independent-mission', version='1'))
+                require(response['protocolVersion'] == VERSION, 'unexpected_protocol')
+                self.write(dict(jsonrpc='2.0', method='notifications/initialized'))
             capabilities = response['capabilities']
             require('tools' in capabilities and 'resources' in capabilities, 'mcp_capabilities_missing')
-            self.write(dict(jsonrpc='2.0', method='notifications/initialized'))
             self.tools = {item['name']: item['inputSchema'] for item in self.request('tools/list')['tools']}
         except BaseException:
             self.__exit__(None, None, None)
@@ -55,6 +60,9 @@ class Client:
 
     def request(self, method, **params):
         self.sequence += 1
+        if self.modern:
+            params['_meta'] = {'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                               'io.modelcontextprotocol/clientInfo': dict(name='independent-mission', version='1')}
         self.write(dict(jsonrpc='2.0', id=self.sequence, method=method, params=params))
         data = self.process.stdout.readline(65537)
         require(data.endswith(b'\n') and len(data) <= 65536, 'mcp_transport_closed')
@@ -74,7 +82,8 @@ class Client:
         return result
 
     def refused(self, method, **args):
-        result, failed = self.invoke(method, **args)
+        reply = self.request('tools/call', name=method, arguments=args)
+        result, failed = reply['structuredContent'], reply['isError']
         require(failed and result.get('status') == 'refused', 'expected_tool_refusal')
         return result['reason']
 
@@ -96,6 +105,8 @@ def document(client):
 
 
 def mission(client, evidence):
+    durations = evidence['secondsByStage'] = {}
+    stage_start = time.monotonic()
     evidence['stage'] = 'resources'
     resources = client.request('resources/list')['resources']
     require(len(resources) == 1 and resources[0]['name'] == SESSION['session'], 'session_not_discovered')
@@ -108,6 +119,8 @@ def mission(client, evidence):
     permit = client.call('lease_acquire', **SESSION, ttl=175)
     lease = dict(**SESSION, lease=permit['id'], epoch=permit['epoch'], generation=permit['generation'])
 
+    durations['resources'] = round(time.monotonic() - stage_start, 3)
+    stage_start = time.monotonic()
     evidence['stage'] = 'browser'
     opened = client.call('web_open', **lease, app='browser')
     require(opened['status'] == 'confirmed', 'browser_not_confirmed')
@@ -139,6 +152,8 @@ def mission(client, evidence):
     report = 'Harbor records in North\n' + '\n'.join(' | '.join(row) for row in rows) + '\n'
     evidence['browser'] = dict(rows=rows, source=data['source'], protected_control_hidden=True)
 
+    durations['browser'] = round(time.monotonic() - stage_start, 3)
+    stage_start = time.monotonic()
     evidence['stage'] = 'report'
     evidence['outside_workspace'] = client.refused('workspace_write', **lease, path='../outside.txt', text='DENIED')
     path = 'harbor-report.txt'
@@ -162,6 +177,8 @@ def mission(client, evidence):
     require(client.call('workspace_read', **SESSION, path=path)['text'] == report, 'report_readback_mismatch')
     evidence['report'] = dict(path=path, sha256=hashlib.sha256(report.encode()).hexdigest(),
                               annotation_match=resolved['matchQuality'], verified=True)
+    durations['report'] = round(time.monotonic() - stage_start, 3)
+    stage_start = time.monotonic()
     evidence['stage'] = 'web_confirmation'
     client.call('web_navigate', **lease, ref=window(client, 'browser'), page='review')
     review = document(client)
@@ -174,6 +191,7 @@ def mission(client, evidence):
             parse_qs(urlsplit(receipt['url']).query) == {'report': [path]}, 'receipt_unverified')
     evidence['browser']['report_confirmation'] = 'confirmed'
     client.call('lease_release', **lease)
+    durations['web_confirmation'] = round(time.monotonic() - stage_start, 3)
 
 
 def observer(client, evidence):
@@ -185,6 +203,7 @@ def observer(client, evidence):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--modern', action='store_true')
     parser.add_argument('--observer', action='store_true')
     parser.add_argument('adapter', nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -194,7 +213,7 @@ def main():
     start = time.monotonic()
     evidence = dict(result='PARTIAL', stage='mcp_start')
     try:
-        with Client(argv) as client:
+        with Client(argv, modern=args.modern) as client:
             (observer if args.observer else mission)(client, evidence)
             evidence.update(result='GO', stage='completed')
     except (OSError, EOFError, ValueError, RuntimeError, KeyError, TypeError) as error:
