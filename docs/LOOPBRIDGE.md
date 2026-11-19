@@ -121,3 +121,7 @@ The M1.3 preflight for a conventional input/preemption path reported NO-GO in th
 ## Experimental service V0.2
 
 The `desktop` service mode exposes one local Sway session, a catalog of supervised applications, bounded AT-SPI queries and a private workspace. See the [V0.2 contract and qualification](LOOPBRIDGE_V0_2.md). The [V0.1 Calculator procedure](LOOPBRIDGE_CORE_V0_1.md) remains available with explicit `--mode calculator`.
+
+## Experimental service V0.3
+
+The [V0.3 and LoopTeach V0.1 contract](LOOPBRIDGE_V0_3.md) describes native operation policies, multi-document workspace operation and scoped persistent teaching.

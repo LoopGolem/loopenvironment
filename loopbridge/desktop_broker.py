@@ -1,17 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Scope authorization and temporary reference translation for V0.2."""
+"""Scope authorization and temporary reference translation for V0.3."""
 import secrets
 
 from .adapter import Refused, Unavailable
 from .authority import Handle, fail
 from .broker import Broker, SCHEMA
 from .protocol import VERSION
+from .teach_routes import SCHEMA as TEACH_SCHEMA, TeachRoutes
 
 READS = {
     'window.list': {'app'},
     'window.inspect': {'ref'},
     'element.tree': {'ref', 'offset', 'depth'},
     'element.actions': {'ref'},
+    'element.inspect': {'ref'},
+    'element.refresh': {'ref'},
+    'element.get_selection': {'ref'},
     'element.get_text': {'ref'},
     'element.get_value': {'ref'},
     'workspace.list': {'offset'},
@@ -19,16 +23,20 @@ READS = {
 }
 WRITES = {
     'app.launch': ({'app'}, 'app.launch'),
+    'app.open_document': ({'app', 'document'}, 'app.launch'),
+    'app.close': ({'app'}, 'app.close'),
     'element.invoke': ({'ref', 'action'}, 'desktop.control'),
     'element.set_text': ({'ref', 'text'}, 'desktop.control'),
     'element.set_value': ({'ref', 'value'}, 'desktop.control'),
+    'element.select': ({'ref', 'index'}, 'desktop.control'),
     'workspace.write': ({'path', 'text'}, 'workspace.write'),
 }
 LEASE = {'lease', 'epoch', 'generation'}
+EFFECT_REQUIREMENTS = {'page.save': (('workspace.write', 'workspace'),)}
 
 
 class DesktopBroker(Broker):
-    versions = (VERSION,)
+    versions = ('0.2', VERSION)
     connection_limits = (60, 300, 160)
     schema = {method: fields for method, fields in SCHEMA.items()
               if method not in ('invoke7',)}
@@ -36,13 +44,18 @@ class DesktopBroker(Broker):
     schema.update({method: fields | {'session'} | LEASE
                    for method, (fields, _) in WRITES.items()})
     schema.update({'app.list': {'session'}, 'operation.status': {'session', 'operation'}})
+    schema.update({method: fields | {'session'} for method, fields in TEACH_SCHEMA.items()})
 
-    def target(self, session, connection, params):
+    def __init__(self, *args, annotation_store=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.teach = TeachRoutes(self, annotation_store)
+
+    def target(self, session, connection, params, grace=0):
         if 'ref' in params:
             handle = connection.handles.get(params['ref'])
             if (handle is None or handle.session != session.id or handle.epoch != session.epoch
                     or handle.revision != session.revision or handle.generation != session.generation
-                    or self.clock() >= handle.expires):
+                    or self.clock() >= handle.expires + grace):
                 fail('stale_reference', -32002)
             app, token = handle.reference
             return app, {**params, 'ref': token}, handle
@@ -56,7 +69,11 @@ class DesktopBroker(Broker):
             fail('invalid_offset', -32602)
         if 'depth' in params and (type(params['depth']) is not int or not 0 <= params['depth'] <= 40):
             fail('invalid_depth', -32602)
+        if 'index' in params and (type(params['index']) is not int or not 0 <= params['index'] < 128):
+            fail('invalid_selection_index', -32602)
         principal = self.authenticated(connection)
+        if method in TEACH_SCHEMA:
+            return self.teach.handle(session, connection, principal, method, params)
         if method == 'operation.status':
             with session.lock:
                 result = self.operations[session.id].get(params['operation'])
@@ -73,7 +90,8 @@ class DesktopBroker(Broker):
                     return dict(operation=pending, status='unknown')
                 fail('operation_unavailable', -32002)
         with session.lock:
-            app, arguments, handle = self.target(session, connection, params)
+            grace = 100 if method == 'element.refresh' else 0
+            app, arguments, handle = self.target(session, connection, params, grace)
             if method.startswith('workspace.'):
                 if not session.workspace:
                     fail('workspace_disabled')
@@ -82,11 +100,11 @@ class DesktopBroker(Broker):
                 target = 'app:' + app if app else '*'
         if method in WRITES:
             capability = WRITES[method][1]
-            observation = {'app.launch': None, 'workspace.write': 'workspace.read'}.get(
-                method, 'desktop.observe')
-            extra = ()
-            if app == 'editor' and method == 'element.invoke' and params['action'] == 'page.save':
-                extra = (('workspace.write', 'workspace'),)
+            observation = {'app.launch': None, 'app.close': None, 'app.open_document': None,
+                           'workspace.write': 'workspace.read'}.get(method, 'desktop.observe')
+            extra = EFFECT_REQUIREMENTS.get(params.get('action'), ())
+            if method in ('app.open_document', 'element.select'):
+                extra = (('workspace.read', 'workspace'),)
             return self.dispatch(session, connection, params, 'desktop.prepare',
                                  (method, app, arguments), target, capability, observation, handle, extra)
         with session.lock:
@@ -120,8 +138,10 @@ class DesktopBroker(Broker):
             else:
                 session.require(principal, 'workspace.read' if target == 'workspace'
                                 else 'desktop.observe', target)
-            if handle and self.clock() >= handle.expires:
+            if handle and self.clock() >= handle.expires + grace:
                 fail('stale_reference', -32002)
+            if method == 'element.refresh':
+                result['ref'] = self.bind(session, connection, app, result['ref'])
             for entry in result.get('windows', result.get('elements', [])):
                 if entry['ref'] is not None:
                     entry['ref'] = self.bind(session, connection, app, entry['ref'])

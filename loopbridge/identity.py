@@ -2,6 +2,7 @@
 """Ephemeral lab provisioning, NOT installation bootstrap or credential recovery."""
 import hashlib
 import hmac
+import re
 import secrets
 
 from .protocol import Fault
@@ -25,6 +26,14 @@ class Identities:
                 or len(set(credentials.values())) != len(PRINCIPALS)):
             raise ValueError('invalid_lab_provisioning')
         self._digests = {p: hashlib.sha256(c.encode()).digest() for p, c in credentials.items()}
+
+    def contains_credential(self, value):
+        for run in re.findall(r'[A-Za-z0-9_-]{43,}', value):
+            for offset in range(len(run) - 42):
+                digest = hashlib.sha256(run[offset:offset + 43].encode()).digest()
+                if any(hmac.compare_digest(digest, saved) for saved in self._digests.values()):
+                    return True
+        return False
 
     def authenticate(self, credential):
         if not isinstance(credential, str) or len(credential) > 128:

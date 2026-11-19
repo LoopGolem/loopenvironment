@@ -53,7 +53,7 @@ def perform(report, stack, root, workspace, server, paths):
         token = (read_private(root / 'credentials' / (name + '.token')).strip()
                  if name != 'invalid' else 'invalid')
         client, probes, auth = launch(stack, root / 'runtime/socket', paths, token, server.child.pid,
-                                      private_paths=(str(workspace), str(root / 'credentials')))
+                                      private_paths=(str(workspace), str(root / 'credentials')), version='0.2')
         if name == 'invalid':
             check(auth == {'error': 'denied'})
             check(client.child.wait(timeout=5) == 1)

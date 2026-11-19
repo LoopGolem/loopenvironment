@@ -7,6 +7,7 @@ import sys
 
 from loopbridge.__main__ import rpc_stream
 from probe import inspect
+from loopbridge.protocol import VERSION
 
 
 def main():
@@ -26,7 +27,7 @@ def main():
                 raise AssertionError('private_path_visible')
     probes['private_paths_denied'] = private_denials
     print(json.dumps(probes), flush=True)
-    return rpc_stream('/bridge/control.sock', config['credential'], sys.stdin, sys.stdout)
+    return rpc_stream('/bridge/control.sock', config['credential'], sys.stdin, sys.stdout, config.get('version') or VERSION)
 
 
 if __name__ == '__main__':

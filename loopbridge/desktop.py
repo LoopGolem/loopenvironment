@@ -3,7 +3,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-import math
 import os
 import secrets
 import subprocess
@@ -13,11 +12,15 @@ import time
 from .adapter import Refused
 from .linux_desktop import process_identity, sway, texts, wait_for, walk, windows
 from .workspace import Workspace
+from .teaching_picker import Picker
+from .semantic_operations import (POLICIES, Prepared, SemanticOperations, actions,
+                                  semantic_signature, short, state_flags)
 
 CATALOG = {
     'calculator': ('/usr/bin/gnome-calculator', 'org.gnome.Calculator', '--mode=basic'),
     'editor': ('/usr/bin/gnome-text-editor', 'org.gnome.TextEditor', '--standalone'),
     'files': ('/usr/bin/nautilus', 'org.gnome.Nautilus', '--new-window'),
+    'clocks': ('/usr/bin/gnome-clocks', 'org.gnome.clocks'),
     'browser': ('/usr/bin/firefox-esr', 'firefox-esr'),
 }
 EDITED_DOCUMENT = 'report.txt'
@@ -28,6 +31,7 @@ PAGE = 8
 class Application:
     process: object
     identity: tuple | None = None
+    document: str | None = None
 
 
 @dataclass
@@ -38,38 +42,6 @@ class Target:
     path: tuple | None
     node: object = None
     signature: tuple | None = None
-
-
-@dataclass
-class Prepared:
-    send: object
-    verify: object
-
-
-def short(value, limit=80):
-    return (value or '')[:limit]
-
-
-def state_flags(node):
-    return {flag.value_name.removeprefix('ATSPI_STATE_').lower()
-            for flag in node.getState().getStates()}
-
-
-def actions(node, interfaces, limit=8):
-    if 'Action' not in interfaces:
-        return [], False
-    query = node.queryAction()
-    return [query.getName(index) for index in range(min(query.nActions, limit))], query.nActions > limit
-
-
-def semantic_text(node):
-    text = node.queryText()
-    count = text.characterCount
-    return dict(text=text.getText(0, min(count, 750)), truncated=count > 750, length=count)
-
-
-def semantic_signature(node):
-    return node.getRoleName(), node.name, tuple(sorted(node.get_interfaces()))
 
 
 class Desktop:
@@ -85,6 +57,8 @@ class Desktop:
         self.profile = tempfile.TemporaryDirectory(prefix='apps-', dir=runtime)
         self.apps = {}
         self.references = OrderedDict()
+        self.operations = SemanticOperations(self)
+        self.picker = Picker(self)
 
     def close(self):
         for app in self.apps.values():
@@ -110,8 +84,7 @@ class Desktop:
         return dict(app=app, application_id=app_id, installed=os.access(executable, os.X_OK),
                     launch_supported=self.supported(app),
                     state='running' if running and running.process.poll() is None else 'stopped',
-                    mutations={'calculator': ['invoke'], 'editor': ['set_text', 'page.save'],
-                               'files': [], 'browser': []}[app])
+                    mutations=POLICIES[app].mutations())
 
     def process(self, app):
         running = self.apps.get(app)
@@ -150,8 +123,8 @@ class Desktop:
         records, frame, _, _ = self.match(app)
         if saved.window not in records or frame != saved.frame or frame is None:
             raise Refused('window_unavailable_or_ambiguous')
-        if app == 'editor':
-            self.verify_editor_document(frame)
+        if self.apps[app].document:
+            self.verify_document(app, frame)
         if not element:
             return saved, frame
         node = frame
@@ -185,8 +158,11 @@ class Desktop:
         role, name, interfaces = signature
         flags = state_flags(node)
         labels, truncated = actions(node, interfaces)
-        return dict(path=list(path), role=short(role), name=self.label(target.app, name),
-                    description=self.label(target.app, node.description), state=sorted(flags)[:16],
+        concealed = 'protected' in flags or role == 'password text'
+        return dict(path=list(path), role=short(role),
+                    name='' if concealed else self.label(target.app, name),
+                    description='' if concealed else self.label(target.app, node.description),
+                    state=sorted(flags)[:16],
                     interfaces=list(interfaces)[:12], actions=[short(label, 48) for label in labels],
                     actions_truncated=truncated,
                     editable='EditableText' in interfaces and 'editable' in flags,
@@ -214,6 +190,10 @@ class Desktop:
                     truncated=truncated or bool(pending and index >= 512))
 
     def query(self, method, app, params):
+        if method == 'teach.capture':
+            return self.picker.capture(app, params['ref'])
+        if method == 'teach.find':
+            return self.picker.find(app, params['ref'], params['evidence'])
         if method == 'app.info':
             return self.app_info(app)
         if method == 'window.list':
@@ -228,22 +208,15 @@ class Desktop:
                         name=self.label(app, node.name), semantic='correlated', source='atspi')
         if method == 'element.tree':
             return self.tree(app, params['ref'], params['offset'], params['depth'])
-        _, node = self.resolve(app, params['ref'], element=True)
-        interfaces = node.get_interfaces()
-        if method == 'element.actions':
-            labels, truncated = actions(node, interfaces, limit=64)
-            return dict(actions=[short(name, 48) for name in labels], truncated=truncated, source='atspi')
-        if method == 'element.get_text' and 'Text' in interfaces and app != 'files':
-            if app == 'editor' and 'multi_line' not in state_flags(node):
-                raise Refused('operation_outside_app_policy')
-            return dict(**semantic_text(node), source='atspi')
-        if method == 'element.get_value' and 'Value' in interfaces and app != 'files':
-            value = node.queryValue()
-            return dict(value=value.currentValue, minimum=value.minimumValue,
-                        maximum=value.maximumValue, source='atspi')
-        raise Refused('unsupported_interface')
+        if method in ('element.inspect', 'element.refresh'):
+            selected, node = self.resolve(app, params['ref'], element=True)
+            result = self.describe(selected, selected.path, node)
+            if method == 'element.inspect':
+                result.pop('ref')
+            return result
+        return self.operations.read(method, app, params)
 
-    def prepare_launch(self, app):
+    def prepare_launch(self, app, document=None):
         if not self.supported(app):
             raise Refused('launch_unsupported')
         existing = self.apps.get(app)
@@ -263,7 +236,13 @@ class Desktop:
                 except OSError:
                     continue
         if app == 'editor':
-            args.append(self.workspace.file_path(EDITED_DOCUMENT))
+            document = document or EDITED_DOCUMENT
+            try:
+                args.append(self.workspace.file_path(document))
+            except (OSError, ValueError):
+                raise Refused('invalid_workspace_document') from None
+        elif document is not None:
+            raise Refused('unsupported_document_launch')
         elif app == 'files':
             self.workspace.verify_root()
             args.append(str(self.workspace.path))
@@ -279,7 +258,7 @@ class Desktop:
             process = subprocess.Popen([executable, *args], env=env, cwd=home,
                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, close_fds=True)
-            self.apps[app] = Application(process)
+            self.apps[app] = Application(process, document=document)
 
         def verify():
             running = self.apps[app]
@@ -298,74 +277,71 @@ class Desktop:
         return Prepared(send, lambda: wait_for(verify, timeout=18))
 
     def prepare_operation(self, method, app, params):
-        if method == 'app.launch':
-            return self.prepare_launch(app)
+        if method in ('app.launch', 'app.open_document'):
+            return self.prepare_launch(app, params.get('document'))
+        if method == 'app.close':
+            return self.prepare_close(app)
         if method == 'workspace.write':
             name, text = self.workspace.prepare(params['path'], params['text'])
             return Prepared(lambda: self.workspace.write(name, text),
                             lambda: self.workspace.confirm(name, text))
-        target, node = self.resolve(app, params['ref'], element=True)
-        flags = state_flags(node)
-        if not {'showing', 'sensitive'} <= flags:
-            raise Refused('element_unavailable')
-        role, name, interfaces = target.signature
-        if method == 'element.set_text' and app == 'editor':
-            self.verify_editor_document(target.frame)
-            if ('EditableText' not in interfaces or 'Text' not in interfaces
-                    or not {'editable', 'multi_line'} <= flags):
-                raise Refused('unsupported_interface')
-            text = params['text']
-            if len(text.encode('utf-8')) > 3000 or '\x00' in text:
-                raise Refused('invalid_text')
-            previous = semantic_text(node)
-            if not previous['truncated'] and previous['text'] == text:
-                raise Refused('no_change')
-            return Prepared(lambda: node.queryEditableText().setTextContents(text),
-                            lambda: self.verify_text(app, params['ref'], text))
-        if method == 'element.set_value' and app == 'calculator' and 'Value' in interfaces:
-            value = params['value']
-            query = node.queryValue()
-            if type(value) not in (float, int) or not query.minimumValue <= value <= query.maximumValue:
-                raise Refused('invalid_value')
-            if value == query.currentValue:
-                raise Refused('no_change')
-            return Prepared(lambda: setattr(query, 'currentValue', value),
-                            lambda: self.verify_value(app, params['ref'], value))
-        if method == 'element.invoke':
-            labels, truncated = actions(node, interfaces, limit=64)
-            requested = params['action']
-            if truncated or labels.count(requested) != 1:
-                raise Refused('unsupported_or_ambiguous_action')
-            if (app == 'calculator' and role in ('push button', 'button')
-                    and len(name) == 1 and name in '0123456789' and requested == 'click'):
-                before = texts(target.frame)
-                return Prepared(lambda: node.queryAction().doAction(labels.index(requested)),
-                                lambda: self.verify_digit(app, target, before, name))
-            if app == 'editor' and role == 'frame' and requested == 'page.save':
-                self.verify_editor_document(target.frame)
-                documents = [child for _, child in walk(target.frame)
-                             if child and {'editable', 'multi_line', 'showing'} <= state_flags(child)
-                             and 'Text' in child.get_interfaces()]
-                if len(documents) != 1:
-                    raise Refused('editor_document_ambiguous')
-                query = documents[0].queryText()
-                if not 0 <= query.characterCount <= 3000:
-                    raise Refused('workspace_size_limit')
-                # GtkSourceView writes an implicit final newline in addition
-                # to the buffer text exposed by AT-SPI.
-                expected = query.getText(0, query.characterCount) + '\n'
-                if expected == self.workspace.read(EDITED_DOCUMENT):
-                    raise Refused('no_change')
-                return Prepared(lambda: node.queryAction().doAction(labels.index(requested)),
-                                lambda: wait_for(lambda: self.workspace.confirm(EDITED_DOCUMENT,
-                                                                                 expected), timeout=4))
-        raise Refused('operation_outside_app_policy')
+        return self.operations.prepare(method, app, params)
 
-    def verify_editor_document(self, frame):
-        self.workspace.file_path(EDITED_DOCUMENT)
-        expected = f'{EDITED_DOCUMENT} ({self.workspace.path}) - Text Editor'
+    def verify_document(self, app, frame):
+        document = self.apps[app].document
+        self.workspace.file_path(document)
+        expected = f'{document} ({self.workspace.path}) - Text Editor'
         if (frame.name or '').lstrip('*• ') != expected:
             raise Refused('editor_document_changed')
+        return document
+
+    def document_contents(self, target):
+        path = self.verify_document(target.app, target.frame)
+        documents = [child for _, child in walk(target.frame)
+                     if child and {'editable', 'multi_line', 'showing'} <= state_flags(child)
+                     and 'Text' in child.get_interfaces()]
+        if len(documents) != 1:
+            raise Refused('editor_document_ambiguous')
+        query = documents[0].queryText()
+        if not 0 <= query.characterCount <= 3000:
+            raise Refused('workspace_size_limit')
+        return path, query.getText(0, query.characterCount)
+
+    def action_effect(self, policy, target, role, name, action):
+        if ('invoke' in policy.effects and action == 'click'
+                and role in ('push button', 'button') and len(name) == 1 and name in '0123456789'):
+            before = texts(target.frame)
+            return lambda: self.verify_digit(target.app, target, before, name)
+        if action == 'page.save' and action in policy.effects and role == 'frame':
+            document, buffer = self.document_contents(target)
+            # GtkSourceView appends an implicit final newline on disk.
+            expected = buffer + '\n'
+            if expected == self.workspace.read(document):
+                raise Refused('no_change')
+            return lambda: wait_for(lambda: self.workspace.confirm(document, expected), timeout=4)
+        raise Refused('operation_outside_app_policy')
+
+    def prepare_close(self, app):
+        application = self.process(app)
+        if application.document:
+            records, frame, _, _ = self.match(app)
+            if not records or frame is None:
+                raise Refused('window_unavailable_or_ambiguous')
+            document, buffer = self.document_contents(Target(app, records[0], frame, None))
+            saved = self.workspace.read(document)
+            if saved != buffer + '\n' and not (saved == buffer == ''):
+                raise Refused('document_has_unsaved_changes')
+
+        def send():
+            self.process(app).process.terminate()
+
+        def verify():
+            application.process.wait(timeout=5)
+            if any(row['pid'] == application.process.pid for row in windows(sway('get_tree'))):
+                raise Refused('window_still_present')
+            return dict(app=app, state='stopped')
+
+        return Prepared(send, lambda: wait_for(verify, timeout=7))
 
     def verify_digit(self, app, target, before, digit):
         def verify():
@@ -381,24 +357,6 @@ class Desktop:
             if actual[key] != expected:
                 raise Refused('result_not_confirmed')
             return dict(display=actual[key])
-        return wait_for(verify, timeout=3)
-
-    def verify_text(self, app, token, expected):
-        def verify():
-            _, node = self.resolve(app, token, element=True)
-            query = node.queryText()
-            if query.characterCount != len(expected) or query.getText(0, len(expected)) != expected:
-                raise Refused('result_not_confirmed')
-            return dict(characters=len(expected))
-        return wait_for(verify, timeout=3)
-
-    def verify_value(self, app, token, expected):
-        def verify():
-            _, node = self.resolve(app, token, element=True)
-            actual = node.queryValue().currentValue
-            if not math.isclose(actual, expected):
-                raise Refused('result_not_confirmed')
-            return dict(value=actual)
         return wait_for(verify, timeout=3)
 
     @staticmethod
