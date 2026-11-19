@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""LoopBridge V0.3, newline-framed JSON-RPC subset."""
+"""LoopBridge V0.4, newline-framed JSON-RPC subset."""
 from collections import deque
 import json
 import socket
 import time
 
-VERSION = '0.3'
-VERSIONS = ('0.1', '0.2', VERSION)
+VERSION = '0.4'
+VERSIONS = ('0.1', '0.2', '0.3', VERSION)
 MAX_FRAME = 8192
 
 
@@ -68,7 +68,7 @@ class RPC:
     def call(self, method, **params):
         self.seq += 1
         self.channel.send(dict(jsonrpc='2.0', version=self.version, id=self.seq, method=method, params=params))
-        reply = self.channel.receive(30)
+        reply = self.channel.receive(45)
         if reply.get('version') != self.version or reply.get('id') != self.seq or reply.get('jsonrpc') != '2.0':
             raise AssertionError('invalid_reply')
         if 'error' in reply:

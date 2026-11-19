@@ -1,0 +1,56 @@
+{
+  "result": "PARTIAL",
+  "browser_only": true,
+  "stage": "browser_text",
+  "isolation": {
+    "owner": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    },
+    "delegate": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    },
+    "observer": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    }
+  },
+  "browser": {
+    "launch": "confirmed",
+    "verification": {
+      "app": "browser",
+      "page": "form",
+      "semantic": "correlated",
+      "network": "private_namespace",
+      "verified_subprocesses": 6,
+      "profile": "disposable"
+    },
+    "protected_text_denied": true,
+    "field_discovery": "matched",
+    "text": "unknown"
+  },
+  "blocked_runtime_preserved": true,
+  "failure": "AssertionError"
+}

@@ -125,3 +125,7 @@ The `desktop` service mode exposes one local Sway session, a catalog of supervis
 ## Experimental service V0.3
 
 The [V0.3 and LoopTeach V0.1 contract](LOOPBRIDGE_V0_3.md) describes native operation policies, multi-document workspace operation and scoped persistent teaching.
+
+## Practical service V0.4
+
+The [V0.4 and LoopTeach V0.2 contract](LOOPBRIDGE_V0_4.md) covers the supervised Firefox fixture, workspace paths, GTK teaching and the capture/input refusals on Sway.

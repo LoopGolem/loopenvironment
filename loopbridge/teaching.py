@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Persistent operator data and conservative, evidence-based matching."""
 from contextlib import contextmanager
+from difflib import SequenceMatcher
 import json
 import os
 import re
@@ -10,7 +11,7 @@ import stat
 import time
 
 SCHEMA_VERSION = 1
-TEACH_VERSION = '0.1'
+TEACH_VERSION = '0.2'
 CAPABILITIES = frozenset(('teach.read', 'teach.write', 'teach.review', 'teach.delete'))
 FIELDS = ('meaning', 'operationHint', 'conditions', 'warnings')
 
@@ -31,9 +32,42 @@ def content(params):
     return result
 
 
+STRUCTURAL_WRAPPERS = frozenset(('panel', 'grouping', 'filler', 'section'))
+
+
+def decorative(entry):
+    return entry[0] in STRUCTURAL_WRAPPERS and entry[1] == ''
+
+
+def normalized_ancestry(ancestry):
+    return [entry for entry in ancestry if not decorative(entry)]
+
+
+def minor_layout_change(saved, candidate):
+    old, new = [tuple(row) for row in saved], [tuple(row) for row in candidate]
+    changes = []
+    for kind, a, b, c, d in SequenceMatcher(None, old, new, autojunk=False).get_opcodes():
+        if kind != 'equal':
+            changes.extend(old[a:b])
+            changes.extend(new[c:d])
+    return 0 < len(changes) <= 2 and all(decorative(row) for row in changes)
+
+
 def compare(saved, candidate):
-    """Exact contextual evidence, independent of indexes and coordinates."""
-    return saved == candidate
+    if saved == candidate:
+        return 'exact'
+    ancestry = 'ancestry'
+    if ({key: value for key, value in saved.items() if key != ancestry} !=
+            {key: value for key, value in candidate.items() if key != ancestry}):
+        return None
+    # Strong matches tolerate only insertion/removal of unnamed wrappers and
+    # still require affirmative name, native action and a named real ancestor.
+    anchor = any(name and role not in STRUCTURAL_WRAPPERS for role, name in saved[ancestry])
+    if (saved.get('name') and saved.get('actions') and anchor
+            and normalized_ancestry(saved[ancestry]) == normalized_ancestry(candidate[ancestry])
+            and minor_layout_change(saved[ancestry], candidate[ancestry])):
+        return 'strong_contextual'
+    return None
 
 
 def match_status(matches, complete):
@@ -127,6 +161,25 @@ class AnnotationStore:
                                       provenance=row['provenance']) for row in records],
                     next=offset + 8 if len(rows) > 8 else None)
 
+    def search(self, session, app, query, revision, offset):
+        with self.connection() as db:
+            rows = db.execute('''SELECT payload FROM annotations AS current
+                WHERE session=? AND app=? AND state!='deleted'
+                AND revision=(SELECT max(revision) FROM annotations AS previous
+                    WHERE previous.session=current.session AND previous.app=current.app
+                    AND previous.id=current.id)
+                ORDER BY id LIMIT 128''', (session, app)).fetchall()
+        matches = []
+        for (payload,) in rows:
+            record = json.loads(payload)
+            if ((revision == 0 or revision == record['revision'])
+                    and query.casefold() in record['annotation']['meaning'].casefold()):
+                matches.append(dict(id=record['id'], revision=record['revision'],
+                                    meaning=record['annotation']['meaning'][:80],
+                                    reviewState=record['reviewState'], provenance=record['provenance']))
+        return dict(annotations=matches[offset:offset + 8],
+                    next=offset + 8 if len(matches) > offset + 8 else None)
+
     def revise(self, session, app, key, revision, principal, *, annotation=None, review=None):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -137,7 +190,7 @@ class AnnotationStore:
                 raise TeachingError('annotation_revision_conflict')
             if revision >= 64 and review != 'deleted':
                 raise TeachingError('annotation_revision_limit')
-            record.update(revision=revision + 1, updatedBy=principal, updatedAt=int(time.time()))
+            record.update(version=TEACH_VERSION, revision=revision + 1, updatedBy=principal, updatedAt=int(time.time()))
             if annotation is not None:
                 record.update(annotation=annotation, reviewState='operator_supplied')
             else:

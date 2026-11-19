@@ -1,0 +1,115 @@
+{
+  "result": "GO",
+  "browser_only": false,
+  "stage": "completed",
+  "isolation": {
+    "owner": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    },
+    "delegate": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    },
+    "observer": {
+      "denied_endpoints": 15,
+      "denied_private_paths": 4,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    }
+  },
+  "workspace": {
+    "mkdir": "confirmed",
+    "rename": "confirmed",
+    "independent": true,
+    "verifier": "linux_dirfd_readback"
+  },
+  "nautilus": {
+    "status": "confirmed",
+    "evidence": {
+      "app": "files",
+      "windows": 1,
+      "semantic": "correlated",
+      "directory": "drafts",
+      "verifier": "scoped_argv_and_supervised_sway_window"
+    },
+    "selection_probe": "multiple_native_candidates"
+  },
+  "gtk_teacher": {
+    "toolkit": "GTK4",
+    "widget_events": "scripted",
+    "role": "observer",
+    "match": "exact",
+    "provenance": {
+      "element": "atspi",
+      "annotation": "operator_annotation",
+      "association": "context_match"
+    },
+    "criteria": [
+      "application_build",
+      "window_context",
+      "role",
+      "name",
+      "semantic_interfaces",
+      "native_actions",
+      "ancestry"
+    ],
+    "fresh_process": true,
+    "stale_ref_refused": true
+  },
+  "capture_input": {
+    "capture_without_grant": "denied",
+    "capture_with_grant": "unavailable",
+    "target_bound_input": "unavailable"
+  },
+  "editor": {
+    "saved": true,
+    "independent": true,
+    "sha256": "c7e684c8e813d2e148fa7e7bf66e58fe16bc4820550a005ecf6257a87f429c99"
+  },
+  "expired_grant_denied": true,
+  "browser": {
+    "launch": "confirmed",
+    "verification": {
+      "app": "browser",
+      "page": "form",
+      "semantic": "correlated",
+      "network": "private_namespace",
+      "verified_subprocesses": 7,
+      "profile": "disposable"
+    },
+    "protected_text_denied": true,
+    "field_discovery": "matched",
+    "text": "confirmed",
+    "selection": "confirmed",
+    "submit": "confirmed",
+    "readback": {
+      "page": "receipt",
+      "fields": {
+        "name": "Sample Operator",
+        "category": "beta"
+      },
+      "source": "atspi_document"
+    },
+    "independent_observer": true
+  }
+}

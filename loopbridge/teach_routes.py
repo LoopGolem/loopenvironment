@@ -15,11 +15,12 @@ SCHEMA = {
     'teach.delete': {'app', 'annotation', 'revision'},
     'teach.inspect': {'app', 'annotation'},
     'teach.list': {'app', 'offset'},
+    'teach.search': {'app', 'query', 'revision', 'offset'},
     'teach.resolve': {'ref', 'annotation'},
     'teach.review': {'app', 'annotation', 'revision', 'decision'},
 }
 REQUIRED = dict(create='teach.write', update='teach.write', delete='teach.delete',
-                inspect='teach.read', list='teach.read', resolve='teach.read', review='teach.review')
+                inspect='teach.read', list='teach.read', search='teach.read', resolve='teach.read', review='teach.review')
 LIVE_METHOD = {'create': 'teach.capture', 'resolve': 'teach.find'}
 
 
@@ -98,6 +99,11 @@ class TeachRoutes:
     def metadata(self, session, app, principal, method, params):
         if method == 'list':
             return self.store.list(session, app, params['offset'])
+        if method == 'search':
+            revision = params['revision']
+            if type(revision) is not int or not 0 <= revision <= 65:
+                raise TeachingError('invalid_annotation_revision')
+            return self.store.search(session, app, params['query'].strip(), revision, params['offset'])
         key = params['annotation']
         if method == 'inspect':
             return self.store.get(session, app, key)

@@ -10,19 +10,14 @@ import tempfile
 import time
 
 from .adapter import Refused
+from . import browser
+from .catalog import CATALOG
 from .linux_desktop import process_identity, sway, texts, wait_for, walk, windows
 from .workspace import Workspace
 from .teaching_picker import Picker
 from .semantic_operations import (POLICIES, Prepared, SemanticOperations, actions,
                                   semantic_signature, short, state_flags)
 
-CATALOG = {
-    'calculator': ('/usr/bin/gnome-calculator', 'org.gnome.Calculator', '--mode=basic'),
-    'editor': ('/usr/bin/gnome-text-editor', 'org.gnome.TextEditor', '--standalone'),
-    'files': ('/usr/bin/nautilus', 'org.gnome.Nautilus', '--new-window'),
-    'clocks': ('/usr/bin/gnome-clocks', 'org.gnome.clocks'),
-    'browser': ('/usr/bin/firefox-esr', 'firefox-esr'),
-}
 EDITED_DOCUMENT = 'report.txt'
 PAGE = 8
 
@@ -32,6 +27,8 @@ class Application:
     process: object
     identity: tuple | None = None
     document: str | None = None
+    directory: str | None = None
+    profile: Path | None = None
 
 
 @dataclass
@@ -49,10 +46,13 @@ class Desktop:
 
     def __init__(self, runtime, workspace):
         import pyatspi
+        from gi.repository import GLib
 
+        self.atspi_errors = (GLib.Error, RuntimeError, OSError, AttributeError, TypeError)
         pyatspi.setTimeout(1000, 2000)
         self.desktop = lambda: pyatspi.Registry.getDesktop(0)
         sway('get_tree')
+        self.desktop()
         self.workspace = Workspace(workspace) if workspace else None
         self.profile = tempfile.TemporaryDirectory(prefix='apps-', dir=runtime)
         self.apps = {}
@@ -75,14 +75,18 @@ class Desktop:
         self.profile.cleanup()
 
     def supported(self, app):
-        return (app != 'browser' and os.access(CATALOG[app][0], os.X_OK)
-                and (app not in ('editor', 'files') or self.workspace is not None))
+        spec = CATALOG[app]
+        if spec.profile == 'offline_fixture':
+            return browser.ready()
+        return (os.access(spec.executable, os.X_OK)
+                and (spec.profile not in ('document', 'directory') or self.workspace is not None))
 
     def app_info(self, app):
-        executable, app_id, *_ = CATALOG[app]
+        spec = CATALOG[app]
         running = self.apps.get(app)
-        return dict(app=app, application_id=app_id, installed=os.access(executable, os.X_OK),
-                    launch_supported=self.supported(app),
+        return dict(app=app, application_id=spec.window_id, installed=os.access(spec.executable, os.X_OK),
+                    launch_supported=self.supported(app), profile=spec.profile,
+                    launch_method='browser.open_fixture' if spec.profile == 'offline_fixture' else 'app.launch',
                     state='running' if running and running.process.poll() is None else 'stopped',
                     mutations=POLICIES[app].mutations())
 
@@ -90,6 +94,11 @@ class Desktop:
         running = self.apps.get(app)
         if running is None or running.process.poll() is not None:
             raise Refused('application_not_running')
+        if app == 'browser':
+            if running.identity is None:
+                raise Refused('browser_identity_unavailable')
+            browser.lineage(running.process.pid, running.identity[0], running.identity)
+            return running
         identity = process_identity(running.process.pid)
         if identity != running.identity:
             raise Refused('process_identity_changed')
@@ -100,13 +109,18 @@ class Desktop:
         pid, ticks, _, _ = running.identity
         records = [record for record in windows(sway('get_tree')) if record['pid'] == pid]
         allowed = [record for record in records
-                   if record['app_id'] == CATALOG[app][1] and record['shell'] == 'xdg_shell']
-        applications = [item for item in self.desktop() if item.get_process_id() == pid]
-        if len(allowed) == 1 and len(records) == 1 and len(applications) == 1:
-            frames = [node for node in applications[0] if node.getRoleName() == 'frame']
-        else:
-            frames = []
-        frame = frames[0] if len(frames) == 1 else None
+                   if record['app_id'] == CATALOG[app].window_id and record['shell'] == 'xdg_shell']
+        frame = None
+        if len(allowed) == 1 and len(records) == 1:
+            try:
+                applications = [item for item in self.desktop() if item.get_process_id() == pid]
+                if len(applications) == 1:
+                    frames = [node for node in applications[0] if node.getRoleName() == 'frame']
+                    frame = frames[0] if len(frames) == 1 else None
+            except self.atspi_errors:
+                # Sway identity is still useful while accessibility registers
+                # or tears down. An inconclusive tree never gets a reference.
+                pass
         return allowed[:16], frame, pid, ticks
 
     def reference(self, target):
@@ -125,6 +139,8 @@ class Desktop:
             raise Refused('window_unavailable_or_ambiguous')
         if self.apps[app].document:
             self.verify_document(app, frame)
+        if app == 'browser':
+            browser.known_document(frame)
         if not element:
             return saved, frame
         node = frame
@@ -170,9 +186,18 @@ class Desktop:
                     ref=self.reference(Target(target.app, target.window, target.frame,
                                               path, node, signature)))
 
+    def tree_start(self, app, frame):
+        if app != 'browser':
+            return [((), frame)]
+        document, _ = browser.known_document(frame)
+        roots = [(path, node) for path, node in walk(frame) if node == document]
+        if len(roots) != 1:
+            raise Refused('browser_document_ambiguous')
+        return roots
+
     def tree(self, app, token, offset, depth):
         target, frame = self.resolve(app, token)
-        pending = [((), frame)]
+        pending = self.tree_start(app, frame)
         page, index, truncated = [], 0, False
         while pending and len(page) < PAGE:
             path, node = pending.pop()
@@ -189,6 +214,42 @@ class Desktop:
         return dict(elements=page, next=index if pending and index < 512 else None,
                     truncated=truncated or bool(pending and index >= 512))
 
+    def find(self, app, token, filters):
+        target, frame = self.resolve(app, token)
+        pending = self.tree_start(app, frame)
+        visited, matches, complete = 0, [], True
+        while pending and visited < 512:
+            path, node = pending.pop()
+            if node is None:
+                complete = False
+                continue
+            visited += 1
+            role, name, interfaces = semantic_signature(node)
+            protected = role == 'password text' or 'protected' in state_flags(node)
+            if protected:
+                continue
+            if ((not filters['role'] or role == filters['role'])
+                    and (not filters['name'] or self.label(app, name) == filters['name'])
+                    and (not filters['interface'] or filters['interface'] in interfaces)):
+                labels, truncated = actions(node, interfaces, limit=64) if filters['action'] else ([], False)
+                if truncated:
+                    complete = False
+                elif not filters['action'] or filters['action'] in labels:
+                    matches.append((path, node))
+                    if len(matches) == 2:
+                        return dict(status='ambiguous', reason='multiple_native_candidates')
+            count = node.childCount
+            if count < 0 or count > 128 or (count and len(path) >= 40):
+                complete = False
+                continue
+            pending.extend(((*path, index), node[index]) for index in reversed(range(count)))
+        if not complete or pending:
+            return dict(status='unresolved', reason='incomplete_tree')
+        if not matches:
+            return dict(status='unresolved', reason='no_native_candidate')
+        path, node = matches[0]
+        return dict(status='matched', element=self.describe(target, path, node), source='atspi')
+
     def query(self, method, app, params):
         if method == 'teach.capture':
             return self.picker.capture(app, params['ref'])
@@ -199,13 +260,26 @@ class Desktop:
         if method == 'window.list':
             return self.window_list(app)
         if method.startswith('workspace.'):
-            if method == 'workspace.list':
-                return self.workspace.listing(params['offset'])
+            if method in ('workspace.list', 'workspace.list_at'):
+                return self.workspace.listing(params['offset'], params.get('directory', ''))
             return dict(text=self.workspace.read(params['path']), source='workspace')
+        if method == 'desktop.capture':
+            self.resolve(app, params['ref'])
+            raise Refused('window_capture_unavailable')
+        if method == 'browser.document':
+            if app != 'browser':
+                raise Refused('browser_fixture_app_required')
+            _, frame = self.resolve(app, params['ref'])
+            _, uri = browser.known_document(frame)
+            if uri == browser.FORM:
+                return dict(page='form', source='atspi_document')
+            return dict(page='receipt', fields=browser.receipt_fields(uri), source='atspi_document')
         if method == 'window.inspect':
             target, node = self.resolve(app, params['ref'])
             return dict(window=str(target.window['id']), role=node.getRoleName(),
                         name=self.label(app, node.name), semantic='correlated', source='atspi')
+        if method == 'element.find':
+            return self.find(app, params['ref'], params)
         if method == 'element.tree':
             return self.tree(app, params['ref'], params['offset'], params['depth'])
         if method in ('element.inspect', 'element.refresh'):
@@ -216,17 +290,22 @@ class Desktop:
             return result
         return self.operations.read(method, app, params)
 
-    def prepare_launch(self, app, document=None):
+    def prepare_launch(self, app, document=None, directory=None):
         if not self.supported(app):
             raise Refused('launch_unsupported')
         existing = self.apps.get(app)
         if existing and existing.process.poll() is None:
             raise Refused('application_already_running')
-        executable, app_id, *args = CATALOG[app]
-        if any(row['app_id'] == app_id for row in windows(sway('get_tree'))):
+        spec = CATALOG[app]
+        if spec.profile == 'offline_fixture':
+            raise Refused('launch_unsupported')
+        if directory is not None and spec.profile != 'directory':
+            raise Refused('unsupported_directory_launch')
+        executable, args = spec.executable, list(spec.arguments)
+        if any(row['app_id'] == spec.window_id for row in windows(sway('get_tree'))):
             raise Refused('external_application_already_running')
         # Single-instance GTK programs may forward argv to a background peer.
-        if app != 'editor':
+        if not spec.standalone:
             for entry in Path('/proc').iterdir():
                 if not entry.name.isdecimal():
                     continue
@@ -235,7 +314,7 @@ class Desktop:
                         raise Refused('external_application_already_running')
                 except OSError:
                     continue
-        if app == 'editor':
+        if spec.profile == 'document':
             document = document or EDITED_DOCUMENT
             try:
                 args.append(self.workspace.file_path(document))
@@ -243,9 +322,12 @@ class Desktop:
                 raise Refused('invalid_workspace_document') from None
         elif document is not None:
             raise Refused('unsupported_document_launch')
-        elif app == 'files':
-            self.workspace.verify_root()
-            args.append(str(self.workspace.path))
+        elif spec.profile == 'directory':
+            directory = directory if directory is not None else ''
+            try:
+                args.append(self.workspace.directory_path(directory))
+            except (OSError, ValueError):
+                raise Refused('invalid_workspace_directory') from None
         home = Path(self.profile.name) / app
         home.mkdir(exist_ok=True, mode=0o700)
         env = {key: os.environ[key] for key in ('WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR',
@@ -258,7 +340,7 @@ class Desktop:
             process = subprocess.Popen([executable, *args], env=env, cwd=home,
                                        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, close_fds=True)
-            self.apps[app] = Application(process, document=document)
+            self.apps[app] = Application(process, document=document, directory=directory)
 
         def verify():
             running = self.apps[app]
@@ -270,27 +352,82 @@ class Desktop:
             if not observed['windows']:
                 raise Refused('window_not_found')
             semantic = observed['windows'][0]['semantic']
-            if app in ('editor', 'calculator') and semantic != 'correlated':
+            if spec.semantic_required and semantic != 'correlated':
                 raise Refused('semantic_not_ready')
-            return dict(app=app, windows=len(observed['windows']), semantic=semantic)
+            evidence = dict(app=app, windows=len(observed['windows']), semantic=semantic)
+            if directory is not None:
+                evidence.update(directory=directory, verifier='scoped_argv_and_supervised_sway_window')
+            return evidence
 
         return Prepared(send, lambda: wait_for(verify, timeout=18))
 
+    def prepare_browser(self):
+        try:
+            args, profile = browser.launch_args(self.profile.name)
+        except (OSError, KeyError, ValueError):
+            raise Refused('browser_isolation_unavailable') from None
+
+        def send():
+            process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                       stderr=subprocess.DEVNULL, close_fds=True)
+            self.apps['browser'] = Application(process, profile=profile)
+
+        def verify():
+            running = self.apps['browser']
+            descendants = browser.process_tree(running.process.pid)
+            candidates = [row for row in windows(sway('get_tree'))
+                          if row['app_id'] == CATALOG['browser'].window_id and row['pid'] in descendants]
+            if len(candidates) != 1:
+                raise Refused('browser_window_unavailable_or_ambiguous')
+            running.identity, children = browser.lineage(running.process.pid, candidates[0]['pid'])
+            records, frame, _, _ = self.match('browser')
+            if len(records) != 1 or frame is None or browser.known_document(frame)[1] != browser.FORM:
+                raise Refused('browser_fixture_not_ready')
+            browser.browser_native.call(profile, 'ready')
+            return dict(app='browser', page='form', semantic='correlated', network='private_namespace',
+                        verified_subprocesses=children, profile='disposable')
+
+        return Prepared(send, lambda: wait_for(verify, timeout=30))
+
     def prepare_operation(self, method, app, params):
-        if method in ('app.launch', 'app.open_document'):
-            return self.prepare_launch(app, params.get('document'))
+        if method == 'browser.open_fixture':
+            current = self.apps.get(app)
+            if app != 'browser':
+                raise Refused('browser_fixture_app_required')
+            if current is not None and current.process.poll() is None:
+                raise Refused('application_already_running')
+            return self.prepare_browser()
+        if method == 'input.key':
+            self.resolve(app, params['ref'])
+            raise Refused('target_bound_input_unavailable')
+        if method in ('app.launch', 'app.open_document', 'app.open_directory'):
+            return self.prepare_launch(app, params.get('document'), params.get('directory'))
         if method == 'app.close':
             return self.prepare_close(app)
-        if method == 'workspace.write':
-            name, text = self.workspace.prepare(params['path'], params['text'])
-            return Prepared(lambda: self.workspace.write(name, text),
-                            lambda: self.workspace.confirm(name, text))
+        if method.startswith('workspace.'):
+            try:
+                if method == 'workspace.mkdir':
+                    path = params['path']
+                    self.workspace.require_absent(path)
+                    return Prepared(lambda: self.workspace.mkdir(path),
+                                    lambda: self.workspace.confirm_directory(path))
+                if method == 'workspace.rename':
+                    source, destination = params['source'], params['destination']
+                    expected = self.workspace.prepare_rename(source, destination)
+                    return Prepared(lambda: self.workspace.rename(source, destination),
+                                    lambda: self.workspace.confirm_rename(source, destination, expected))
+                name, text = self.workspace.prepare(params['path'], params['text'])
+                return Prepared(lambda: self.workspace.write(name, text),
+                                lambda: self.workspace.confirm(name, text))
+            except (OSError, ValueError):
+                raise Refused('workspace_path_or_operation_unavailable') from None
         return self.operations.prepare(method, app, params)
 
     def verify_document(self, app, frame):
         document = self.apps[app].document
         self.workspace.file_path(document)
-        expected = f'{document} ({self.workspace.path}) - Text Editor'
+        path = Path(document)
+        expected = f'{path.name} ({self.workspace.path / path.parent}) - Text Editor'
         if (frame.name or '').lstrip('*• ') != expected:
             raise Refused('editor_document_changed')
         return document
@@ -323,6 +460,7 @@ class Desktop:
 
     def prepare_close(self, app):
         application = self.process(app)
+        browser_pids = browser.process_tree(application.process.pid) if app == 'browser' else {}
         if application.document:
             records, frame, _, _ = self.match(app)
             if not records or frame is None:
@@ -337,7 +475,8 @@ class Desktop:
 
         def verify():
             application.process.wait(timeout=5)
-            if any(row['pid'] == application.process.pid for row in windows(sway('get_tree'))):
+            if any(row['pid'] in (browser_pids or {application.process.pid})
+                   for row in windows(sway('get_tree'))):
                 raise Refused('window_still_present')
             return dict(app=app, state='stopped')
 
