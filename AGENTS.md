@@ -1,15 +1,15 @@
 # Instructions for automated contributors
 
-Scope: **LoopEnvironment only** — an independent open-source Linux OS with visual and structured operator interfaces, native LoopBridge and planned LoopTeach.
+Scope: **LoopEnvironment only** — an open-source environment for existing Linux, centered on LoopBridge, with visual and structured operator interfaces and planned LoopTeach.
 
 ## Current project phase
 
-M0/M0.5 research and bounded M1.1/M1.2 experiments are recorded (see docs/labs/); neither proves a deployed OS or Bridge. M1.3 stopped at preflight with NO-GO for the investigated approach; see docs/labs/M1_3_FALLBACK_HUMAN_CONTROL.md. Safe compositor-side preemption remains unqualified; capture, observer and takeover were not implemented. Re-scope M1.3 against ADR 0008 before further tests. No bootable image, selected compositor, stable API or implemented LoopTeach exists; do not claim otherwise.
+ADR 0010 defines the current product scope. LoopBridge Core V0.1 is the first bounded service implementation. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
 
 ## Non-negotiable product boundaries
 
-- LoopEnvironment must be usable independently on physical or virtual machines.
-- LoopBridge is part of the OS, open and provider-agnostic.
+- LoopEnvironment runs on existing Linux on physical or virtual machines.
+- LoopBridge is the central service, open and provider-agnostic.
 - Real Linux applications, graphical operation and a structured operator interface are core goals.
 - Initial setup establishes a master/responsible owner principal, whether controlled by human, AI or software.
 - Agent clients may run outside the guest; authority derives from authentication and grants, not biological labels.
@@ -23,7 +23,7 @@ M0/M0.5 research and bounded M1.1/M1.2 experiments are recorded (see docs/labs/)
 
 ## Before changes
 
-Read README, VISION, PRODUCT_DEFINITION, OPERATOR_MODEL, LOOPTEACH, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index (including ADRs 0008–0009). Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
+Read README, VISION, PRODUCT_DEFINITION, OPERATOR_MODEL, LOOPTEACH, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index (including ADRs 0008–0010). Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
 
 ## Working discipline
 

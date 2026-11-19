@@ -81,7 +81,7 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **M1.3B.2 — Nested build preflight: PARTIAL (local result, 2026-11-18).** The Meson configure exited 1 on incomplete wlroots/Sway source trees, so neither a child binary nor nested smoke test existed. Cleanup passed without modifications to the parent Sway or system installation. **Isolation, ACK and takeover were not tested.** The local logs/report were not yet versioned; this summary does not certify their evidence. The earlier late AT-SPI effect/NO-GO remains in force.
 
-**Next focus:** study Cua Driver's implementation and reuse opportunities, then consolidate **LoopBridge Core V0.1** on existing Linux. See [ADR 0010](docs/DECISIONS/0010-linux-environment-not-os.md) and the [roadmap](docs/ROADMAP.md).
+**LoopBridge Core V0.1 — experimental implementation.** The Unix-socket service supports authenticated principals, scoped grants, leases, structured Calculator observation and one semantic action. See the [architecture and run instructions](docs/LOOPBRIDGE_CORE_V0_1.md) and [qualification results](docs/LOOPBRIDGE_CORE_V0_1_RESULTS.md).
 
 ## Documentation
 

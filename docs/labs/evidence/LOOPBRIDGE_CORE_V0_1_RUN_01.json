@@ -1,0 +1,520 @@
+{
+  "result": "GO",
+  "stage": "completed",
+  "baseline": {
+    "sway": true,
+    "wayland": true,
+    "session_bus": true,
+    "atspi_bus": true,
+    "x11": true,
+    "pipewire": true,
+    "system_bus": true,
+    "abstract_canary": true
+  },
+  "probes": {
+    "owner": {
+      "endpoints": {
+        "sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "system_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "abstract_canary": {
+          "connected": false,
+          "errno": 111
+        },
+        "proc_root_sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_system_bus": {
+          "connected": false,
+          "errno": 2
+        }
+      },
+      "devices": {
+        "by-path": 2,
+        "card0": 2,
+        "renderD128": 2,
+        "event0": 2,
+        "event1": 2,
+        "event2": 2,
+        "event3": 2,
+        "event4": 2,
+        "event5": 2,
+        "event6": 2,
+        "event7": 2,
+        "uinput": 2
+      },
+      "exposed_device_count": 0,
+      "inherited_socket_count": 0,
+      "unexpected_descriptor_count": 0,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "security": {
+        "CapEff": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "nested_userns_denied": true
+    },
+    "delegate": {
+      "endpoints": {
+        "sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "system_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "abstract_canary": {
+          "connected": false,
+          "errno": 111
+        },
+        "proc_root_sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_system_bus": {
+          "connected": false,
+          "errno": 2
+        }
+      },
+      "devices": {
+        "by-path": 2,
+        "card0": 2,
+        "renderD128": 2,
+        "event0": 2,
+        "event1": 2,
+        "event2": 2,
+        "event3": 2,
+        "event4": 2,
+        "event5": 2,
+        "event6": 2,
+        "event7": 2,
+        "uinput": 2
+      },
+      "exposed_device_count": 0,
+      "inherited_socket_count": 0,
+      "unexpected_descriptor_count": 0,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "security": {
+        "CapEff": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "nested_userns_denied": true
+    },
+    "observer": {
+      "endpoints": {
+        "sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "system_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "abstract_canary": {
+          "connected": false,
+          "errno": 111
+        },
+        "proc_root_sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_system_bus": {
+          "connected": false,
+          "errno": 2
+        }
+      },
+      "devices": {
+        "by-path": 2,
+        "card0": 2,
+        "renderD128": 2,
+        "event0": 2,
+        "event1": 2,
+        "event2": 2,
+        "event3": 2,
+        "event4": 2,
+        "event5": 2,
+        "event6": 2,
+        "event7": 2,
+        "uinput": 2
+      },
+      "exposed_device_count": 0,
+      "inherited_socket_count": 0,
+      "unexpected_descriptor_count": 0,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "security": {
+        "CapEff": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "nested_userns_denied": true
+    },
+    "invalid": {
+      "endpoints": {
+        "sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "system_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "abstract_canary": {
+          "connected": false,
+          "errno": 111
+        },
+        "proc_root_sway": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_wayland": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_session_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_atspi_bus": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_x11": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_pipewire": {
+          "connected": false,
+          "errno": 2
+        },
+        "proc_root_system_bus": {
+          "connected": false,
+          "errno": 2
+        }
+      },
+      "devices": {
+        "by-path": 2,
+        "card0": 2,
+        "renderD128": 2,
+        "event0": 2,
+        "event1": 2,
+        "event2": 2,
+        "event3": 2,
+        "event4": 2,
+        "event5": 2,
+        "event6": 2,
+        "event7": 2,
+        "uinput": 2
+      },
+      "exposed_device_count": 0,
+      "inherited_socket_count": 0,
+      "unexpected_descriptor_count": 0,
+      "private_namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ],
+      "security": {
+        "CapEff": "0000000000000000",
+        "NoNewPrivs": "1"
+      },
+      "nested_userns_denied": true
+    }
+  },
+  "calculator": {
+    "before": {
+      "0.0.0.0.0.0.0.1.0.0": "",
+      "0.0.0.0.0.0.0.1.1.0": ""
+    },
+    "independently_verified": {
+      "0.0.0.0.0.0.0.1.0.0": "7",
+      "0.0.0.0.0.0.0.1.1.0": ""
+    }
+  },
+  "audit": [
+    {
+      "method": "auth",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "auth",
+      "principal": "delegate",
+      "outcome": "ok"
+    },
+    {
+      "method": "auth",
+      "principal": "observer",
+      "outcome": "ok"
+    },
+    {
+      "method": "auth",
+      "principal": null,
+      "outcome": "denied"
+    },
+    {
+      "method": "delegate",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "delegate",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "delegate",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "delegate",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "delegate",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "discover",
+      "principal": "observer",
+      "outcome": "ok"
+    },
+    {
+      "method": "capabilities",
+      "principal": "observer",
+      "outcome": "ok"
+    },
+    {
+      "method": "acquire",
+      "principal": "observer",
+      "outcome": "grant_denied"
+    },
+    {
+      "method": "snapshot",
+      "principal": "observer",
+      "outcome": "ok"
+    },
+    {
+      "method": "acquire",
+      "principal": "delegate",
+      "outcome": "ok"
+    },
+    {
+      "method": "snapshot",
+      "principal": "delegate",
+      "outcome": "ok"
+    },
+    {
+      "method": "snapshot",
+      "principal": "delegate",
+      "outcome": "ok"
+    },
+    {
+      "method": "invoke7",
+      "principal": "delegate",
+      "outcome": "stale_reference"
+    },
+    {
+      "method": "invoke7",
+      "principal": "delegate",
+      "outcome": "confirmed"
+    },
+    {
+      "method": "snapshot",
+      "principal": "observer",
+      "outcome": "ok"
+    },
+    {
+      "method": "invoke7",
+      "principal": "observer",
+      "outcome": "grant_denied"
+    },
+    {
+      "method": "invoke7",
+      "principal": "delegate",
+      "outcome": "stale_reference"
+    },
+    {
+      "method": "revoke",
+      "principal": "owner",
+      "outcome": "ok"
+    },
+    {
+      "method": "invoke7",
+      "principal": "delegate",
+      "outcome": "grant_denied"
+    },
+    {
+      "method": "acquire",
+      "principal": "delegate",
+      "outcome": "grant_denied"
+    }
+  ]
+}

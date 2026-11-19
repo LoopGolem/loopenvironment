@@ -80,9 +80,9 @@ The user reported local-only evidence under `docs/labs/M1_3B2_NESTED_SMOKE_01.md
 
 **Status:** accepted product direction, **not** part of current runtime experiments. Specify application-scoped annotations and provenance; later demonstrate a trusted target picker (preferred configurable Super+click plus alternatives), saved-profile lookup after restart, correct/ambiguous-match handling, and permission separation. A curated tested profile set for bundled applications is a future distribution goal. [LoopTeach design](LOOPTEACH.md) · [ADR 0009](DECISIONS/0009-native-loopteach.md).
 
-## Next focus — Cua Driver comparison and LoopBridge Core V0.1
+## LoopBridge Core V0.1
 
-Compare Cua Driver's implementations, exact targeting, permission/consent model, results, Linux backend and compositor integrations with our M1 evidence; document reuse/build trade-offs before adopting a dependency. Consolidate the current bounded identity/grant/session prototype into an **experimental LoopBridge Core V0.1** service on existing Debian with a small authenticated structured API, honest outcome states, negative isolation tests and independent clients. None of this waives M1.3B/1.3C gates or qualifies production security.
+The [experimental local service](LOOPBRIDGE_CORE_V0_1.md) implements the bounded Calculator path on existing Linux. See the [qualification results](LOOPBRIDGE_CORE_V0_1_RESULTS.md). The M1.3B and M1.3C gates remain open. Cua Driver comparison and any decision to adopt an external dependency remain separate work.
 
 ## M2 — Reproducible installation on existing Linux
 
@@ -123,4 +123,4 @@ Any claim of remote interactive takeover requires evidence that an authenticated
 - Maintain the distinction between historical experiment terminology and the current operator-neutral identity/ownership contract.
 - Record measured findings and unresolved risks; avoid calling speculative features "implemented".
 - Maintain main as the reference branch; use at most one active short-lived implementation branch at a time where practical.
-- Do not introduce dependencies on proprietary agents or services for core OS operation.
+- Do not introduce dependencies on proprietary agents or services for core LoopEnvironment operation.
