@@ -1,6 +1,6 @@
 # Operator identity, ownership and session authority
 
-**Status:** accepted product requirements; implementation, credential format and UI remain unselected. See [ADR 0008](DECISIONS/0008-operator-neutral-authority.md).
+**Status:** accepted product requirements on an existing Linux host; implementation, credential format and UI remain unselected. See [ADR 0008](DECISIONS/0008-operator-neutral-authority.md) and [ADR 0010](DECISIONS/0010-linux-environment-not-os.md).
 
 ## Core distinction
 

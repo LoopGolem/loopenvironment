@@ -1,6 +1,6 @@
 # Security and trust model
 
-**Status:** initial threat model; implementation and independent review are still required.
+**Status:** initial threat model for LoopEnvironment services on existing Linux; implementation and independent review are still required.
 
 LoopEnvironment targets both interactive and automated control of graphical workflows, which may touch documents, authenticated websites, messages, and other sensitive resources. **The bridge is a high-value control surface.** The mere fact that an agent is local or that a VM is isolated does not make its actions safe.
 
@@ -14,7 +14,7 @@ Boundaries:
 - User session ↔ OS privileges and protected devices.
 - Virtual guest ↔ host (network, shared folders, clipboard, devices, secrets).
 - Owner/delegate/controller/observer principals ↔ sessions and each other. Observation, input, teaching and override use separate grants.
-- Software image/update process ↔ upstream package sources and signing keys.
+- Environment package and optional image/update process ↔ upstream package sources and signing keys.
 
 A locally **untrusted client** runs outside the graphical session's trusted execution context; an external AI may instead run on another machine and only connect using authenticated credentials. Principal identity is not equivalent to a Linux UID or a biological human. Owner-level authority must not be inherited indiscriminately by arbitrary processes. [ADR 0006](DECISIONS/0006-mandatory-agent-mediation.md) · [ADR 0008](DECISIONS/0008-operator-neutral-authority.md)
 
