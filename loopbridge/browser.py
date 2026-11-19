@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 from .adapter import Refused
 from . import browser_native
 from .catalog import CATALOG
+from .web_native import ROOT as SITE_ROOT, PAGES as SITE_PAGES
 from .linux_desktop import process_identity, wait_for, walk
 from .semantic_operations import Prepared, state_flags
 
@@ -32,7 +33,7 @@ def mounted_socket(path):
     return str(path)
 
 
-def launch_args(root):
+def launch_args(root, site=False):
     from gi.repository import Gio
 
     if not ready():
@@ -75,15 +76,19 @@ user_pref("accessibility.force_disabled", -1);
             '--ro-bind', str(Path(__file__).parent / 'web_fixture'), '/fixture',
             '--ro-bind', str(Path(__file__).with_name('browser_boot.py')), '/browser_boot.py',
             '--ro-bind', str(Path(__file__).with_name('browser_native.py')), '/browser_native.py',
+            '--ro-bind', str(Path(__file__).with_name('web_native.py')), '/web_native.py',
             '--bind', str(home), '/home/browser', '--chdir', '/home/browser',
             '--clearenv', '--cap-drop', 'ALL']
     env = dict(PATH='/usr/bin', HOME='/home/browser', XDG_RUNTIME_DIR='/run/browser',
                WAYLAND_DISPLAY='wayland-0', AT_SPI_BUS_ADDRESS='unix:path=/run/browser/atspi',
                MOZ_ENABLE_WAYLAND='1', GTK_A11Y='1', LANG='C.UTF-8', LIBGL_ALWAYS_SOFTWARE='1')
+    if site:
+        env['LOOPBRIDGE_SITE'] = '1'
     for key, value in env.items():
         args.extend(('--setenv', key, value))
     args.extend(('--', '/usr/bin/dbus-run-session', '--config-file=/fixture/session.conf', '--',
-                 '/usr/bin/python3', '-B', '/browser_boot.py', EXEC, '--no-remote', '--new-instance', '--marionette', '--profile', '/home/browser/profile', FORM))
+                 '/usr/bin/python3', '-B', '/browser_boot.py', EXEC, '--no-remote', '--new-instance', '--marionette', '--profile',
+                 '/home/browser/profile', SITE_ROOT + SITE_PAGES['home'] if site else FORM))
     return args, home
 
 

@@ -11,7 +11,7 @@ import stat
 import time
 
 SCHEMA_VERSION = 1
-TEACH_VERSION = '0.2'
+TEACH_VERSION = '0.3'
 CAPABILITIES = frozenset(('teach.read', 'teach.write', 'teach.review', 'teach.delete'))
 FIELDS = ('meaning', 'operationHint', 'conditions', 'warnings')
 

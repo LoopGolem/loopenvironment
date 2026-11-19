@@ -92,7 +92,9 @@ def main():
     gui = subparsers.add_parser('teach-gui')
     gui.add_argument('--socket', required=True)
     gui.add_argument('--token-file', type=Path, required=True)
-    gui.add_argument('--demo', action='store_true')
+    evidence = gui.add_mutually_exclusive_group()
+    evidence.add_argument('--demo', action='store_true')
+    evidence.add_argument('--demo-review', action='store_true')
     args = parser.parse_args()
     try:
         if args.command == 'provision':
@@ -101,7 +103,7 @@ def main():
             service(args)
         elif args.command == 'teach-gui':
             from .teach_gui import run
-            return run(args.socket, read_private(args.token_file).rstrip('\n'), args.demo)
+            return run(args.socket, read_private(args.token_file).rstrip('\n'), args.demo, args.demo_review)
         elif args.command == 'teach':
             from .teach_cli import teach
             with socket.socket(socket.AF_UNIX) as sock:

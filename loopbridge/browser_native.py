@@ -15,6 +15,7 @@ ELEMENT = 'element-6066-11e4-a52e-4f735466cecf'
 SOCKET = '/home/browser/.native.sock'
 PORT = 2828
 MAX_PACKET = 32768
+SITE_LIMIT = 24000
 
 
 class NativeError(RuntimeError):
@@ -102,24 +103,35 @@ def serve():
             peer, _ = listener.accept()
             with peer:
                 peer.settimeout(4)
+                site = os.environ.get('LOOPBRIDGE_SITE') == '1'
                 try:
                     length = int.from_bytes(received(peer, 2), 'big')
-                    if not 0 < length <= 512:
+                    if not 0 < length <= (4096 if site else 512):
                         raise NativeError('request')
                     request = json.loads(received(peer, length))
-                    if (not isinstance(request, list) or len(request) != 2
-                            or any(type(item) is not str or len(item) > 40 for item in request)):
-                        raise NativeError('request')
                     if session is None:
                         session = Marionette()
-                    session.apply(request)
-                    peer.sendall(b'1')
-                except (NativeError, OSError, ValueError, KeyError, TypeError) as error:
+                    if site:
+                        from web_native import execute
+                        if type(request) is not dict or not isinstance(request.get('operation'), str):
+                            raise NativeError('request')
+                        site_reply(peer, dict(result=execute(session, request)))
+                    else:
+                        if (not isinstance(request, list) or len(request) != 2
+                                or any(type(item) is not str or len(item) > 40 for item in request)):
+                            raise NativeError('request')
+                        session.apply(request)
+                        peer.sendall(b'1')
+                except (NativeError, OSError, ValueError, KeyError, TypeError, AttributeError) as error:
                     detail = (str(error) if isinstance(error, NativeError)
                               else 'transport_' + str(error.errno) if isinstance(error, OSError)
                               else 'invalid_reply')
                     try:
-                        peer.sendall(b'0' + detail.encode()[:80])
+                        if site:
+                            from web_native import WebError
+                            site_reply(peer, dict(error=str(error) if isinstance(error, WebError) else detail))
+                        else:
+                            peer.sendall(b'0' + detail.encode()[:80])
                     except OSError:
                         pass
 
@@ -141,3 +153,31 @@ def call(folder, operation, value=''):
         receipt = peer.recv(128)
         if receipt != b'1':
             raise NativeError(receipt[1:].decode(errors='replace') if receipt else 'request_unverified')
+
+
+def site_reply(peer, response):
+    data = json.dumps(response).encode()
+    if len(data) > SITE_LIMIT:
+        data = b'{"error":"web_response_limit"}'
+    peer.sendall(len(data).to_bytes(2, 'big') + data)
+
+
+def site_call(folder, request):
+    target = folder / '.native.sock'
+    info = target.lstat()
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+        raise NativeError('private_socket')
+    data = json.dumps(request).encode()
+    if len(data) > 4096:
+        raise NativeError('web_request_limit')
+    with socket.socket(socket.AF_UNIX) as peer:
+        peer.settimeout(5)
+        peer.connect(str(target))
+        peer.sendall(len(data).to_bytes(2, 'big') + data)
+        size = int.from_bytes(received(peer, 2), 'big')
+        if not 0 < size <= SITE_LIMIT:
+            raise NativeError('web_response_limit')
+        response = json.loads(received(peer, size))
+    if 'error' in response:
+        raise NativeError(response['error'])
+    return response['result']
