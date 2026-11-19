@@ -1,0 +1,35 @@
+{
+  "result": "GO",
+  "stage": "qualified_private_capture_and_input",
+  "isolated_namespaces": [
+    "user",
+    "pid",
+    "mnt",
+    "net",
+    "ipc"
+  ],
+  "host_sockets_denied": {
+    "sway": true,
+    "wayland": true,
+    "session_bus": true
+  },
+  "window_observed": true,
+  "outputs": [
+    "HEADLESS-1"
+  ],
+  "startup": "GO",
+  "capture": {
+    "scope": "isolated_output",
+    "width": 800,
+    "height": 600,
+    "bytes": 1920000,
+    "distinctPixels": true
+  },
+  "input": "private_button_confirmed",
+  "input_exit": 0,
+  "capture_exit": 0,
+  "clean_shutdown": true,
+  "live_host_check_before_effects": true,
+  "host_tree_excludes_private_window": true,
+  "elapsed_seconds": 13.861
+}

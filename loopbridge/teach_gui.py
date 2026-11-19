@@ -14,15 +14,19 @@ from .protocol import Fault, RPC
 
 
 class Teacher:
-    def __init__(self, app, endpoint, credential, demo):
-        self.app, self.endpoint, self.credential, self.demo = app, endpoint, credential, demo
+    def __init__(self, app, endpoint, credential, demo, demo_review=False):
+        self.app, self.endpoint, self.credential = app, endpoint, credential
+        self.demo, self.demo_review = demo or demo_review, demo_review
+        self.pending_proof = None
+        self.focus = None
         self.worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='loopteach-rpc')
         self.socket = self.rpc = None
         self.apps = []
         self.windows = []
         self.nodes = []
         self.live = None
-        self.offset = 0
+        self.note = None
+        self.mode = 'elements'
         self.next = None
         self.busy = False
         self.failed = False
@@ -40,9 +44,18 @@ class Teacher:
         self.app_choice.connect('changed', self.load_windows)
         content.append(self.field('Application', self.app_choice))
         content.append(self.field('Window', self.window_choice))
-        self.filter = Gtk.SearchEntry(placeholder_text='Filter this page by role, name, or action')
-        self.filter.connect('search-changed', self.render_rows)
-        content.append(self.filter)
+        search_row = Gtk.Box(spacing=8)
+        self.filter = Gtk.SearchEntry(placeholder_text='Role, name, action or saved meaning',
+                                      hexpand=True)
+        self.filter.connect('activate', lambda *_: self.page(0))
+        controls = Gtk.Button(label='Search controls', tooltip_text='Search the whole scoped tree. Enter searches again.')
+        controls.connect('clicked', lambda *_: self.show('elements'))
+        notes = Gtk.Button(label='Search saved annotations')
+        notes.connect('clicked', lambda *_: self.show('notes'))
+        search_row.append(self.filter)
+        search_row.append(controls)
+        search_row.append(notes)
+        content.append(search_row)
         viewer = Gtk.ScrolledWindow(min_content_height=130, vexpand=True)
         self.list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
         self.list.connect('row-selected', self.inspect)
@@ -61,17 +74,39 @@ class Teacher:
         self.inputs = {}
         for key, label in (('meaning', 'Meaning'), ('operationHint', 'Suggested action'),
                            ('conditions', 'Conditions'), ('warnings', 'Warnings')):
-            entry = Gtk.Entry(max_length=128 if key == 'operationHint' else 480)
+            help_text = dict(meaning='What the control means, such as document.save.',
+                             operationHint='Suggested native action. This does not grant control.',
+                             conditions='When the annotation applies.', warnings='Known limits or risks.')
+            entry = Gtk.Entry(max_length=128 if key == 'operationHint' else 480,
+                              tooltip_text=help_text[key])
             self.inputs[key] = entry
             content.append(self.field(label, entry))
         self.save_button = Gtk.Button(label='Save annotation', sensitive=False)
         self.save_button.connect('clicked', self.save)
-        content.append(self.save_button)
+        actions = Gtk.Box(spacing=8)
+        actions.append(self.save_button)
+        self.resolve_button = Gtk.Button(label='Resolve in window', sensitive=False)
+        self.resolve_button.connect('clicked', self.resolve_note)
+        actions.append(self.resolve_button)
+        self.review_buttons = []
+        for decision in ('approved', 'rejected'):
+            button = Gtk.Button(label='Approve' if decision == 'approved' else 'Reject', sensitive=False)
+            button.connect('clicked', lambda _, value=decision: self.review(value))
+            actions.append(button)
+            self.review_buttons.append(button)
+        content.append(actions)
+        for name, key, activate in (
+                ('find', '<Primary>f', lambda: self.filter.grab_focus()),
+                ('save', '<Primary>s', lambda: self.save() if self.save_button.get_sensitive() else None)):
+            binding = Gio.SimpleAction.new(name, None)
+            binding.connect('activate', lambda *_args, callback=activate: callback())
+            self.window.add_action(binding)
+            app.set_accels_for_action('win.' + name, [key])
         self.status = Gtk.Label(xalign=0, wrap=True)
         content.append(self.status)
         self.window.present()
         self.request(self.connect, self.display_apps)
-        if demo:
+        if self.demo:
             self.deadline = time.monotonic() + 55
             GLib.timeout_add(100, self.run_demo)
 
@@ -102,6 +137,7 @@ class Teacher:
             return
         self.busy = True
         self.status.set_text('Loading…')
+        self.focus = self.window.get_focus()
         self.window.set_sensitive(False)
         future = self.worker.submit(task)
         future.add_done_callback(lambda completed: GLib.idle_add(self.completed, completed, handle))
@@ -109,10 +145,20 @@ class Teacher:
     def completed(self, future, handler):
         self.busy = False
         self.window.set_sensitive(True)
+        if self.focus is not None and self.focus.get_root() == self.window:
+            self.focus.grab_focus()
+        self.focus = None
         try:
             data = future.result()
-        except (Fault, OSError, EOFError, ValueError):
-            self.status.set_text('Request refused or unavailable. Reload the window or select again.')
+        except (Fault, OSError, EOFError, ValueError) as error:
+            code = error.message if isinstance(error, Fault) else ''
+            if code in ('stale_reference', 'snapshot_required', 'annotation_revision_conflict'):
+                self.clear_selection()
+                self.status.set_text('The selection or revision changed. Search again and reselect it.')
+            elif code == 'grant_denied':
+                self.status.set_text('This principal lacks permission for the selected operation.')
+            else:
+                self.status.set_text('Request unavailable. Reload the window or select again.')
             if self.demo:
                 self.failed = True
             return False
@@ -121,7 +167,7 @@ class Teacher:
         return False
 
     def display_apps(self, apps):
-        self.apps = [row for row in apps if row['state'] == 'running']
+        self.apps = apps
         for row in self.apps:
             self.app_choice.append_text(row['app'])
         if not self.apps:
@@ -131,7 +177,13 @@ class Teacher:
         selected = self.app_choice.get_active()
         if selected < 0:
             return
+        self.clear_selection()
+        self.nodes = []
+        self.render_rows()
         app = self.apps[selected]['app']
+        if self.mode == 'notes':
+            self.page(0)
+            return
         self.request(lambda: self.call('window.list', app=app)['windows'], self.display_windows)
 
     def display_windows(self, windows):
@@ -145,49 +197,87 @@ class Teacher:
     def load_tree(self, *_):
         self.page(0)
 
-    def page(self, offset):
-        selected = self.window_choice.get_active()
-        if selected < 0 or offset is None:
+    def show(self, mode):
+        if self.busy:
             return
-        window = self.windows[selected]
-        app = self.apps[self.app_choice.get_active()]['app']
+        self.mode = mode
+        self.page(0)
+
+    def fresh_window(self, app, window):
+        live = self.call('window.list', app=app)['windows']
+        reference = next((item['ref'] for item in live if item['window'] == window['window']
+                          and item['pid'] == window['pid']
+                          and item['process_start'] == window['process_start']), None)
+        if not reference:
+            raise ValueError('window_changed')
+        return reference
+
+    def page(self, offset):
+        chosen = self.app_choice.get_active()
+        if chosen < 0 or offset is None:
+            return
+        app = self.apps[chosen]['app']
+        selected = self.window_choice.get_active()
+        term = self.filter.get_text().strip()
+        if len(term) > 128:
+            self.status.set_text('Use up to 128 characters in a search.')
+            return
+        if self.mode == 'notes':
+            self.request(lambda: self.call('teach.search', app=app, query=term,
+                                          revision=0, offset=offset), self.display_page)
+            return
+        if selected < 0:
+            self.load_windows()
+            return
+        target = self.windows[selected]
 
         def query():
-            live = self.call('window.list', app=app)['windows']
-            reference = next((item['ref'] for item in live if item['window'] == window['window']
-                              and item['pid'] == window['pid']
-                              and item['process_start'] == window['process_start']), None)
-            if not reference:
-                raise ValueError('window_changed')
-            return self.call('element.tree', ref=reference, offset=offset, depth=40)
+            ref = self.fresh_window(app, target)
+            if term:
+                return self.call('element.search', ref=ref, query=term, offset=offset)
+            return self.call('element.tree', ref=ref, offset=offset, depth=40)
 
         self.request(query, self.display_page)
 
     def display_page(self, page):
-        self.nodes, self.next = page['elements'], page['next']
+        self.nodes, self.next = page.get('elements', page.get('annotations')), page['next']
+        if page.get('truncated'):
+            self.status.set_text('Some controls were omitted by tree limits. Refine the search.')
+        elif not self.nodes:
+            self.status.set_text('No results for this selection.')
         self.next_button.set_sensitive(self.next is not None)
         self.render_rows()
 
-    def render_rows(self, *_):
-        self.live = None
+    def clear_selection(self):
+        self.live = self.note = None
         self.save_button.set_sensitive(False)
+        self.resolve_button.set_sensitive(False)
+        for button in self.review_buttons:
+            button.set_sensitive(False)
         self.evidence.set_text('')
+
+    def render_rows(self, *_):
+        self.clear_selection()
         while (row := self.list.get_first_child()) is not None:
             self.list.remove(row)
-        query = self.filter.get_text().strip().casefold()
         for node in self.nodes:
-            searchable = ' '.join([node['role'], node['name'], *node['actions']])
-            if query not in searchable.casefold():
-                continue
+            if self.mode == 'notes':
+                label = f"{node['meaning']} · revision {node['revision']} · {node['reviewState']}"
+            else:
+                label = ' '.join([node['role'], node['name'], *node['actions']])
             row = Gtk.ListBoxRow()
             row.node = node
-            row.set_child(Gtk.Label(label=searchable, xalign=0, wrap=True))
+            row.set_child(Gtk.Label(label=label, xalign=0, wrap=True))
             self.list.append(row)
 
     def inspect(self, _list, row):
-        self.live = None
-        self.save_button.set_sensitive(False)
+        self.clear_selection()
         if row is None:
+            return
+        if self.mode == 'notes':
+            app = self.apps[self.app_choice.get_active()]['app']
+            ident = row.node['id']
+            self.request(lambda: self.call('teach.inspect', app=app, annotation=ident), self.display_note)
             return
         token = row.node['ref']
 
@@ -198,32 +288,88 @@ class Teacher:
 
         self.request(query, self.display_evidence)
 
+    def display_note(self, note):
+        self.note = note
+        self.evidence.set_text(f"{note['provenance']} · revision {note['revision']} · {note['reviewState']}\n"
+                               f"Created by {note['createdBy']} · Updated by {note['updatedBy']}")
+        for key, entry in self.inputs.items():
+            entry.set_text(note['annotation'][key])
+        self.save_button.set_label('Save revision')
+        self.save_button.set_sensitive(True)
+        self.resolve_button.set_sensitive(self.window_choice.get_active() >= 0)
+        for button in self.review_buttons:
+            button.set_sensitive(True)
+
+    def resolve_note(self, *_):
+        selected = self.window_choice.get_active()
+        if self.note is None or selected < 0:
+            return
+        note, window = self.note, self.windows[selected]
+
+        def resolve():
+            ref = self.fresh_window(note['app'], window)
+            return self.call('teach.resolve', ref=ref, annotation=note['id'])
+
+        def display(result):
+            quality = result.get('matchQuality', result['status'])
+            origin = result.get('provenance', {}).get('association', 'AT-SPI evidence')
+            criteria = ', '.join(result.get('criteria', []))
+            self.status.set_text(f"{quality} · {origin}" + (f" · {criteria}" if criteria else ''))
+            if self.demo_review:
+                if result['status'] != 'matched':
+                    self.failed = True
+                else:
+                    self.complete_demo(self.pending_proof, quality)
+
+        self.request(resolve, display)
+
+    def review(self, value):
+        if self.note is None:
+            return
+        note = self.note
+        self.request(lambda: self.call('teach.review', app=note['app'], annotation=note['id'],
+                                       revision=note['revision'], decision=value),
+                     lambda result: self.saved(result, reviewed=True))
+
     def display_evidence(self, data):
         element, labels = data
         self.live = element['ref']
         self.evidence.set_text(f"AT-SPI · {element['role']} · {element['name']}\n"
                                f"Actions: {', '.join(labels) or '—'}")
+        self.save_button.set_label('Save annotation')
         self.save_button.set_sensitive(True)
 
     def save(self, *_):
-        if not self.live:
+        if not self.live and self.note is None:
             return
-        token = self.live
+        token, note = self.live, self.note
         fields = {key: entry.get_text() for key, entry in self.inputs.items()}
 
         def submit():
+            if note is not None:
+                return self.call('teach.update', app=note['app'], annotation=note['id'],
+                                 revision=note['revision'], **fields)
             refreshed = self.call('element.refresh', ref=token)
             return self.call('teach.create', ref=refreshed['ref'], **fields)
 
         self.request(submit, self.saved)
 
-    def saved(self, result):
+    def saved(self, result, reviewed=False):
+        event = 'Review recorded' if reviewed else 'Annotation saved'
+        self.status.set_text(f"{event} · revision {result['revision']} · {result['reviewState']}")
+        if self.note is not None:
+            self.note.update(revision=result['revision'], reviewState=result['reviewState'])
+        if self.demo_review:
+            self.pending_proof = result
+        elif self.demo:
+            self.complete_demo(result)
+
+    def complete_demo(self, result, match=None):
         self.result = result
-        self.status.set_text(f"Annotation saved · revision {result['revision']}")
-        if self.demo:
-            print(json.dumps(dict(toolkit='GTK4', visible_window=self.window.get_visible(),
-                                  input='scripted_widget_events', annotation=result)), flush=True)
-            self.app.quit()
+        print(json.dumps(dict(toolkit='GTK4', visible_window=self.window.get_visible(),
+                              input='scripted_widget_events', annotation=result, matchQuality=match)),
+              flush=True)
+        self.app.quit()
 
     def run_demo(self):
         if self.failed or time.monotonic() >= self.deadline:
@@ -242,17 +388,32 @@ class Teacher:
             self.window_choice.set_active(0)
             self.demo_step += 1
         elif self.demo_step == 2 and self.nodes:
+            self.filter.set_text('document.save' if self.demo_review else 'page.save')
+            self.show('notes' if self.demo_review else 'elements')
+            self.demo_step += 1
+        elif self.demo_step == 3 and self.nodes:
             row = self.list.get_first_child()
             while row is not None:
-                if row.node['role'] == 'frame':
+                if self.demo_review or row.node['role'] == 'frame':
                     self.list.select_row(row)
                     self.demo_step += 1
                     break
                 row = row.get_next_sibling()
-        elif self.demo_step == 3 and self.live:
-            self.inputs['meaning'].set_text('document.save')
-            self.inputs['operationHint'].set_text('page.save')
-            self.save_button.emit('clicked')
+        elif self.demo_step == 4:
+            if self.demo_review and self.note:
+                self.inputs['conditions'].set_text('Verified local editor workflow.')
+                self.save_button.emit('clicked')
+                self.demo_step += 1
+            elif not self.demo_review and self.live:
+                self.inputs['meaning'].set_text('document.save')
+                self.inputs['operationHint'].set_text('page.save')
+                self.save_button.emit('clicked')
+                self.demo_step += 1
+        elif self.demo_review and self.demo_step == 5 and self.pending_proof:
+            self.review_buttons[0].emit('clicked')
+            self.demo_step += 1
+        elif self.demo_review and self.demo_step == 6 and self.note['reviewState'] == 'approved':
+            self.resolve_button.emit('clicked')
             self.demo_step += 1
         return self.result is None
 
@@ -262,14 +423,14 @@ class Teacher:
             self.socket.close()
 
 
-def run(endpoint, credential, demo=False):
+def run(endpoint, credential, demo=False, demo_review=False):
     app = Gtk.Application(application_id='org.loopenvironment.LoopTeach',
                           flags=Gio.ApplicationFlags.NON_UNIQUE)
     views = []
-    app.connect('activate', lambda gtk_app: views.append(Teacher(gtk_app, endpoint, credential, demo)))
+    app.connect('activate', lambda gtk_app: views.append(Teacher(gtk_app, endpoint, credential, demo, demo_review)))
     try:
         status = app.run([])
-        return 1 if demo and (not views or views[0].result is None) else status
+        return 1 if (demo or demo_review) and (not views or views[0].result is None) else status
     finally:
         for view in views:
             view.close()

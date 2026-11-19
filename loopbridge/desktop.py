@@ -14,6 +14,8 @@ from . import browser
 from .catalog import CATALOG
 from .linux_desktop import process_identity, sway, texts, wait_for, walk, windows
 from .workspace import Workspace
+from .web import Web
+from .web_native import page_of
 from .teaching_picker import Picker
 from .semantic_operations import (POLICIES, Prepared, SemanticOperations, actions,
                                   semantic_signature, short, state_flags)
@@ -29,6 +31,7 @@ class Application:
     document: str | None = None
     directory: str | None = None
     profile: Path | None = None
+    site: bool = False
 
 
 @dataclass
@@ -59,6 +62,7 @@ class Desktop:
         self.references = OrderedDict()
         self.operations = SemanticOperations(self)
         self.picker = Picker(self)
+        self.web = Web(self)
 
     def close(self):
         for app in self.apps.values():
@@ -87,6 +91,7 @@ class Desktop:
         return dict(app=app, application_id=spec.window_id, installed=os.access(spec.executable, os.X_OK),
                     launch_supported=self.supported(app), profile=spec.profile,
                     launch_method='browser.open_fixture' if spec.profile == 'offline_fixture' else 'app.launch',
+                    web_site=spec.profile == 'offline_fixture' and self.supported(app),
                     state='running' if running and running.process.poll() is None else 'stopped',
                     mutations=POLICIES[app].mutations())
 
@@ -132,14 +137,14 @@ class Desktop:
 
     def resolve(self, app, token, element=False):
         saved = self.references.get(token)
-        if saved is None or saved.app != app or (saved.path is not None) != element:
+        if not isinstance(saved, Target) or saved.app != app or (saved.path is not None) != element:
             raise Refused('stale_reference')
         records, frame, _, _ = self.match(app)
         if saved.window not in records or frame != saved.frame or frame is None:
             raise Refused('window_unavailable_or_ambiguous')
         if self.apps[app].document:
             self.verify_document(app, frame)
-        if app == 'browser':
+        if app == 'browser' and not self.apps[app].site:
             browser.known_document(frame)
         if not element:
             return saved, frame
@@ -250,7 +255,39 @@ class Desktop:
         path, node = matches[0]
         return dict(status='matched', element=self.describe(target, path, node), source='atspi')
 
+    def search(self, app, token, query, offset):
+        target, frame = self.resolve(app, token)
+        pending = self.tree_start(app, frame)
+        matches, cursor, visited, omitted = [], 0, 0, False
+        query = query.strip().casefold()
+        while pending and visited < 512:
+            path, node = pending.pop()
+            if node is None:
+                omitted = True
+                continue
+            visited += 1
+            role, name, interfaces = semantic_signature(node)
+            if role == 'password text' or 'protected' in state_flags(node):
+                continue
+            labels, truncated = actions(node, interfaces, limit=64)
+            omitted |= truncated
+            label = ' '.join([role, self.label(app, name), *filter(None, labels)])
+            if query in label.casefold():
+                if len(matches) >= PAGE:
+                    return dict(elements=matches, next=cursor, truncated=omitted, searched=visited)
+                if cursor >= offset:
+                    matches.append(self.describe(target, path, node))
+                cursor += 1
+            count = node.childCount
+            if count < 0 or count > 128 or (count and len(path) >= 40):
+                omitted = True
+                continue
+            pending.extend(((*path, index), node[index]) for index in reversed(range(count)))
+        return dict(elements=matches, next=None, truncated=omitted or bool(pending), searched=visited)
+
     def query(self, method, app, params):
+        if method == 'web.discover':
+            return self.web.discover(app, params['ref'])
         if method == 'teach.capture':
             return self.picker.capture(app, params['ref'])
         if method == 'teach.find':
@@ -278,6 +315,8 @@ class Desktop:
             target, node = self.resolve(app, params['ref'])
             return dict(window=str(target.window['id']), role=node.getRoleName(),
                         name=self.label(app, node.name), semantic='correlated', source='atspi')
+        if method == 'element.search':
+            return self.search(app, params['ref'], params['query'], params['offset'])
         if method == 'element.find':
             return self.find(app, params['ref'], params)
         if method == 'element.tree':
@@ -361,16 +400,16 @@ class Desktop:
 
         return Prepared(send, lambda: wait_for(verify, timeout=18))
 
-    def prepare_browser(self):
+    def prepare_browser(self, site=False):
         try:
-            args, profile = browser.launch_args(self.profile.name)
+            args, profile = browser.launch_args(self.profile.name, site)
         except (OSError, KeyError, ValueError):
             raise Refused('browser_isolation_unavailable') from None
 
         def send():
             process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                        stderr=subprocess.DEVNULL, close_fds=True)
-            self.apps['browser'] = Application(process, profile=profile)
+            self.apps['browser'] = Application(process, profile=profile, site=site)
 
         def verify():
             running = self.apps['browser']
@@ -381,22 +420,33 @@ class Desktop:
                 raise Refused('browser_window_unavailable_or_ambiguous')
             running.identity, children = browser.lineage(running.process.pid, candidates[0]['pid'])
             records, frame, _, _ = self.match('browser')
-            if len(records) != 1 or frame is None or browser.known_document(frame)[1] != browser.FORM:
+            if len(records) != 1 or frame is None:
                 raise Refused('browser_fixture_not_ready')
-            browser.browser_native.call(profile, 'ready')
-            return dict(app='browser', page='form', semantic='correlated', network='private_namespace',
+            if site:
+                observed = self.web.inspect(profile)
+                page = page_of(browser.active_document(frame)[1])
+                if page != 'home' or observed['page'] != page:
+                    raise Refused('browser_fixture_not_ready')
+            else:
+                if browser.known_document(frame)[1] != browser.FORM:
+                    raise Refused('browser_fixture_not_ready')
+                browser.browser_native.call(profile, 'ready')
+                page = 'form'
+            return dict(app='browser', page=page, semantic='correlated', network='private_namespace',
                         verified_subprocesses=children, profile='disposable')
 
         return Prepared(send, lambda: wait_for(verify, timeout=30))
 
     def prepare_operation(self, method, app, params):
-        if method == 'browser.open_fixture':
+        if method in ('browser.open_fixture', 'web.open'):
             current = self.apps.get(app)
             if app != 'browser':
                 raise Refused('browser_fixture_app_required')
             if current is not None and current.process.poll() is None:
                 raise Refused('application_already_running')
-            return self.prepare_browser()
+            return self.prepare_browser(site=method == 'web.open')
+        if method.startswith('web.'):
+            return self.web.prepare(method, app, params)
         if method == 'input.key':
             self.resolve(app, params['ref'])
             raise Refused('target_bound_input_unavailable')

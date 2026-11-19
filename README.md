@@ -89,6 +89,8 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.4 and LoopTeach V0.2.** The practical milestone adds the offline Firefox form profile, nested workspace operations, a GTK teacher and annotation search. See the [contract and qualification](docs/LOOPBRIDGE_V0_4.md).
 
+**LoopBridge V0.5 and LoopTeach V0.3.** The experimental local MCP adapter connects independent clients to supervised browsing, editor and workspace operations. See the [contract, matrix and evidence](docs/LOOPBRIDGE_V0_5.md).
+
 ## Documentation
 
 - [Product definition and authority model](docs/PRODUCT_DEFINITION.md)

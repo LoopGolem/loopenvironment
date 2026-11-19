@@ -22,18 +22,18 @@ REPORT = 'LoopBridge V0.4\nReport saved using a recovered annotation.'
 APP = 'editor'
 
 
-def run_gui(root, endpoint):
+def run_gui(root, endpoint, review=False):
     # This process renders its own GTK window. It talks to Bridge about the
     # editor exclusively through the observer's authenticated socket.
-    result = subprocess.run([sys.executable, '-B', '-m', 'loopbridge', 'teach-gui', '--demo',
-                             '--socket', endpoint, '--token-file',
+    result = subprocess.run([sys.executable, '-B', '-m', 'loopbridge', 'teach-gui',
+                             '--demo-review' if review else '--demo', '--socket', endpoint, '--token-file',
                              root / 'credentials/observer.token'],
                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL, timeout=65, check=True,
                             env={**os.environ, 'GDK_BACKEND': 'wayland'})
     value = json.loads(result.stdout)
     check(value['toolkit'] == 'GTK4' and value['visible_window'])
-    return value['annotation']['id']
+    return value if review else value['annotation']['id']
 
 
 def files_and_teaching(report, owner, worker, observer, write, root, workspace):
@@ -203,7 +203,7 @@ def run(report, browser_only):
         for principal in ('owner', 'delegate', 'observer'):
             token = read_private(root / 'credentials' / (principal + '.token')).strip()
             client, probe, auth = launch(stack, root / 'runtime/socket', paths, token, server.child.pid,
-                                          (str(workspace), str(root / 'credentials')))
+                                          (str(workspace), str(root / 'credentials')), version='0.4')
             check(auth['result']['principal'] == principal)
             clients[principal] = client
             report['isolation'][principal] = dict(denied_endpoints=len(probe['endpoints']),

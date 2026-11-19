@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Scope authorization and temporary reference translation for V0.4."""
+"""Scope authorization and temporary reference translation for V0.5."""
 import secrets
 
 from .adapter import Refused, Unavailable
@@ -13,6 +13,7 @@ READS = {
     'window.inspect': {'ref'},
     'element.tree': {'ref', 'offset', 'depth'},
     'element.find': {'ref', 'role', 'name', 'interface', 'action'},
+    'element.search': {'ref', 'query', 'offset'},
     'element.actions': {'ref'},
     'element.inspect': {'ref'},
     'element.refresh': {'ref'},
@@ -23,6 +24,7 @@ READS = {
     'workspace.list_at': {'offset', 'directory'},
     'desktop.capture': {'ref'},
     'browser.document': {'ref'},
+    'web.discover': {'ref'},
     'workspace.read': {'path'},
 }
 WRITES = {
@@ -30,6 +32,11 @@ WRITES = {
     'app.open_document': ({'app', 'document'}, 'app.launch'),
     'app.open_directory': ({'app', 'directory'}, 'app.launch'),
     'browser.open_fixture': ({'app'}, 'app.launch'),
+    'web.open': ({'app'}, 'app.launch'),
+    'web.navigate': ({'ref', 'page'}, 'desktop.control'),
+    'web.set_text': ({'ref', 'text'}, 'desktop.control'),
+    'web.select': ({'ref', 'option'}, 'desktop.control'),
+    'web.activate': ({'ref'}, 'desktop.control'),
     'input.key': ({'ref', 'key'}, 'desktop.input'),
     'app.close': ({'app'}, 'app.close'),
     'element.invoke': ({'ref', 'action'}, 'desktop.control'),
@@ -45,14 +52,15 @@ EFFECT_REQUIREMENTS = {'page.save': (('workspace.write', 'workspace'),)}
 
 
 class DesktopBroker(Broker):
-    versions = ('0.2', '0.3', VERSION)
+    versions = ('0.2', '0.3', '0.4', VERSION)
     connection_limits = (60, 300, 160)
     schema = {method: fields for method, fields in SCHEMA.items()
               if method not in ('invoke7',)}
     schema.update({method: fields | {'session'} for method, fields in READS.items()})
     schema.update({method: fields | {'session'} | LEASE
                    for method, (fields, _) in WRITES.items()})
-    schema.update({'app.list': {'session'}, 'operation.status': {'session', 'operation'}})
+    schema.update({'app.list': {'session'}, 'operation.status': {'session', 'operation'},
+                   'session.features': {'session'}, 'session.recovery': {'session'}})
     schema.update({method: fields | {'session'} for method, fields in TEACH_SCHEMA.items()})
 
     def __init__(self, *args, annotation_store=None, **kwargs):
@@ -83,11 +91,22 @@ class DesktopBroker(Broker):
         principal = self.authenticated(connection)
         if method in TEACH_SCHEMA:
             return self.teach.handle(session, connection, principal, method, params)
+        if method == 'session.recovery':
+            with session.lock:
+                session.require(principal, 'identity.admin', '*')
+                try:
+                    intent = self.journal.intent(session.id) if self.journal.blocked(session.id) else None
+                except OSError:
+                    intent = None
+                return dict(phase=session.phase, policy='automatic_replacement_disabled',
+                            unknownOperation=intent if not session.pending else None,
+                            reuseMutableWorkspace=False, cancellationAssumed=False)
         if method == 'session.features':
             with session.lock:
                 session.require(principal, 'session.discover', '*')
             return dict(capture='window_capture_unavailable', input='target_bound_input_unavailable',
-                        teaching='0.2', sources=['atspi', 'linux_workspace'])
+                        teaching='0.3', recovery='replacement_unqualified',
+                        sources=['atspi', 'linux_workspace', 'firefox_dom'])
         if method == 'operation.status':
             with session.lock:
                 result = self.operations[session.id].get(params['operation'])
@@ -118,7 +137,7 @@ class DesktopBroker(Broker):
                 observation = 'workspace.read'
             else:
                 observation = (None if method in ('app.launch', 'app.close', 'app.open_document',
-                                                 'app.open_directory', 'browser.open_fixture')
+                                                 'app.open_directory', 'browser.open_fixture', 'web.open')
                                else 'desktop.observe')
             extra = EFFECT_REQUIREMENTS.get(params.get('action'), ())
             if method in ('app.open_document', 'app.open_directory', 'element.select'):
@@ -163,7 +182,7 @@ class DesktopBroker(Broker):
                 result['element']['ref'] = self.bind(session, connection, app, result['element']['ref'])
             if method == 'element.refresh':
                 result['ref'] = self.bind(session, connection, app, result['ref'])
-            for entry in result.get('windows', result.get('elements', [])):
+            for entry in result.get('windows', result.get('elements', result.get('controls', []))):
                 if entry['ref'] is not None:
                     entry['ref'] = self.bind(session, connection, app, entry['ref'])
         return result

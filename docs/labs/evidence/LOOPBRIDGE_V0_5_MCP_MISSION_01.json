@@ -1,0 +1,64 @@
+{
+  "result": "GO",
+  "teacher": "gtk",
+  "stage": "completed",
+  "isolation": {
+    "endpoints_denied": 15,
+    "namespaces": [
+      "user",
+      "mnt",
+      "pid",
+      "net",
+      "ipc"
+    ]
+  },
+  "gtk_teacher": {
+    "toolkit": "GTK4",
+    "input": "scripted_widget_events",
+    "revision": 3,
+    "review": "approved",
+    "match": "exact"
+  },
+  "observer": {
+    "result": "GO",
+    "stage": "completed",
+    "lease_denied": "grant_denied",
+    "workspace_denied": "grant_denied",
+    "elapsed_seconds": 0.508
+  },
+  "mission": {
+    "result": "GO",
+    "stage": "completed",
+    "outside_destination": "web_destination_denied",
+    "stale_reference": "stale_reference",
+    "browser": {
+      "rows": [
+        [
+          "R-101",
+          "Harbor sensor",
+          "north",
+          "12"
+        ],
+        [
+          "R-104",
+          "Harbor gateway",
+          "north",
+          "9"
+        ]
+      ],
+      "source": "firefox_dom",
+      "protected_control_hidden": true,
+      "report_confirmation": "confirmed"
+    },
+    "outside_workspace": "workspace_path_or_operation_unavailable",
+    "report": {
+      "path": "harbor-report.txt",
+      "sha256": "73e855c3fbe93498529e33c174fabc3e94c2a94fd4534361176d386c000b76f7",
+      "annotation_match": "exact",
+      "verified": true
+    },
+    "elapsed_seconds": 58.939
+  },
+  "independent_disk_verification": true,
+  "elapsed_seconds": 87.681
+}

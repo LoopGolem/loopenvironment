@@ -4,7 +4,7 @@ Scope: **LoopEnvironment only** — an open-source environment for existing Linu
 
 ## Current project phase
 
-ADR 0010 defines the current product scope. LoopBridge V0.4 and LoopTeach V0.2 add practical supervised browser, workspace and teaching flows. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See docs/LOOPBRIDGE_V0_4.md, docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
+ADR 0010 defines the current product scope. LoopBridge V0.5 and LoopTeach V0.3 add local MCP access, a packaged browser site and GTK annotation workflows. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See docs/LOOPBRIDGE_V0_5.md, docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
 
 ## Non-negotiable product boundaries
 

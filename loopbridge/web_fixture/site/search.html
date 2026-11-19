@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; form-action file:">
+<title>Search records</title>
+<h1>Search records</h1>
+<form action="results.html" method="get">
+  <label for="record-filter">Record description</label>
+  <input id="record-filter" type="search" name="query" maxlength="120" autocomplete="off">
+  <label for="region-filter">Region</label>
+  <select id="region-filter" name="region">
+    <option value="all">All regions</option>
+    <option value="north">North</option>
+    <option value="south">South</option>
+  </select>
+  <label for="private-note">Private example</label>
+  <input id="private-note" type="password" autocomplete="off">
+  <button type="submit">Run search</button>
+</form>
+<a href="index.html">Home</a>
