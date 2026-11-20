@@ -2,7 +2,9 @@
 
 ADRs preserve **why** a decision was made, its status, and what remains undecided. They are not implementation checklists or proof that a feature already works.
 
-**Current interpretation:** [ADR 0010](0010-linux-environment-not-os.md) supersedes ADR 0001's standalone-OS requirement. LoopEnvironment is an existing-Linux environment centered on LoopBridge; images are optional. [ADR 0008](0008-operator-neutral-authority.md) maintains principal-neutral authority and [ADR 0009](0009-native-loopteach.md) adds planned LoopTeach. Earlier ADR texts remain preserved.
+**Current interpretation:** [ADR 0010](0010-linux-environment-not-os.md) supersedes ADR 0001's standalone-OS requirement. LoopEnvironment runs on existing Linux with LoopBridge at the center and optional images. [ADR 0008](0008-operator-neutral-authority.md) maintains principal-neutral authority and [ADR 0009](0009-native-loopteach.md) sets the direction for native LoopTeach. Earlier ADR texts remain preserved.
+
+[ADR 0011](0011-session-presentation-and-operator-shell.md) establishes independent private sessions, a separate presentation plane, streaming as the initial presentation path and the LoopEnvironment Shell as an authorized supervision client.
 
 | ADR | Decision | Status |
 | --- | --- | --- |
@@ -16,6 +18,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0008](0008-operator-neutral-authority.md) | Owner/principal-neutral authority and delegated takeover | Accepted |
 | [0009](0009-native-loopteach.md) | Native LoopTeach and persistent application semantics | Accepted product direction |
 | [0010](0010-linux-environment-not-os.md) | Agent-oriented Linux environment, central LoopBridge, optional image | Accepted; supersedes 0001 |
+| [0011](0011-session-presentation-and-operator-shell.md) | Independent session presentation and operator supervision | Accepted — architectural direction |
 
 ## ADR workflow
 

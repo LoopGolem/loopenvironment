@@ -1,20 +1,27 @@
 # Visual, structured and delegated interaction model
 
-**Status:** intended behavior, not implemented behavior.
+**Status:** intended product behavior with bounded [V0.6 evidence](LOOPBRIDGE_V0_6.md) for private desktops and a GTK4 viewer that polls authorized PNG captures. Low-latency streaming, the LoopEnvironment Shell and verified handoff remain future work.
 
 ## Two complementary channels
 
 **Structured channel (preferred for agents):** LoopBridge offers permitted window/session metadata, accessible elements, action descriptions, states, lifecycle and events. Authorized adapters may also expose native system/application operations. JSON can represent this data but does not define the transport.
 
-**Visual channel:** an ordinary rendered Linux desktop for human observation/control plus separately authorized capture and conventional keyboard/pointer fallback. Agents need not see pixels when a sufficient structured operation exists; visual interaction remains useful where semantics are missing.
+**Visual channel:** authorized presentation of a rendered Linux desktop. Live viewing, on-demand capture and conventional keyboard/pointer input have separate permissions. Visual fallback remains useful where semantics are missing.
 
 The model is **operator-neutral**: both channels can be used by authenticated principals controlled by people, AI or software outside the OS. Live semantic facts may be enriched by LoopTeach annotations with separate provenance; annotations are not trusted authority or universal semantic coverage. See [LoopTeach](LOOPTEACH.md).
 
-## Real desktop without an active viewer
+## Discovering and observing sessions
 
-A graphical session may remain live without a physical monitor or attached viewer; output/backend support remains subject to testing. Rendering is different from capture/encoding and transmission.
+1. A client such as the planned LoopEnvironment Shell authenticates to LoopBridge. The session list includes only sessions and metadata the principal is authorized to discover.
+2. The operator selects a session. The client requests presentation access and the presentation service enforces authorization for that session. The client opens an enlarged live view on success and shows connection state and authorized controller or authority metadata.
+3. Multiple authorized observers may view the same session. Each observer's connection and permissions are independent. Opening, selecting or focusing a view leaves the current control lease unchanged. A view-only client has no session input path.
+4. On observer disconnect, the viewer reports the loss and stops presenting stale frames as live. Reconnection requires revalidating current authorization for the same session. If the session ended or was replaced, the viewer reports it and requires an explicitly selected, authorized session before displaying another desktop. The session and its controller can continue independently of the observer connection.
 
-An authorized principal can request view-only access. A principal holding an owner-delegated control capability may also request interactive control. View-only never implies pointer/keyboard input, and no privilege derives from declaring oneself "human".
+Sessions may keep rendering and operating headless without a physical monitor or an attached viewer. Continuous capture, encoding and delivery should be idle without authorized demand or an authorized operational need. Policies for thumbnails and individual captures may differ. See [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md) and [architecture](ARCHITECTURE.md#execution-control-and-presentation-planes).
+
+## Observation and actuation mode
+
+An observer can watch the visible effects of native or semantic operations. Attaching or leaving a view does not change the controller's actuation mode. A future observable mode may use authorized pointer movement, keyboard input, scrolling and progressive typing when that makes the action sequence easier to follow. Efficient native and semantic actions remain preferred where appropriate. Both modes follow the same session authority policy and are available according to grants, regardless of who or what operates the principal.
 
 ## Unified input mediation
 
@@ -24,7 +31,7 @@ The system must block direct session access from untrusted clients. The owner/de
 
 ## Control arbitration
 
-Conservative initial design: **one active controller per session**, multiple separately permitted observers. Prefer independent sessions where practical; shared operation remains an explicit policy choice.
+The initial policy allows **one active controller per session**. Future interactive control requires a separate control grant, a valid lease and the same trusted enforcement as other input paths. A viewer's local pointer and keyboard events stay local unless an authorized interactive path is available and explicitly enabled.
 
 1. Secure installation establishes owner authority; owner delegates operator/session/capability grants.
 2. A principal requests an input lease for an authorized session; its current state/target revision is recorded.
@@ -33,13 +40,13 @@ Conservative initial design: **one active controller per session**, multiple sep
 5. Trusted input/semantic boundaries prevent old queued or in-flight operations from reaching a new focus; acknowledge handoff only after the enforceable barrier.
 6. The replacement controller refreshes state and starts acting; previous controller cannot resume without a new lease and refresh.
 
-A physical key press is a source event, not a biological credential or automatic takeover request. Previously completed external effects cannot be undone; cancellation must distinguish accepted, delivered and outcome-unknown operations. Recovery and disconnect behavior are unresolved.
+A physical key press conveys no authority and cannot initiate takeover by itself. Previously completed external effects cannot be undone. Cancellation must distinguish accepted, delivered and outcome-unknown operations. Takeover remains unqualified, including controller disconnect and failure recovery across conventional and semantic dispatch.
 
 ## Example workflow (design target)
 
 An owner provisions a VM using an unattended bootstrap key, configures a delegate with limited control over a legacy application and stores credentials outside the agent process. The delegate authenticates remotely, queries structured state, consults permitted LoopTeach annotations, performs a validated UI action and checks its result.
 
-Another authorized principal can view the same session without acquiring input rights. The owner explicitly requests a control transfer; the old operator is blocked at the enforcement boundary and its stale lease invalidated. The new controller refreshes the state before operating.
+Another authorized principal opens a live view while the delegate continues using structured actions. The observer disconnects and the session continues headless. A later, authorized handoff would require the enforcement boundary to revoke the old lease and fence pending operations before the new controller refreshes state and starts acting.
 
 No application is required to be rewritten, and the OS cannot certify an external business operation solely from a click acknowledgment.
 
@@ -53,9 +60,9 @@ No application is required to be rewritten, and the OS cannot certify an externa
 - A teach-mode shortcut such as **Super+click** must be explicitly authorized, configurable and safely intercepted (no unintended underlying click), with keyboard/structured alternatives.
 - Multiple seats/displays, remote interactive takeover and hardening require separate qualification.
 
-## Observable behavior for human clients
+## Operator feedback and audit
 
-A client presenting a human-oriented UI should show current control ownership, available grants and any outstanding transfer. A display/viewer does not grant ownership. An owner/delegate can request override through an authenticated trusted path; another ordinary principal cannot substitute merely by claiming to be human.
+The planned Shell should show current controller, available grants and any future pending transfer within the principal's metadata scope. Equivalent status should be available through authorized structured clients.
 
 Logs identify requested/accepted/delivered/verified operations and transfer events without raw secrets or unnecessary screenshots by default. Equivalent policy applies to non-visual clients.
 

@@ -6,34 +6,30 @@
 
 LoopEnvironment is a set of installable services and integrations for **existing Linux**, centered on LoopBridge. Real sessions and supported resources should be operable through structured, permissioned interfaces. A **principal** may be controlled by a person, AI or script inside or outside the host; no LLM, special kernel or standalone distribution is mandatory.
 
-An initial owner principal is bound during secure interactive or unattended provisioning and manages delegates and sessions. LoopBridge is the native API/authority. LoopTeach is a planned native semantic annotation application. See [operator model](OPERATOR_MODEL.md) and [LoopTeach](LOOPTEACH.md).
+Secure interactive or unattended provisioning binds an initial owner principal who manages delegates and sessions. LoopBridge provides the native API and governs authority. The experimental LoopTeach GTK and structured workflows supply application-scoped annotations as semantic data. Grants continue to govern actions. See [operator model](OPERATOR_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
-## Logical layers
+## Execution, control and presentation planes
 
-+--------------------------------------------------------+
-    | Controllers (people / AI / services)                    |
-    | Authenticated principals: initial owner + delegates    |
-    +-----------------------------+--------------------------+
-                                  | versioned Bridge contract
-    +-----------------------------v--------------------------+
-    | LoopBridge: identity | session | grants | actions      |
-    | structured state | annotations | events | audit        |
-    +-----------------------+-----------------+--------------+
-                            |                 |
-    +-----------------------v---+ +-----------v--------------+
-    | Semantic adapters        | | Trusted input/media       |
-    | AT-SPI, apps, profiles    | | compositor / portals      |
-    +-----------------------+---+ +-----------+--------------+
-                            |                 |
-    +-----------------------v-----------------v--------------+
-    | Real Linux applications, graphical sessions            |
-    +-----------------------------+--------------------------+
-                                  |
-    +-----------------------------v--------------------------+
-    | Kernel, narrow privileged services, isolation          |
-    +--------------------------------------------------------+
+| Plane | Responsibility |
+| --- | --- |
+| **Execution plane** | Run independent private graphical sessions, their compositors, applications and workspaces on existing Linux. Trusted compositor, input and accessibility components enforce their respective session boundaries. |
+| **LoopBridge control plane** | Authenticate principals, authorize discovery and operations, govern grants and leases, and report structured state, events and audit records. It governs access to presentation and delegates protected work to narrowly scoped adapters. |
+| **Presentation plane** | Deliver and display authorized session output locally or remotely. It enforces the presentation access derived from the control plane and can evolve independently of the structured operation interface. |
 
-LoopTeach feeds application-scoped descriptions into the semantic observation layer as **data**, not authorization. Prefer structured/native actions when reliable; visual input is an authorized fallback. Existing solutions such as Cua Driver are research/reuse candidates, not selected dependencies. Compositor, Linux host base and transport remain experiment choices.
+These planes describe logical responsibilities. Implementations may colocate them where the trust boundaries allow. The planned **LoopEnvironment Shell** is an ordinary Linux graphical application. It uses authorized control-plane services for discovery, metadata and authority state, and authorized presentation services to display a selected session. It must use those mediated paths for session access. Privileged compositor IPC, private Wayland sockets and direct capture or input interfaces stay behind trusted boundaries. See [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md).
+
+| Term | Meaning |
+| --- | --- |
+| Graphical session | An independently managed environment for running graphical applications with its own lifecycle, workspace and authority scope. |
+| Compositor | The session component that manages surfaces, composes output and participates in trusted input enforcement. |
+| Operator / principal | An authenticated identity acting on a session with scoped grants. A person, AI, service or other software can act behind it. |
+| Client | Software that connects on behalf of a principal, such as an MCP host, viewer or the planned Shell. |
+| Observer | A principal authorized to view a session. Session control requires separate authority. |
+| Controller | A principal holding the active control lease and relevant action grants for the session. |
+| Graphical transport | The mechanism that carries visual output to authorized clients, locally or between machines. |
+| Presentation backend | The implementation that makes session output available for display, such as a capture and streaming pipeline or a candidate nested compositor path. |
+
+[V0.6](LOOPBRIDGE_V0_6.md) demonstrated private headless Sway sessions and a GTK4 viewer using periodic authorized PNG captures. Low-latency streaming is the initial presentation direction. Nested Wayland presentation remains an unqualified hypothesis for local use. Changing a running session's presentation backend may require recreating it. Prefer structured native actions where reliable, with separately authorized conventional input available as a fallback. Technologies such as Cua Driver remain research candidates.
 
 ## Core components
 
@@ -41,7 +37,7 @@ LoopTeach feeds application-scoped descriptions into the semantic observation la
 
 - Reuse an existing Linux distribution's boot, kernel, packages and session lifecycle; add only qualified environment services.
 - Real graphical session, compatible with conventional Linux applications.
-- Support for virtual displays and observing the session when requested.
+- Run headless without a physical display or observer. Capture, encoding and delivery should be active only for authorized demand or operational needs.
 - Preserve trusted local operation/recovery even if the Bridge client endpoint fails, without granting unmediated access to external agents. Exact input-policy failure and recovery behavior requires qualification.
 - Treat application rendering, capture, encoding, and video delivery as distinct costs.
 
@@ -63,21 +59,23 @@ Installable environment components need documented provenance, upgrade/rollback 
 
 ## Deployment neutrality
 
+Debian in VirtualBox is the current lab. Physical or virtual deployments may use other Linux distributions, hypervisors and input, display or graphics devices, subject to qualification. The client contract remains independent of agent implementation, LLM and provider.
+
 **Physical machine:** a local agent may connect to an authenticated per-user Unix-domain socket. Remote control may be enabled explicitly using authenticated, encrypted transport.
 
 **Virtual guest:** the exact same LoopBridge protocol can be reached through a private virtual network or a guest/host transport with a host-side adapter. The guest does not need to know which VM manager starts it. Localhost forwarding is only a reachability mechanism; it does not provide identity or authorization.
 
-The agent contract is independent of transport, though latency, disconnection and supported media codecs can vary.
+The structured client contract preserves the same semantics across transports. Graphical transport has its own latency, disconnection and media characteristics. Local presentation may use IPC. Remote presentation requires explicit authorization and protected transport.
 
 ## Session and control model
 
 - Principals are authenticated subjects, not synonyms for a Linux UID/process, human body or AI model.
 - Owner bootstrap occurs once per installation through an interactive or unattended protected flow.
 - Session and target identifiers are scoped; live references must be revalidated.
-- Independent sessions are a preferred default, with shared sessions and separately authorized observers.
-- Observation, media capture, semantic action, conventional input, teaching, process/file access and administration are distinct capabilities.
-- Takeover is an **explicit authenticated owner/delegate operation**, not an automatic response to pointer motion or a claim to be human.
-- Trusted input policy must prevent old queued/in-flight commands from affecting the new owner after a confirmed handoff; semantic and conventional paths must be coordinated.
+- Independent sessions are preferred. Several principals may access a session according to their grants, with multiple authorized observers and one active controller under the initial policy.
+- Live viewing, on-demand capture, semantic inspection, semantic action, conventional input, teaching, process/file access, administration and control transfer have distinct authorization.
+- Takeover requires an explicit authenticated owner/delegate request. Physical pointer motion conveys no authority.
+- A handoff requires a verified barrier against stale or in-flight operations across conventional and semantic paths. The barrier remains unqualified.
 - Untrusted clients cannot directly bypass protected compositor/session interfaces. Bridge cannot itself intercept every syscall.
 - Learned application semantics cannot grant new input privileges.
 
@@ -91,9 +89,10 @@ See [operator model](OPERATOR_MODEL.md), [interaction model](INTERACTION_MODEL.m
 4. Client receives a permitted structured snapshot, including reliably matched LoopTeach annotations with distinct provenance.
 5. A permitted semantic or conventional operation is validated against current target/lease; trusted OS components enforce protected paths.
 6. Bridge reports an outcome with known/unknown status; events and snapshots repair stream gaps.
-7. An owner/delegate can explicitly request a control transfer, refresh state and grant new leases under tested revocation barriers.
+7. An authorized observer uses the presentation service to view a selected session. The controller's lease and actuation mode are independent of observer attachment.
+8. Future owner/delegate handoff requires a verified revocation barrier before refreshing state and granting a replacement control lease.
 
-This is the intended product data flow, not the currently implemented end-to-end runtime.
+This flow includes planned presentation and handoff behavior. The V0.6 qualification describes the implemented subset.
 
 ## Constraints and risks
 
@@ -106,6 +105,6 @@ This is the intended product data flow, not the currently implemented end-to-end
 
 ## Architecture quality gates
 
-No implementation is accepted merely because it can click a coordinate. The proof must demonstrate authorization, semantic inspection of a real application, event consistency, denial of an unauthorized operation, and authorized observation/owner-delegate interruptibility.
+The full M1 proof still requires authorization, semantic inspection of a real application, event consistency, denial of unauthorized access, separate authorized observation and verified owner/delegate interruption. The staged presentation work has its own gates and leaves the full M1 gate open.
 
 See [LoopBridge](LOOPBRIDGE.md), [Interaction](INTERACTION_MODEL.md), [Security](SECURITY_MODEL.md) and [Roadmap](ROADMAP.md).

@@ -40,7 +40,7 @@ Non-responsibilities: AI reasoning/planning, biological verification, mandatory 
 | Accessibility | GetElementTree, GetElement, GetSupportedActions | Null/unknown is meaningful; never fabricate controls. |
 | Input | InvokeElement, Focus, TypeText, SendKey, PointerAction | Requires explicit input capability and ownership. |
 | Events | Subscribe, Ack/Resume, GetSnapshot | Reconnect and overflow must be detectable. |
-| Media | CaptureFrame, StartStream, StopStream | Sensitive pixels, separately authorized. |
+| Media | CaptureFrame, StartStream, StopStream | On-demand capture and future live viewing require separate authorization. See [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md). |
 | Control | RequestControl, ReleaseControl, RevokeClient | Owner/delegate authority governs control transfers. |
 | Diagnostics | GetHealth, GetAdapterCapabilities | Must not leak unapproved system details. |
 | Teaching | IdentifyElement, AnnotateElement, GetProfile, ReviewMatch | Future LoopTeach scope; annotation is not input authorization. |
@@ -89,7 +89,7 @@ Capabilities below are illustrative and must be backed by OS-enforced scopes and
 | Grant | Allows | Does not imply |
 | --- | --- | --- |
 | desktop.observe | Permitted window/element state, including allowed annotations | Pixel capture or input |
-| desktop.capture | Scoped frame/stream access | Control or teaching |
+| desktop.capture | Scoped on-demand frame access | Live stream access, control or teaching |
 | desktop.control | Authorized semantic/conventional input with lease | Root/files/admin authority |
 | desktop.clipboard | Specifically approved clipboard operations | Clipboard access by other grants |
 | app.teach | Annotate approved app/element via LoopTeach | Invoking that element or distributing profiles |
@@ -116,7 +116,7 @@ The initial owner holds ultimate configured administrative authority but should 
 
 **Experimental evidence:** M1.1 showed a bounded GNOME Calculator semantic action; M1.2 added a fixture-specific isolated client, local authorization and query-derived events. Neither is a completed LoopBridge service or proof of universal security.
 
-The M1.3 preflight for a conventional input/preemption path reported NO-GO in the local lab; its [historical report](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved in this repository. Its outcome motivates reviewing **owner/delegate control semantics** and the enforcement boundary, not abandoning the design. LoopTeach and persistent profile matching remain unimplemented. [Roadmap](ROADMAP.md#m1--agent-native-desktop-proof).
+The M1.3 preflight for a conventional input/preemption path reported NO-GO in the local lab; its [historical report](labs/M1_3_FALLBACK_HUMAN_CONTROL.md) is preserved in this repository. Its outcome motivates reviewing **owner/delegate control semantics** and the enforcement boundary. Those experiments predate the LoopTeach implementations below. See the [M1 roadmap](ROADMAP.md#m1--agent-native-desktop-proof).
 
 ## Experimental service V0.2
 
@@ -133,3 +133,7 @@ The [V0.4 and LoopTeach V0.2 contract](LOOPBRIDGE_V0_4.md) covers the supervised
 ## Agent-ready service V0.5
 
 The [V0.5 contract](LOOPBRIDGE_V0_5.md) describes local MCP, the packaged Firefox site, a private Sway experiment and the recovery boundary.
+
+## Private workspaces in V0.6
+
+[V0.6](LOOPBRIDGE_V0_6.md) adds managed private Sway sessions and a GTK4 viewer that polls authorized PNG captures from a pinned session. Low-latency streaming and the supervision Shell are planned under [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md).
