@@ -1,6 +1,6 @@
 # Visual, structured and delegated interaction model
 
-**Status:** intended product behavior with bounded [V0.6 evidence](LOOPBRIDGE_V0_6.md) for private desktops and a GTK4 viewer that polls authorized PNG captures. Low-latency streaming, the LoopEnvironment Shell and verified handoff remain future work.
+**Status** — Intended product behavior with bounded evidence for [V0.6 private desktops and PNG capture](LOOPBRIDGE_V0_6.md) and [V0.7 read-only local streaming](LOOPBRIDGE_V0_7.md). The LoopEnvironment Shell and verified handoff remain future work.
 
 ## Two complementary channels
 

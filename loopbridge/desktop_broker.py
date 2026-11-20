@@ -5,6 +5,7 @@ import secrets
 from .adapter import Refused, Unavailable
 from .authority import Handle, fail
 from .broker import Broker, SCHEMA
+from .presentation import CAPABILITY as STREAM_CAPABILITY, SCHEMA as PRESENTATION_SCHEMA
 from .protocol import VERSION
 from .private_effects import available, private_id, KEYS, OUTPUT, TTL
 from .teach_routes import SCHEMA as TEACH_SCHEMA, TeachRoutes
@@ -74,10 +75,28 @@ class DesktopBroker(Broker):
                    'session.features': {'session'}, 'session.recovery': {'session'},
                    'session.access': {'session'}})
     schema.update({method: fields | {'session'} for method, fields in TEACH_SCHEMA.items()})
+    schema.update(PRESENTATION_SCHEMA)
 
-    def __init__(self, *args, annotation_store=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, annotation_store=None, presentation=None, **kwargs):
+        extra = (STREAM_CAPABILITY,) if presentation is not None else ()
+        super().__init__(*args, extra_capabilities=extra, **kwargs)
         self.teach = TeachRoutes(self, annotation_store)
+        self.presentation = presentation
+
+    def grant_revoked(self, session, grant_id):
+        if self.presentation:
+            self.presentation.revoke(session, grant_id)
+
+    def disconnect(self, connection):
+        if self.presentation:
+            self.presentation.disconnect(connection)
+        super().disconnect(connection)
+
+    def upgrade(self, connection, method, result, channel):
+        if method == 'presentation.open':
+            self.presentation.run(connection, result['stream'], channel)
+            return True
+        return False
 
     def target(self, session, connection, params, grace=0, *, capture=False):
         if 'ref' in params:
@@ -103,6 +122,10 @@ class DesktopBroker(Broker):
         if 'index' in params and (type(params['index']) is not int or not 0 <= params['index'] < 128):
             fail('invalid_selection_index', -32602)
         principal = self.authenticated(connection)
+        if method in PRESENTATION_SCHEMA:
+            if self.presentation is None:
+                fail('presentation_unavailable', -32006)
+            return self.presentation.request(session, connection, method, params)
         if method in TEACH_SCHEMA:
             return self.teach.handle(session, connection, principal, method, params)
         if method == 'session.recovery':

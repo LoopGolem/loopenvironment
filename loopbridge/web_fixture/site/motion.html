@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LoopBridge · Live motion fixture</title>
+<style>
+  body { color: #e7edfc; background: #131d31; font: 16px system-ui; margin: 20px 24px; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: #b1c1dc; }
+  canvas { display: block; }
+</style>
+<h1>Live motion fixture</h1>
+<p>Offline Firefox · Private Sway workspace</p>
+<canvas width="720" height="335" aria-label="Moving circle, rotating indicator, and frame counter"></canvas>
+<script>
+'use strict';
+const canvas = document.querySelector('canvas');
+const ctx = canvas.getContext('2d', {alpha: false});
+let sequence = 0;
+
+function draw(now) {
+  const elapsed = now / 1000;
+  const stamp = BigInt(Math.floor(performance.timeOrigin + performance.now()));
+  const frame = ++sequence;
+  ctx.fillStyle = '#192743';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#a7badc';
+  ctx.font = '18px monospace';
+  ctx.fillText(`Frame ${frame}`, 32, 48);
+  ctx.fillStyle = '#31466c';
+  ctx.fillRect(32, 147, 656, 6);
+  ctx.fillStyle = '#77e3c2';
+  ctx.beginPath();
+  ctx.arc(360 + 293 * Math.sin(elapsed * 2.2), 150, 27, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.strokeStyle = '#9cb8ff';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(360, 238, 28, elapsed * 4, elapsed * 4 + Math.PI * 1.55);
+  ctx.stroke();
+
+  // Pixel marker consumed by the laboratory viewer. The first two cells
+  // identify the strip, followed by 42 bits of epoch ms and 20 of sequence.
+  const marker = (stamp << 20n) | BigInt(frame & 0xfffff);
+  ctx.fillStyle = '#f900c5';
+  ctx.fillRect(32, 304, 6, 6);
+  ctx.fillStyle = '#11ef9b';
+  ctx.fillRect(38, 304, 6, 6);
+  for (let bit = 0; bit < 62; ++bit) {
+    ctx.fillStyle = marker & (1n << BigInt(bit)) ? '#f0f0f0' : '#080808';
+    ctx.fillRect(44 + 6 * bit, 304, 6, 6);
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</html>

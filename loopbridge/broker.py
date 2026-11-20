@@ -41,10 +41,11 @@ class Broker:
     connection_limits = (30, 180, 64)
 
     def __init__(self, identities, adapters, uid, journal, clock=time.monotonic,
-                 catalog=(), workspace=False):
+                 catalog=(), workspace=False, extra_capabilities=()):
         self.identities, self.adapters, self.uid, self.clock = identities, adapters, uid, clock
         self.journal = journal
-        self.sessions = {sid: Session(sid, clock, journal.blocked(sid), catalog, workspace) for sid in adapters}
+        self.sessions = {sid: Session(sid, clock, journal.blocked(sid), catalog, workspace,
+                                      extra_capabilities) for sid in adapters}
         self.io = {sid: threading.Lock() for sid in adapters}
         self.audit = deque(maxlen=32)
         self.audit_lock = threading.Lock()
@@ -106,6 +107,7 @@ class Broker:
                 return dict(grant=g.id, policy_revision=session.policy_revision)
             if method == 'revoke':
                 session.revoke(principal, params['grant'])
+                self.grant_revoked(session, params['grant'])
                 return dict(policy_revision=session.policy_revision,
                             pending_effects='not_cancelled' if session.pending else 'none')
             if method == 'acquire':
@@ -141,6 +143,12 @@ class Broker:
 
     def require_events(self, session, principal):
         session.require(principal, 'desktop.observe')
+
+    def grant_revoked(self, session, grant_id):
+        pass
+
+    def upgrade(self, connection, method, result, channel):
+        return False
 
     def extended(self, session, connection, method, params):
         fail('method_not_found', -32601)
@@ -342,6 +350,8 @@ class Broker:
                     self.audit.append(dict(method=method if method in self.schema or method == 'auth' else 'unknown',
                                            principal=connection.principal, outcome=outcome))
                 channel.send(reply)
+                if 'result' in reply and self.upgrade(connection, method, result, channel):
+                    break
         except (EOFError, OSError, Fault, ValueError, RecursionError):
             pass  # Malformed transport closes the connection; no payload is logged.
         finally:

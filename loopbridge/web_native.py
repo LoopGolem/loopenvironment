@@ -5,7 +5,7 @@ from urllib.parse import parse_qsl, urlsplit
 
 ROOT = 'file:///fixture/site/'
 PAGES = dict(home='index.html', search='search.html', results='results.html',
-             review='review.html', confirmation='confirmation.html')
+             review='review.html', confirmation='confirmation.html', motion='motion.html')
 TEXT = re.compile(r'[A-Za-z0-9][A-Za-z0-9 ./_-]{0,119}')
 ELEMENT = 'element-6066-11e4-a52e-4f735466cecf'
 

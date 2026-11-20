@@ -89,6 +89,14 @@ class Instance:
                            capture_output=True, timeout=10, check=True)
         except (OSError, subprocess.SubprocessError):
             effects.unlink(missing_ok=True)
+        stream = self.root / 'stream'
+        try:
+            subprocess.run(['/usr/bin/cc', '-O2', '-Wall', '-Wextra', '-Werror',
+                            str(source.parent / 'tools/private_wayland_stream.c'),
+                            '-lwayland-client', '-o', str(stream)], stdin=subprocess.DEVNULL,
+                           capture_output=True, timeout=10, check=True)
+        except (OSError, subprocess.SubprocessError):
+            stream.unlink(missing_ok=True)
         (self.root / 'sway.conf').write_text(
             'output HEADLESS-1 mode 800x600\nseat seat0 fallback true\n')
         env = dict(PATH='/usr/bin', HOME='/private/home', XDG_RUNTIME_DIR='/private/run',
@@ -107,12 +115,15 @@ class Instance:
                    '/private/dbus-services/org.a11y.Bus.service',
                    '--ro-bind', str(self.root / 'sway.conf'), '/private/sway.conf',
                    '--bind', str(self.root / 'home'), '/private/home',
-                   '--bind', str(self.root / 'display'), '/private/run',
+                   '--perms', '0700', '--tmpfs', '/private/run',
+                   '--bind', str(self.root / 'display'), '/private/metadata',
                    '--bind', str(self.runtime), '/private/runtime',
                    '--bind', str(self.workspace), '/private/workspace',
                    '--cap-drop', 'ALL', '--clearenv', '--chdir', '/app']
         if effects.is_file():
             command += ['--ro-bind', str(effects), '/private/effects']
+        if stream.is_file():
+            command += ['--ro-bind', str(stream), '/private/stream']
         if hosts:
             self.egress = Egress(self.root / 'display/https.sock', hosts)
             self.egress_thread = threading.Thread(target=self.egress.serve_forever, daemon=True)
@@ -150,6 +161,7 @@ class Instance:
                 shutil.rmtree(path)
         self.endpoint.unlink(missing_ok=True)
         (self.root / 'effects').unlink(missing_ok=True)
+        (self.root / 'stream').unlink(missing_ok=True)
         for path in self.runtime.glob('apps-*'):
             if path.is_dir() and not path.is_symlink():
                 shutil.rmtree(path)
@@ -219,7 +231,7 @@ def inside():
         del credentials
         wait_ready(bridge, time.monotonic() + STARTUP - 2)
         bridge.stdout.close()
-        (PRIVATE / 'run/boundary.json').write_text(json.dumps(namespaces()))
+        (PRIVATE / 'metadata/boundary.json').write_text(json.dumps(namespaces()))
         print('ready', flush=True)
         while not stop.wait(.1):
             if compositor.poll() is not None or bridge.poll() is not None:
@@ -341,18 +353,25 @@ def handle(client, root, credentials, identities, instances):
 
 
 def inside_service():
+    from .presentation import Presentation
+    from .private_effects import private_id
+
     identities = Identities()
     identities.load(json.loads(sys.stdin.buffer.readline(4097)))
     sys.stdin.close()
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
+    presentation = Presentation(private_id())
     with serve(PRIVATE / 'runtime', identities, 'desktop', PRIVATE / 'workspace',
-               watch_adapter=True) as (endpoint, adapter):
-        print('ready', flush=True)
-        while not stop.wait(.1):
-            if not adapter.process.is_alive():
-                return 1
+               watch_adapter=True, presentation=presentation) as (endpoint, adapter):
+        try:
+            print('ready', flush=True)
+            while not stop.wait(.1):
+                if not adapter.process.is_alive():
+                    return 1
+        finally:
+            presentation.close()
     return 0
 
 

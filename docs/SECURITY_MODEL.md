@@ -1,6 +1,6 @@
 # Security and trust model
 
-**Status:** threat model for experimental LoopEnvironment services on existing Linux. [V0.6](LOOPBRIDGE_V0_6.md) provides bounded evidence on the tested host. It leaves universal isolation against hostile native software, streaming security and verified takeover unqualified.
+**Status** — Threat model for experimental LoopEnvironment services on existing Linux. [V0.6](LOOPBRIDGE_V0_6.md) and [V0.7](LOOPBRIDGE_V0_7.md) provide bounded lab evidence. V0.7 checks stream authorization and isolation for sandboxed clients. Unrestricted same-UID processes on the host remain inside the trust boundary. Verified takeover remains open.
 
 LoopEnvironment targets both interactive and automated control of graphical workflows, which may touch documents, authenticated websites, messages, and other sensitive resources. **The bridge is a high-value control surface.** The mere fact that an agent is local or that a VM is isolated does not make its actions safe.
 

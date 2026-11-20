@@ -86,13 +86,11 @@ The [experimental local service](LOOPBRIDGE_CORE_V0_1.md) implements the bounded
 
 ## LoopBridge release track
 
-[V0.6](LOOPBRIDGE_V0_6.md) delivered managed private Sway sessions and a GTK4 viewer using periodic authorized PNG captures. The milestones below describe planned work.
+[V0.6](LOOPBRIDGE_V0_6.md) delivered managed private Sway sessions and a GTK4 viewer using periodic authorized PNG captures.
 
 ### V0.7 — Live Session Presentation
 
-First implementation of ADR 0011 Alternative A. Define a minimal session presentation contract and deliver a low-latency local stream of one private Sway session to an authenticated read-only observer. Preserve session isolation and enforce separate capabilities. Retain the target of running on the current Debian VM with real graphical applications.
-
-Demonstrate authorized attachment and denial of unauthorized or cross-session access. Measure frame rate (FPS), end-to-end latency, CPU and memory with and without an observer. Record disconnect behavior and show that execution continues while unnecessary capture, encoding and delivery stop. Set any fluidity targets as experiment criteria. Scope V0.7 to local read-only streaming with the existing private-session compositor. Shell supervision, handoff, compositor development and Alternative B belong to later or open work.
+[V0.7](LOOPBRIDGE_V0_7.md) implements ADR 0011 Alternative A for the Debian lab. It adds a pinned, separately authorized private Sway stream and a read-only GTK4 viewer. The report includes graphical performance, idle behavior and isolation evidence. Unrestricted same-UID host isolation remains PARTIAL. Shell supervision, handoff, compositor development and Alternative B belong to later or open work.
 
 ### V0.8 — Session Supervisor
 

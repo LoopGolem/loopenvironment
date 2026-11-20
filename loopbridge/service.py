@@ -97,7 +97,7 @@ class Journal:
 
 
 @contextmanager
-def serve(root, identities, mode, workspace=None, *, watch_adapter=False):
+def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presentation=None):
     root = private_directory(Path(root))
     # Persist the runtime directory entry before accepting a journal intent.
     parent_fd = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -121,6 +121,7 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False):
             from .teaching import AnnotationStore
             broker_class, session, catalog = DesktopBroker, DESKTOP_SESSION, CATALOG
             broker_options['annotation_store'] = AnnotationStore(root / 'annotations.sqlite3')
+            broker_options['presentation'] = presentation
         else:
             broker_class, session, catalog = Broker, SESSION, ()
         journal = Journal(root)
