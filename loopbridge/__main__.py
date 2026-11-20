@@ -83,6 +83,9 @@ def main():
     daemon.add_argument('--credentials', type=Path, required=True)
     daemon.add_argument('--mode', choices=('desktop', 'calculator', 'fixture'), default='desktop')
     daemon.add_argument('--workspace', type=Path)
+    manager = subparsers.add_parser('private')
+    manager.add_argument('--root', type=Path, required=True)
+    manager.add_argument('--credentials', type=Path, required=True)
     client = subparsers.add_parser('client')
     client.add_argument('--socket', required=True)
     client.add_argument('--token-file', type=Path)
@@ -101,6 +104,9 @@ def main():
             provision(args.directory)
         elif args.command == 'serve':
             service(args)
+        elif args.command == 'private':
+            from .private_session import manage
+            manage(args.root, args.credentials)
         elif args.command == 'teach-gui':
             from .teach_gui import run
             return run(args.socket, read_private(args.token_file).rstrip('\n'), args.demo, args.demo_review)

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Publish only the accessibility locator on Firefox's private session bus."""
+import os
 import subprocess
+import threading
 import sys
 
 from gi.repository import Gio, GLib
@@ -34,6 +36,10 @@ def main():
     connection.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus', 'org.freedesktop.DBus',
                          'RequestName', GLib.Variant('(su)', ('org.a11y.Bus', 4)),
                          GLib.VariantType.new('(u)'), Gio.DBusCallFlags.NONE, 2000, None)
+    if os.environ.get('LOOPBRIDGE_HTTPS_HOSTS'):
+        from https_egress import Forward
+        proxy = Forward()
+        threading.Thread(target=proxy.serve_forever, daemon=True).start()
     browser = subprocess.Popen(sys.argv[1:], stdin=subprocess.DEVNULL, close_fds=True)
     browser_native.start()
     loop = GLib.MainLoop()

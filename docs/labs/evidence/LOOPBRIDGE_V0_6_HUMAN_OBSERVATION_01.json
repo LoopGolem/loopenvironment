@@ -1,0 +1,377 @@
+{
+  "milestone": "LoopBridge V0.6 human-observable qualification",
+  "browser": {
+    "result": "GO",
+    "document": "https://vaicoberto.com.br/",
+    "title": "O mundo é seu. Vai coberto.",
+    "source": "firefox_dom",
+    "mcpInteractions": [
+      {
+        "name": "Por quais países você vai passar?",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Data de partida",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Data de retorno",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Idade do viajante 1",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Portugal",
+        "operation": "activate",
+        "result": "confirmed"
+      }
+    ],
+    "contactReadbackVerified": true,
+    "formReadyToSubmit": true,
+    "commercialMutations": 0,
+    "finalHoldSeconds": 120,
+    "elapsedSeconds": 143.464,
+    "configuredHosts": [
+      "api.vaicoberto.com.br",
+      "challenges.cloudflare.com",
+      "vaicoberto.com.br"
+    ],
+    "connectedHosts": [
+      "vaicoberto.com.br"
+    ],
+    "directLoopbackDenied": true,
+    "offlineSibling": true,
+    "separateNamespaces": {
+      "user": true,
+      "pid": true,
+      "mnt": true,
+      "net": true,
+      "ipc": true
+    },
+    "shutdown": "stopped",
+    "renderedFramesAtMilestones": [
+      {
+        "stage": "before_firefox",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:22.042296+00:00",
+        "revision": 16,
+        "frames": 1,
+        "changes": 1,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_open_external",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:28.111956+00:00",
+        "revision": 22,
+        "frames": 5,
+        "changes": 2,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_navigate_https",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:29.128023+00:00",
+        "revision": 23,
+        "frames": 6,
+        "changes": 3,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_set_text",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:30.126127+00:00",
+        "revision": 24,
+        "frames": 7,
+        "changes": 4,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_set_text",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:31.118274+00:00",
+        "revision": 25,
+        "frames": 8,
+        "changes": 5,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_set_text",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:32.114665+00:00",
+        "revision": 26,
+        "frames": 9,
+        "changes": 6,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_set_text",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:33.107348+00:00",
+        "revision": 27,
+        "frames": 10,
+        "changes": 7,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "web_activate",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:34.108575+00:00",
+        "revision": 28,
+        "frames": 11,
+        "changes": 8,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "test_contact_readback",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:35.119788+00:00",
+        "revision": 29,
+        "frames": 12,
+        "changes": 9,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "form_readback",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:47:36.122293+00:00",
+        "revision": 29,
+        "frames": 13,
+        "changes": 10,
+        "width": 800,
+        "height": 600
+      },
+      {
+        "stage": "end_of_hold",
+        "privateId": "c59cb434b8dcc56c",
+        "capturedAt": "2026-11-20T01:49:36.871147+00:00",
+        "revision": 30,
+        "frames": 133,
+        "changes": 19,
+        "width": 800,
+        "height": 600
+      }
+    ],
+    "humanAttendance": "unconfirmed"
+  },
+  "asynchronousFixture": {
+    "result": "GO",
+    "firstFrame": {
+      "privateId": "9f740e71ab672298",
+      "capturedAt": "2026-11-20T01:50:02.721354+00:00",
+      "revision": 24,
+      "frames": 1,
+      "changes": 1,
+      "width": 800,
+      "height": 600
+    },
+    "fixtureDelaySeconds": [
+      10,
+      30,
+      60,
+      120
+    ],
+    "mcpMutations": [
+      {
+        "state": "submitting",
+        "tool": "element_set_text",
+        "seconds": 10.257
+      },
+      {
+        "state": "received",
+        "tool": "element_set_text",
+        "seconds": 30.383
+      },
+      {
+        "state": "processing",
+        "tool": "element_set_text",
+        "seconds": 60.179
+      },
+      {
+        "state": "completed",
+        "tool": "element_set_text",
+        "seconds": 120.257
+      }
+    ],
+    "observerControlDenied": true,
+    "observation": {
+      "state": "success",
+      "elapsedSeconds": 122.193,
+      "transitions": [
+        {
+          "state": "verifying",
+          "elapsedSeconds": 0.285,
+          "observedAt": "2026-11-20T01:50:05.191450+00:00",
+          "frame": {
+            "privateId": "9f740e71ab672298",
+            "capturedAt": "2026-11-20T01:50:05.952718+00:00",
+            "revision": 27,
+            "frames": 3,
+            "changes": 2,
+            "width": 800,
+            "height": 600
+          }
+        },
+        {
+          "state": "submitting",
+          "elapsedSeconds": 11.391,
+          "observedAt": "2026-11-20T01:50:16.297700+00:00",
+          "frame": {
+            "privateId": "9f740e71ab672298",
+            "capturedAt": "2026-11-20T01:50:16.956755+00:00",
+            "revision": 28,
+            "frames": 13,
+            "changes": 3,
+            "width": 800,
+            "height": 600
+          }
+        },
+        {
+          "state": "received",
+          "elapsedSeconds": 33.143,
+          "observedAt": "2026-11-20T01:50:38.048947+00:00",
+          "frame": {
+            "privateId": "9f740e71ab672298",
+            "capturedAt": "2026-11-20T01:50:38.049988+00:00",
+            "revision": 29,
+            "frames": 33,
+            "changes": 4,
+            "width": 800,
+            "height": 600
+          }
+        },
+        {
+          "state": "processing",
+          "elapsedSeconds": 64.523,
+          "observedAt": "2026-11-20T01:51:09.429585+00:00",
+          "frame": {
+            "privateId": "9f740e71ab672298",
+            "capturedAt": "2026-11-20T01:51:10.019945+00:00",
+            "revision": 30,
+            "frames": 64,
+            "changes": 5,
+            "width": 800,
+            "height": 600
+          }
+        },
+        {
+          "state": "success",
+          "elapsedSeconds": 122.193,
+          "observedAt": "2026-11-20T01:52:07.099724+00:00",
+          "frame": {
+            "privateId": "9f740e71ab672298",
+            "capturedAt": "2026-11-20T01:52:07.100364+00:00",
+            "revision": 31,
+            "frames": 120,
+            "changes": 6,
+            "width": 800,
+            "height": 600
+          }
+        }
+      ]
+    },
+    "lastFrame": {
+      "privateId": "9f740e71ab672298",
+      "capturedAt": "2026-11-20T01:52:07.100364+00:00",
+      "revision": 31,
+      "frames": 120,
+      "changes": 6,
+      "width": 800,
+      "height": 600
+    },
+    "sessionReadyAfterViewerClose": true
+  },
+  "originalAttemptReconciliation": {
+    "classification": "no_http_submission_demonstrated",
+    "commercialPersistence": "unknown",
+    "evidenceFileWrittenUtc": "2026-11-19T20:52:12.720057+00:00",
+    "totalRunSeconds": 25.471,
+    "configuredPollIterations": 6,
+    "configuredSleepSecondsPerIteration": 2,
+    "perPollTimingRecorded": false,
+    "observedDistinctUiStates": [
+      "verifying"
+    ],
+    "siteVerificationBudgetSecondsFromSource": 120,
+    "allowedHosts": [
+      "challenges.cloudflare.com",
+      "vaicoberto.com.br"
+    ],
+    "connectedHosts": [
+      "challenges.cloudflare.com",
+      "vaicoberto.com.br"
+    ],
+    "captureApiHostAllowed": false,
+    "observedTransitionToSubmitting": false,
+    "productionDatabaseQueried": false,
+    "newSubmitDeferred": "production reconciliation pending"
+  },
+  "codexReadOnly": {
+    "result": "GO",
+    "elapsedSeconds": 20.133,
+    "originalFailure": "MCP tool call requires approval, but approval policy is never",
+    "correction": "disposable configuration approves only sessions_list",
+    "independentProtocolReads": {
+      "legacy": [
+        "desktop"
+      ],
+      "modern": [
+        "desktop"
+      ]
+    },
+    "privateBoundaryChecked": true,
+    "providerTurnResult": "turn.completed",
+    "toolCalls": [
+      {
+        "tool": "sessions_list",
+        "status": "completed"
+      }
+    ],
+    "modelConnectionDiscoverCount": 2,
+    "bridgeMethods": [
+      "auth",
+      "discover",
+      "session.access",
+      "session.features",
+      "discover",
+      "auth",
+      "discover",
+      "session.access",
+      "session.features",
+      "discover",
+      "auth",
+      "discover",
+      "session.access",
+      "session.features",
+      "discover"
+    ]
+  },
+  "privateRegression": {
+    "result": "GO",
+    "elapsedSeconds": 19.75,
+    "isolation": {
+      "endpointAttempts": 18,
+      "observerDeniedControl": true,
+      "siblingReferenceDenied": true,
+      "siblingLeaseDenied": true
+    },
+    "independentDiskRead": true,
+    "blockedRootPreserved": "/tmp/lb6-t3zqig88"
+  },
+  "unittestCases": 161
+}

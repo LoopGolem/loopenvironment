@@ -37,7 +37,7 @@ SCHEMA = {
 
 class Broker:
     schema = SCHEMA
-    versions = ('0.1', '0.2', '0.3', '0.4', VERSION)
+    versions = ('0.1', '0.2', '0.3', '0.4', '0.5', VERSION)
     connection_limits = (30, 180, 64)
 
     def __init__(self, identities, adapters, uid, journal, clock=time.monotonic,
@@ -82,9 +82,9 @@ class Broker:
         if set(params) != self.schema[method]:
             fail('invalid_params', -32602)
         # Bound strings before dictionary lookups and never reflect request data.
-        if any(not isinstance(v, str) or len(v) > (3000 if k in ('text', 'meaning', 'conditions', 'warnings') else 128)
+        if any(not isinstance(v, str) or len(v) > (3000 if k in ('text', 'meaning', 'conditions', 'warnings') else 512 if k == 'url' else 128)
                for k, v in params.items()
-               if k not in ('ttl', 'cursor', 'generation', 'offset', 'depth', 'value', 'revision', 'index')):
+               if k not in ('ttl', 'cursor', 'generation', 'offset', 'depth', 'value', 'revision', 'index', 'x', 'y')):
             fail('invalid_params', -32602)
         if method == 'discover':
             permitted = []

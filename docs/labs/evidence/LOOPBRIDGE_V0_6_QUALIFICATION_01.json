@@ -1,0 +1,184 @@
+{
+  "milestone": "LoopBridge V0.6 qualification completion",
+  "recordedDate": "2026-11-19",
+  "unitTests": {
+    "command": "python3 -B -m unittest discover -s tests",
+    "result": "GO",
+    "cases": 157,
+    "exitCode": 0
+  },
+  "https": {
+    "result": "GO",
+    "privateFirefoxDocuments": [
+      {
+        "requestedHost": "example.com",
+        "document": "https://example.com/",
+        "title": "Example Domain",
+        "status": "confirmed",
+        "elapsedSeconds": 0.407,
+        "source": "firefox_dom"
+      },
+      {
+        "requestedHost": "vaicoberto.com.br",
+        "document": "https://vaicoberto.com.br/",
+        "title": "O mundo é seu. Vai coberto.",
+        "status": "confirmed",
+        "elapsedSeconds": 0.606,
+        "source": "firefox_dom"
+      }
+    ],
+    "networkMode": "https_connect",
+    "perSessionHosts": [
+      "challenges.cloudflare.com",
+      "vaicoberto.com.br"
+    ],
+    "siblingOffline": true,
+    "loopbackDenied": true,
+    "isolatedNamespaces": {
+      "user": true,
+      "pid": true,
+      "mnt": true,
+      "net": true,
+      "ipc": true
+    },
+    "elapsedSeconds": 9.624
+  },
+  "vaiCoberto": {
+    "navigation": "GO",
+    "pageTitle": "O mundo é seu. Vai coberto.",
+    "document": "https://vaicoberto.com.br/",
+    "dynamicInteractions": [
+      {
+        "name": "Por quais países você vai passar?",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Data de partida",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Data de retorno",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Idade do viajante 1",
+        "operation": "set",
+        "result": "confirmed"
+      },
+      {
+        "name": "Portugal",
+        "operation": "activate",
+        "result": "confirmed"
+      }
+    ],
+    "authorizedTestContactPresent": true,
+    "commercialSend": {
+      "operatorAuthorized": true,
+      "dispatches": 1,
+      "bridgeStatusAtTime": "confirmed",
+      "visibleNotices": [
+        "1 país selecionado.",
+        "1",
+        "Verificando segurança..."
+      ],
+      "iframes": [],
+      "connectedDestinations": [
+        "challenges.cloudflare.com",
+        "vaicoberto.com.br"
+      ],
+      "turnstileInteraction": "PARTIAL; security-check notice shown; no visible control or acceptance observed",
+      "commercialOutcome": "UNKNOWN; no receipt, protocol, quote, plan or offer verified",
+      "replayed": false,
+      "purchaseOrPayment": false,
+      "bridgeStatusMeaning": "The initial verifier treated changed visible UI as confirmed; this was only an intermediate security notice, not commercial confirmation. The verifier was tightened after the attempt to require a fresh Firefox response document."
+    },
+    "elapsedSeconds": 0.633
+  },
+  "privateInput": {
+    "firstRun": {
+      "result": "GO",
+      "stage": "completed",
+      "clickTarget": {
+        "name": "7",
+        "position": [
+          130,
+          465
+        ],
+        "source": "lab_visual"
+      },
+      "calculator": {
+        "before": "",
+        "after": "7",
+        "independent": "atspi_display"
+      },
+      "editor": {
+        "characters": 20,
+        "backspace": true,
+        "observedCharactersAfterKey": 19,
+        "independent": "atspi_text"
+      },
+      "elapsedSeconds": 10.11
+    },
+    "repeatRun": {
+      "result": "PARTIAL",
+      "stage": "calculator",
+      "failure": "choose_the_calculator_button_visually",
+      "elapsedSeconds": 5.137
+    },
+    "qualification": "PARTIAL; first GTK/AT-SPI click and keyboard readback passed; repeated visual Calculator target selection failed"
+  },
+  "gtkRegression": {
+    "beforeFix": {
+      "result": "PARTIAL",
+      "stage": "close_teaching_editor",
+      "reason": "editor_document_ambiguous"
+    },
+    "cause": "close-time editable-buffer selection depended on transient showing state; close path now validates unique editable buffer and workspace content",
+    "afterFix": {
+      "result": "GO",
+      "stage": "completed",
+      "bufferVerified": true
+    }
+  },
+  "modelAgent": {
+    "result": "PARTIAL",
+    "provider": "Codex CLI existing authenticated ChatGPT session",
+    "privateBoundaryChecked": true,
+    "modelTurn": "turn.completed",
+    "dynamicallySelectedTool": "sessions_list",
+    "toolStatus": "failed",
+    "toolErrorCategory": "tool",
+    "bridgeMethods": [
+      "auth",
+      "discover",
+      "session.access",
+      "session.features"
+    ],
+    "independentReport": null,
+    "elapsedSeconds": 13.696,
+    "reason": "The MCP host reported the selected tool call failed before the Bridge audit recorded any operation beyond discovery and grant inspection."
+  },
+  "regressions": {
+    "agent": "GO",
+    "desktop": "GO",
+    "loopteach": "GO",
+    "practical": "GO",
+    "commandForms": [
+      "python3 -B -m tools.loopbridge_agent_demo",
+      "python3 -B -m tools.loopbridge_desktop_demo",
+      "python3 -B -m tools.loopteach_demo",
+      "python3 -B -m tools.loopbridge_practical_demo"
+    ]
+  },
+  "limitations": [
+    "Commercial submit outcome remains unknown and must not be repeated automatically.",
+    "Turnstile did not expose a visible control in this run.",
+    "Codex MCP call failure remains undiagnosed beyond host-reported tool failure.",
+    "Pointer target selection was intermittent.",
+    "HTTPS egress tunnels opaque TLS and restricts hostnames, not encrypted URL paths.",
+    "No session takeover or cancellation guarantee is claimed."
+  ]
+}

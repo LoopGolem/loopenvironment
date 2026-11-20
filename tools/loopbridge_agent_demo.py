@@ -21,13 +21,14 @@ from .loopbridge_practical_demo import run_gui
 from loopbridge.service import DESKTOP_SESSION, Journal
 
 
-def isolated_command(root, principal, paths, pid):
+def isolated_command(root, principal, paths, pid, credentials=None):
+    credentials = credentials or root / 'credentials'
     folder = root / 'runtime/socket'
     sandbox = command(folder)
     historical = str(ROOT / 'experiments/m1_2')
     mount = sandbox.index(historical)
-    private = (str(root / 'workspace'), str(root / 'credentials'), str(root / 'runtime'))
-    checks = root / 'credentials/checks.json'
+    private = (str(root / 'workspace'), str(credentials), str(root / 'runtime'))
+    checks = credentials / 'checks.json'
     checks.write_text(json.dumps(dict(endpoints=paths, host_ns=namespaces(), broker_pid=pid,
                                      private_paths=private, devices=sorted(set(
                                          glob.glob('/dev/input/event*') + glob.glob('/dev/dri/*')
@@ -37,7 +38,7 @@ def isolated_command(root, principal, paths, pid):
         '--ro-bind', str(ROOT / 'tools/mcp_isolated.py'), '/app/client.py',
         '--ro-bind', historical + '/probe.py', '/app/probe.py',
         '--ro-bind', str(checks), '/identity/checks.json',
-        '--ro-bind', str(root / 'credentials' / (principal + '.token')), '/identity/token',
+        '--ro-bind', str(credentials / (principal + '.token')), '/identity/token',
     ]
     return sandbox
 
@@ -115,7 +116,12 @@ def run(evidence, seed):
             note = element(owner, 'editor', lambda row: row['role'] == 'frame')
             owner.call('teach.create', **SESSION, ref=note['ref'], meaning='document.save',
                        operationHint='page.save', conditions='', warnings='')
-        check(owner.call('app.close', **lease, app='editor')['status']=='confirmed')
+        evidence['stage'] = 'close_teaching_editor'
+        close = owner.call('app.close', **lease, app='editor')
+        evidence['teaching_editor_close'] = {key: close[key] for key in ('status', 'reason') if key in close}
+        if close['status'] == 'confirmed':
+            evidence['teaching_editor_close'].update(close['evidence']['state'])
+        check(close['status'] == 'confirmed')
         owner.call('release', **lease)
         evidence['stage'] = 'grant_expiry'
         owner.call('delegate', **SESSION, principal='observer', capability='workspace.read',
