@@ -4,13 +4,16 @@ Scope: **LoopEnvironment only** — an open-source environment for existing Linu
 
 ## Current project phase
 
-ADR 0010 defines the current product scope. LoopBridge V0.5 and LoopTeach V0.3 add local MCP access, a packaged browser site and GTK annotation workflows. M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. V0.6 adds managed private Sway desktops. See docs/LOOPBRIDGE_V0_6.md, docs/labs/ and docs/design/SESSION_AUTHORITY_V1.md.
+[ADR 0010](docs/DECISIONS/0010-linux-environment-not-os.md) defines the existing-Linux product scope. [LoopBridge V0.6](docs/LOOPBRIDGE_V0_6.md) adds managed private Sway desktops and a GTK4 viewer using authorized PNG captures. [ADR 0011](docs/DECISIONS/0011-session-presentation-and-operator-shell.md) separates execution, control and presentation. The [roadmap](docs/ROADMAP.md#loopbridge-release-track) starts fluent presentation with local streaming in V0.7 and plans an ordinary graphical Shell in V0.8. Nested presentation remains an open hypothesis.
+
+M1.1–M1.3B.2 remain historical experiments. The unmodified Sway/AT-SPI path has no verified preemption barrier, and M1.3B.2 remains PARTIAL. See the [lab records](docs/labs/) and [Session Authority V1](docs/design/SESSION_AUTHORITY_V1.md).
 
 ## Non-negotiable product boundaries
 
 - LoopEnvironment runs on existing Linux on physical or virtual machines.
 - LoopBridge is the central service, open and provider-agnostic.
 - Real Linux applications, graphical operation and a structured operator interface are core goals.
+- Independent private sessions are preferred. Viewing, capture, semantic inspection, control, administration and handoff require separate authorization. Opening a view leaves the active controller and actuation mode unchanged.
 - Initial setup establishes a master/responsible owner principal, whether controlled by human, AI or software.
 - Agent clients may run outside the guest; authority derives from authentication and grants, not biological labels.
 - Owner/delegate takeover requires explicit trusted authorization, not automatic physical pointer motion.
@@ -23,7 +26,7 @@ ADR 0010 defines the current product scope. LoopBridge V0.5 and LoopTeach V0.3 a
 
 ## Before changes
 
-Read README, VISION, PRODUCT_DEFINITION, OPERATOR_MODEL, LOOPTEACH, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index (including ADRs 0008–0010). Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
+Read README, VISION, PRODUCT_DEFINITION, OPERATOR_MODEL, LOOPTEACH, ARCHITECTURE, LOOPBRIDGE, SECURITY_MODEL, ROADMAP and the ADR index (including ADRs 0008–0011). Distinguish accepted architectural decisions from unresolved technology choices. If a change alters a decision, propose or supersede an ADR.
 
 ## Working discipline
 

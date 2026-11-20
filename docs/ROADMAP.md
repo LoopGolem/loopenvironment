@@ -1,6 +1,6 @@
 # Roadmap
 
-This roadmap retains historical experiment milestones and applies [ADR 0010](DECISIONS/0010-linux-environment-not-os.md): LoopEnvironment is an environment on existing Linux, centered on LoopBridge. A VM image is optional, not the next required gate.
+LoopEnvironment runs on existing Linux, centered on LoopBridge. [ADR 0010](DECISIONS/0010-linux-environment-not-os.md) makes a VM image optional. The [LoopBridge release track](#loopbridge-release-track) applies [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md) incrementally and uses the historical experiment gates where applicable.
 
 ## M0 — Product and architecture foundation
 
@@ -84,6 +84,36 @@ The user reported local-only evidence under `docs/labs/M1_3B2_NESTED_SMOKE_01.md
 
 The [experimental local service](LOOPBRIDGE_CORE_V0_1.md) implements the bounded Calculator path on existing Linux. See the [qualification results](LOOPBRIDGE_CORE_V0_1_RESULTS.md). The M1.3B and M1.3C gates remain open. Cua Driver comparison and any decision to adopt an external dependency remain separate work.
 
+## LoopBridge release track
+
+[V0.6](LOOPBRIDGE_V0_6.md) delivered managed private Sway sessions and a GTK4 viewer using periodic authorized PNG captures. The milestones below describe planned work.
+
+### V0.7 — Live Session Presentation
+
+First implementation of ADR 0011 Alternative A. Define a minimal session presentation contract and deliver a low-latency local stream of one private Sway session to an authenticated read-only observer. Preserve session isolation and enforce separate capabilities. Retain the target of running on the current Debian VM with real graphical applications.
+
+Demonstrate authorized attachment and denial of unauthorized or cross-session access. Measure frame rate (FPS), end-to-end latency, CPU and memory with and without an observer. Record disconnect behavior and show that execution continues while unnecessary capture, encoding and delivery stop. Set any fluidity targets as experiment criteria. Scope V0.7 to local read-only streaming with the existing private-session compositor. Shell supervision, handoff, compositor development and Alternative B belong to later or open work.
+
+### V0.8 — Session Supervisor
+
+Deliver the first functional LoopEnvironment Shell as an ordinary Linux graphical application. List and select authorized desktops, show a fluid enlarged view, and display permitted session and authority indicators. Report failures and handle reconnect clearly. Demonstrate supervision of multiple sessions within measured resource limits.
+
+### V0.9 — Observable Actuation
+
+Study and implement configurable actuation modes. The efficient mode uses native and semantic actions. The observable mode uses visually comprehensible graphical input where technically viable and authorized. Observer connections leave the selected mode unchanged. The interaction style conveys no operator identity or authority.
+
+### Future milestone — Operator Handoff
+
+Qualify authorized transfer of control between operators under [ADRs 0007](DECISIONS/0007-unified-input-mediation.md) and [0008](DECISIONS/0008-operator-neutral-authority.md). Preserve the [M1.3B gates](#m13b--trusted-input--enforcement-feasibility). Confirm a handoff only after demonstrating a real revocation barrier against stale input and late conventional and semantic effects at the trusted dispatch boundaries.
+
+### Future hypothesis — Nested Session Presentation
+
+Keep Alternative B as a candidate for local presentation. Study it if there is a justified use case, and base any adoption decision on security, compatibility and measured benefit. Scheduling and implementation remain open.
+
+### Parallel track — Real AI Agent Qualification
+
+Continue qualifying complete missions in which a real model selects operations through LoopBridge/MCP and the resulting artifacts or effects are independently verified. Scripted MCP runs qualify client workflows. V0.6 evidence for a real model is limited to audited read-only discovery. This track can advance independently of streaming.
+
 ## M2 — Reproducible installation on existing Linux
 
 **Goal:** package the validated environment services for existing Linux installations, not build a mandatory standalone ISO/image.
@@ -94,7 +124,7 @@ The [experimental local service](LOOPBRIDGE_CORE_V0_1.md) implements the bounded
 
 ## M3 — External interoperability and authorized session handoff
 
-**Goal:** support at least two independent client implementations and reliable human observation/control handoff.
+**Goal:** support at least two independent client implementations and reliable authorized observation and control handoff.
 
 **Demonstrate:** version negotiation, authenticated principals and distinct grants, event resynchronization, disconnection recovery, view-only operator observation, owner/delegate-authorized session handoff and negative security cases.
 

@@ -2,11 +2,11 @@
 
 **An open-source agent-oriented Linux environment, centered on LoopBridge: structured, permissioned access for operators controlled by people, AI or other software.**
 
-> **Status: design / pre-alpha.** LoopEnvironment is **not a standalone operating system**. It is an environment for existing Linux installations (Debian is the current lab base), centered on LoopBridge. M1.1–M1.3B contain bounded experiments, not a production-ready service, stable API or security certification. A preconfigured VM image is an optional future convenience, not a requirement.
+> **Status: experimental / pre-alpha.** LoopEnvironment runs on existing Linux, with Debian in VirtualBox as the current lab. LoopBridge V0.6 provides managed private desktops and authorized PNG-based viewing. A stable public API and production security remain unqualified. A preconfigured VM image is optional.
 
 ## The idea
 
-LoopEnvironment prioritizes **structured machine operation**: authorized clients observe sessions, applications, supported system resources, controls, states and events, and invoke permitted actions through LoopBridge. An agent should prefer native APIs and semantic operations rather than pixels and clicks. The real graphical desktop remains available for human observation/control and for compatibility fallbacks. Missing semantics must be reported honestly; JSON is one possible representation, not a selected transport.
+LoopEnvironment prioritizes **structured machine operation**. Authorized clients inspect sessions, applications, supported resources, controls, states and events, and invoke permitted actions through LoopBridge. Prefer native APIs and semantic operations when reliable. Ordinary graphical desktops support authorized observation and separately permitted input fallback. Missing semantics must be reported explicitly.
 
 The environment's authority model authenticates **principals** and applies roles/capabilities, not biological classifications. Installation establishes a **master/responsible owner**, which may be controlled by a person, AI or automation. That owner delegates grants, administers sessions and may explicitly authorize a control handoff. No physical input is inherently a privileged "human" takeover.
 
@@ -22,7 +22,7 @@ The current experimental scope is recorded below. The broader capability set rem
 | --- | --- |
 | Operator-neutral | Authenticate principals and scopes, not whether an operator is biologically human or an AI. |
 | Owner-configured | A master/responsible initial owner delegates capabilities, sessions and authority. |
-| Structured-first, visual when useful | Machine-readable state/actions, human-visible desktop, and explicitly authorized fallback. |
+| Structured-first, visually observable | Machine-readable state and actions, independently authorized viewing and explicitly granted input fallback. |
 | Teachable | Native LoopTeach can annotate application-specific controls and reuse meaning on later launches. |
 | Compatible | Normal Linux applications remain usable even without a semantic profile. |
 | Mandatory mediation | Untrusted operators must not bypass trusted Bridge/OS input boundaries. |
@@ -43,21 +43,9 @@ Read [LoopBridge](docs/LOOPBRIDGE.md), [operator model](docs/OPERATOR_MODEL.md),
 
 ## Conceptual architecture
 
-Operator principals: owner / delegates / local or external clients
-                             |
-                Authenticated structured API
-                             |
-                        LoopBridge
-            grants | sessions | actions | events
-                /                     \
-      semantic/profile adapters    trusted input/media
-         AT-SPI + LoopTeach          compositor/portals
-                \                     /
-                 Real graphical applications
-                             |
-                   Linux kernel/services
+Independent private sessions run real Linux applications in the execution plane. LoopBridge governs identity, grants, leases and operations in the control plane. The presentation plane delivers authorized session output. The planned **LoopEnvironment Shell** is an ordinary Linux application for finding, selecting and observing sessions. Viewing, controlling and choosing how to act are separate capabilities.
 
-The compositor and other trusted OS services enforce their own policy boundaries. LoopTeach annotates semantics; it does not authorize input. The system does not require an AI process inside the guest.
+Low-latency streaming is the initial presentation direction. Nested Wayland presentation remains a future hypothesis for local use. See [ADR 0011](docs/DECISIONS/0011-session-presentation-and-operator-shell.md) and [environment architecture](docs/ARCHITECTURE.md).
 
 ## Project status
 
@@ -75,7 +63,7 @@ This historical preflight predates the authority clarification in [ADR 0008](doc
 
 **M1.3B — Trusted Input & Enforcement Feasibility: NO-GO for enabling takeover on the current unmodified Sway + M1.3A stack.** The [assessment and real diagnostics](docs/labs/M1_3B_TRUSTED_INPUT_FEASIBILITY.md) compare cooperative integration, patches, nesting and EIS. A timed-out AT-SPI action took effect after revocation and client disconnection; the broker correctly stayed blocked. No real takeover, compositor patch or input injection was implemented. Future patched/nested approaches remain unqualified.
 
-The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Performance, application compatibility, physical-hardware support, and security have **not** yet been validated.
+The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. Broader application compatibility, performance, physical-hardware support and security remain qualification work.
 
 **M1.3B.1 — Delivery & Acknowledgement:** the [candidate contract](docs/design/DELIVERY_ACKNOWLEDGEMENT_V1.md) specifies operation states, a joint takeover barrier and a nested testbed acceptance matrix. A bounded cooperative-receiver POC is technically plausible; no patch or takeover was implemented, and arbitrary-app acknowledgements remain unavailable.
 
@@ -91,7 +79,9 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.5 and LoopTeach V0.3.** The experimental local MCP adapter connects independent clients to supervised browsing, editor and workspace operations. See the [contract, matrix and evidence](docs/LOOPBRIDGE_V0_5.md).
 
-**LoopBridge V0.6 — private agent workspace.** Managed Sway headless sessions run the existing adapters, host an isolated MCP client and offer separately scoped capture and pointer delivery. See the [run instructions and qualification matrix](docs/LOOPBRIDGE_V0_6.md).
+**LoopBridge V0.6 — private agent workspace.** Managed headless Sway sessions run existing adapters and support isolated MCP clients, separately scoped capture and bounded input fallback. A GTK4 viewer polls authorized PNG captures for a pinned session. The [V0.6 qualification matrix](docs/LOOPBRIDGE_V0_6.md) records the tested scope and limits.
+
+**Planned next milestones.** [V0.7–V0.9](docs/ROADMAP.md#loopbridge-release-track) sequence local live presentation, the first Session Supervisor and configurable actuation. Verified operator handoff remains a separate future milestone.
 
 ## Documentation
 
@@ -101,7 +91,7 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 - [Vision and boundaries](docs/VISION.md)
 - [Environment architecture](docs/ARCHITECTURE.md)
 - [LoopBridge API and transport design](docs/LOOPBRIDGE.md)
-- [Interaction and human-control model](docs/INTERACTION_MODEL.md)
+- [Interaction and session control model](docs/INTERACTION_MODEL.md)
 - [Security and threat model](docs/SECURITY_MODEL.md)
 - [Roadmap and milestone gates](docs/ROADMAP.md)
 - [Licensing and third-party software](docs/LICENSING.md)

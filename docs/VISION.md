@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Create an open-source **agent-oriented environment for existing Linux**, centered on LoopBridge. Structured machine operation is the preferred interface for agents; the normal graphical desktop stays available for human observation/control and compatibility fallbacks. An authenticated principal may be controlled by a person, AI, script or external service without the environment classifying its nature.
+Create an open-source **agent-oriented environment for existing Linux**, centered on LoopBridge. Structured machine operation is the preferred interface for agents. Real graphical desktops remain available for authorized observation and separately authorized control and compatibility fallbacks. An authenticated principal may be controlled by a person, AI, script or external service.
 
 A master/responsible owner is provisioned at installation and delegates access. LoopBridge is the native operational interface, not a required in-guest agent process. See [operator model](OPERATOR_MODEL.md).
 
@@ -22,9 +22,9 @@ An authorized operator can use a browser, application, file manager or text edit
 
 A native **LoopTeach** tool will let an authorized operator identify an element in a specific application (ideally via configurable **Super+click**) and annotate its meaning, expected result and conditions. Future launches should use those annotations only when a new live element can be matched reliably; uncertain matches require review. Distribution-bundled, tested profiles for selected applications are a future option, never a closed-app requirement.
 
-A session may run without a viewer. Independent sessions are preferred by default but shared control and observation are possible through explicit grants. The owner or delegated authority—not an automatically privileged "human"—can request takeover; no physical mouse event proves that authority. An owner can be operated by automation, including unattended VM provisioners.
+Private sessions run independently, including headless operation without a viewer. The planned **LoopEnvironment Shell** is an ordinary Linux graphical application for discovering and observing authorized sessions. Low-latency streaming is the first presentation direction, with nested Wayland presentation kept as a future hypothesis for local use. Observer attachment leaves the controller and actuation mode unchanged. The initial policy allows multiple authorized observers and one active controller per session. An authorized owner or delegate may request handoff once the revocation barrier is qualified. See [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md) and [architecture](ARCHITECTURE.md).
 
-LoopEnvironment runs on conventional Linux, physically or in a VM. A preconfigured image is optional; host compatibility and headless rendering remain qualification tasks. See [interaction](INTERACTION_MODEL.md) and [LoopTeach](LOOPTEACH.md).
+LoopEnvironment runs on conventional Linux, physically or in a VM. A preconfigured image is optional. [V0.6](LOOPBRIDGE_V0_6.md) demonstrated private headless Sway desktops and an authorized GTK4 viewer using periodic PNG captures. Broader host compatibility and fluent presentation are qualification tasks. See [interaction](INTERACTION_MODEL.md) and [LoopTeach](LOOPTEACH.md).
 
 ## Product principles
 
