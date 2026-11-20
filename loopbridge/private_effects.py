@@ -16,8 +16,9 @@ from .linux_desktop import process_identity, sway
 from .semantic_operations import Prepared
 
 OUTPUT = (800, 600)
-IMAGE = (240, 180)
+IMAGE = OUTPUT
 CHUNK = 4096
+MAX_CAPTURE = 512 * 1024
 TTL = 20
 HELPER = '/private/effects'
 KEYS = frozenset(('Return', 'Tab', 'Escape', 'BackSpace', 'Delete', 'Up', 'Down', 'Left', 'Right', 'space'))
@@ -87,6 +88,8 @@ class Effects:
     def acquire(self):
         before = scene()
         contents = png(run('frame'))
+        if len(contents) > MAX_CAPTURE:
+            raise Refused('capture_response_limit')
         if not available() or scene() != before:
             raise Refused('private_scene_changed')
         token = secrets.token_hex(16)

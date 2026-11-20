@@ -153,7 +153,11 @@ class Web:
                 raise Refused('web_mutation_unconfirmed')
             return dict(role=row['role'], name=row['name'], value=row['value'], verifier='firefox_readback')
 
-        return Prepared(send, lambda: wait_for(verify, timeout=16 if method == 'web.submit_https' else 5))
+        if method == 'web.submit_https':
+            # Return control to read-only observers promptly. They can follow
+            # the page without holding the adapter or clearing an unknown intent.
+            return Prepared(send, verify)
+        return Prepared(send, lambda: wait_for(verify, timeout=5))
 
     def prepare(self, method, app, params):
         try:

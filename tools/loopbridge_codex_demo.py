@@ -21,6 +21,8 @@ from loopbridge.service import DESKTOP_SESSION, Journal
 from .loopbridge_demo import Process
 from .loopbridge_desktop_demo import grant
 from .loopbridge_private_demo import connect_rpc
+from .loopbridge_live_demo import client_command
+from .mcp_mission import Client
 
 ROOT = Path(__file__).resolve().parents[1]
 PROVIDER = frozenset(('chatgpt.com', 'auth.openai.com', 'api.openai.com'))
@@ -112,7 +114,11 @@ def filtered_events(path):
                         message = str(detail).lower()
                         message = re.sub(r'[a-z0-9._%+-]+@[a-z0-9.-]+', '[redacted]', message)
                         message = re.sub(r'/[^\s]+', '[path]', message)
-                        for marker in ('invalid_tool_arguments', 'not_initialized',
+                        for marker in ('requires approval, but approval policy is never',
+                                       'tool not found', 'unknown server', 'not connected',
+                                       'transport closed', 'invalid params', 'missing field',
+                                       'failed to spawn', 'permission denied', 'no such file',
+                                       'invalid_tool_arguments', 'not_initialized',
                                        'unknown_tool', 'bridge_connection_closed',
                                        'bridge_response_missing', 'invalid_request',
                                        'timeout', 'permission', 'failed', 'error',
@@ -161,7 +167,7 @@ def filtered_events(path):
     return tools, events, terminal, messages, sorted(types)
 
 
-def model(root, endpoint, credential, auth, evidence):
+def model(root, endpoint, credential, auth, evidence, read_only=False):
     proxy_path = root / 'egress.sock'
     binary = Path(shutil.which('codex')).resolve(strict=True)
     with Egress(proxy_path, PROVIDER) as egress:
@@ -180,7 +186,8 @@ def model(root, endpoint, credential, auth, evidence):
                 '[mcp_servers.loopbridge]\ncommand = "/usr/bin/python3"\ncwd = "/app"\n'
                 'args = ["-B", "-m", "loopbridge.mcp", "--socket", "/bridge/control.sock", '
                 '"--token-file", "/identity/token"]\nrequired = true\ntool_timeout_sec = 48\n'
-                f'enabled_tools = {json.dumps(MCP_TOOLS)}\n')
+                f'enabled_tools = {json.dumps(["sessions_list"] if read_only else MCP_TOOLS)}\n'
+                '[mcp_servers.loopbridge.tools.sessions_list]\napproval_mode = "approve"\n')
             command = ['/usr/bin/bwrap', '--unshare-all', '--die-with-parent', '--new-session',
                        '--clearenv', '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
                        '--ro-bind', '/usr', '/usr', '--symlink', 'usr/bin', '/bin',
@@ -205,6 +212,9 @@ def model(root, endpoint, credential, auth, evidence):
                       'containing their record IDs, names, regions and counts. Read the workspace file back '
                       'to verify it and release the lease. Choose the tools yourself. If a tool reports an '
                       'unknown effect, stop without retrying it.')
+            if read_only:
+                prompt = ('Use the LoopBridge MCP tool for listing authorized sessions. '
+                          'Make the actual read-only tool call and report only the session count.')
             with tempfile.TemporaryFile() as errors, (root / 'model.jsonl').open('w') as output:
                 result = subprocess.run(command, input=prompt.encode(), stdout=output, stderr=errors,
                                         timeout=250, check=False, close_fds=True)
@@ -237,7 +247,7 @@ def model(root, endpoint, credential, auth, evidence):
             server.join(timeout=2)
 
 
-def run(root, auth, evidence):
+def run(root, auth, evidence, read_only=False):
     with ExitStack() as stack:
         creds = root / 'credentials'
         provision(creds)
@@ -249,13 +259,31 @@ def run(root, auth, evidence):
         admin = connect_rpc(stack, root / 'private/manager.sock', owner_token)
         private = admin.call('private.start')
         owner = connect_rpc(stack, private['socket'], owner_token)
-        for cap in ('session.discover', 'workspace.read', 'workspace.write'):
-            grant(owner, 'delegate', cap)
-        for cap in ('app.launch', 'desktop.observe', 'desktop.control'):
-            grant(owner, 'delegate', cap, 'app:browser')
-        complete = model(root, private['socket'], creds / 'delegate.token', auth, evidence)
+        grant(owner, 'delegate', 'session.discover')
+        if not read_only:
+            for cap in ('workspace.read', 'workspace.write'):
+                grant(owner, 'delegate', cap)
+            for cap in ('app.launch', 'desktop.observe', 'desktop.control'):
+                grant(owner, 'delegate', cap, 'app:browser')
+        if read_only:
+            evidence['independentMcpRead'] = {}
+            for modern in (False, True):
+                with Client(client_command(private, creds, 'delegate'), modern=modern) as client:
+                    sessions = client.call('sessions_list')['sessions']
+                    evidence['independentMcpRead']['modern' if modern else 'legacy'] = sessions
+        before = owner.call('audit', session=DESKTOP_SESSION)['entries']
+        complete = model(root, private['socket'], creds / 'delegate.token', auth, evidence, read_only)
         entries = owner.call('audit', session=DESKTOP_SESSION)['entries']
         evidence['bridgeMethods'] = [row['method'] for row in entries if row['principal'] == 'delegate']
+        if read_only:
+            added = (evidence['bridgeMethods'].count('discover')
+                     - sum(row['method'] == 'discover' and row['principal'] == 'delegate' for row in before))
+            evidence['modelConnectionDiscoverCount'] = added
+            if (complete and added >= 2 and any(
+                    row['tool'] == 'sessions_list' and row['status'] == 'completed'
+                    for row in evidence.get('toolCalls', []))):
+                evidence['result'] = 'GO'
+            return
         report = root / 'private' / private['id'] / 'workspace/orchard-review.txt'
         if report.is_file():
             data = report.read_bytes()
@@ -270,6 +298,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--auth-file', type=Path, required=True)
     parser.add_argument('--evidence', type=Path, required=True)
+    parser.add_argument('--read-only', action='store_true')
     args = parser.parse_args()
     started = time.monotonic()
     evidence = dict(result='PARTIAL', operator='codex_cli')
@@ -277,7 +306,7 @@ def main():
     try:
         if not args.auth_file.is_file():
             raise ValueError('codex_auth_unavailable')
-        run(root, args.auth_file.resolve(), evidence)
+        run(root, args.auth_file.resolve(), evidence, args.read_only)
     except (OSError, ValueError, RuntimeError, EOFError, subprocess.SubprocessError) as error:
         evidence['failure'] = type(error).__name__
     finally:

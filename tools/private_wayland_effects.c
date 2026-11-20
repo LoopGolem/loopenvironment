@@ -174,13 +174,13 @@ static int capture(struct wl_display *display, struct state *s, int raw) {
     if (raw) {
         if (s->width != 800 || s->height != 600 || s->flags > 1)
             return 3;
-        for (unsigned y = 0; y < 180; y++) {
-            unsigned source_y = y * 600 / 180;
+        for (unsigned y = 0; y < 600; y++) {
+            unsigned source_y = y;
             if (s->flags & 1)
                 source_y = 599 - source_y;
-            for (unsigned x = 0; x < 240; x++) {
+            for (unsigned x = 0; x < 800; x++) {
                 uint32_t pixel;
-                memcpy(&pixel, s->pixels + source_y * s->stride + x * 800 / 240 * 4, 4);
+                memcpy(&pixel, s->pixels + source_y * s->stride + x * 4, 4);
                 if (putchar((pixel >> 16) & 255) == EOF || putchar((pixel >> 8) & 255) == EOF ||
                     putchar(pixel & 255) == EOF)
                     return 3;

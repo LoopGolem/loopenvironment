@@ -39,19 +39,30 @@ python3 -m tools.loopbridge_mcp_sandbox --socket "$bridge_socket" --token-file "
 
 Stdio understands [2026-07-28 per-request metadata and discovery](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning), plus `2025-11-25` and `2025-06-18` initialization. `tools/list` checks live grants and feature availability. It is advisory. Every action still passes through the Bridge. References and leases remain connection-bound application state. Protocol extensions, subscription streams and concurrent cancellation were outside this qualification.
 
-Grant `desktop.capture` with scope `*` for whole-private-output observation. `session.capture` returns PNG metadata, dimensions, revision and a 20-second reference. `session.capture.read` retrieves numbered base64 chunks. Only up to four frames are held in memory, and references are invalidated by Bridge state changes. A trusted observer can view a fresh PNG on demand with any local viewer that reads from stdin:
+Grant the `observer` principal `desktop.capture` with scope `*` to see the whole private output. From a terminal on the Debian graphical desktop, run:
+
+```sh
+python3 -B -m tools.loopbridge_watch --socket "$bridge_socket" \
+  --token-file "$lab/credentials/observer.token" --expected-private-id "$instance_id"
+```
+
+The GTK4 window shows the pinned instance ID and the age of the last frame. **AO VIVO** means the Bridge is returning current frames. **CONGELADO** means the last frame is stale. **DESCONECTADO** clears the picture and keeps trying the same instance. Close the window with its normal close button. The private desktop and its operator use separate connections. The viewer receives PNGs through the Bridge, draws them in memory and has no input tools.
+
+`session.capture` returns native 800×600 PNG metadata, revision and a 20-second reference. `session.capture.read` returns 4 KiB chunks. The Bridge holds up to four frames of at most 512 KiB each and invalidates references on state changes. The viewer checks the frame digest and pins the compositor identity and epoch. To request a single frame instead:
 
 ```sh
 python3 -m tools.loopbridge_view --socket "$bridge_socket" --token-file "$lab/credentials/observer.token" > "$lab/capture.png"
 ```
 
-The redirect is optional explicit persistence by the observer. Capture uses one verified 800×600 private output downsampled to 240×180. `session.pointer.move` and `session.pointer.click` require the current capture, a lease and both wildcard `desktop.capture` and `desktop.input` grants. Input is restricted to the private session. A GTK editor accepted typed text and Backspace with independent AT-SPI readback. The visual Calculator click also passed once, but a repeated probe failed while selecting the target. Treat pointer and keyboard as experimental. PNG capture shows the complete private output. Window cropping, capture/input on host Sway, and any takeover or cancellation guarantee remain unqualified.
+The redirect explicitly persists a frame. `session.pointer.move` and `session.pointer.click` require the current capture, a lease and both wildcard `desktop.capture` and `desktop.input` grants. Input is restricted to the private session. A GTK editor accepted typed text and Backspace with independent AT-SPI readback. The visual Calculator click passed once, with intermittent target selection on repetition. Window cropping and takeover remain outside this qualification.
+
+Run `python3 -B -m tools.loopbridge_live_demo --evidence /tmp/loopbridge-live.json` for a local editor exercise with transitions at 10, 30, 60 and 120 seconds. The HTTPS demo accepts `--with-viewer --hold 120` to open the viewer before Firefox and keep the final form visible. Both demos record frame counts, revisions and timing without saving images. Human attendance is a separate confirmation.
 
 LoopTeach uses the same instance socket. The existing [GTK and CLI workflow](LOOPTEACH.md) can select and teach private editor elements using authorized API calls. The test confirms resolution of a persisted annotation on the reopened editor. Manual follow-up for GTK4 is to select the editor and window, search via Ctrl+F, navigate results and fields with Tab, save with Ctrl+S, then reopen the editor and resolve. Pay attention to the lack of a previous-page button and the space available for evidence and results on small windows. Automated widget coverage does not establish operator usability.
 
 ## Model host preparation
 
-The lab now includes an experimental Codex host runner that uses the existing ChatGPT CLI login in a rootless namespace, with provider traffic passed through a constrained proxy. Its real model turn selected `sessions_list`, but the Codex MCP host marked the tool call failed before LoopBridge audited the operation. Do not treat this as a completed agent task. The runner retains no raw model event stream in evidence.
+The experimental Codex runner uses the existing CLI login in a rootless namespace and routes provider traffic through a constrained proxy. Codex discovered `sessions_list` but requested approval before invoking it. The disposable profile uses `approval_policy = "never"`, so the call stopped at the host. A per-tool approval in that profile cleared the block for this read-only call. `tools.loopbridge_codex_demo --read-only` verified both MCP handshakes with an independent client and a real model call in the Bridge audit. The runner retains no raw model events.
 
 ```toml
 approval_policy = "never"
@@ -73,6 +84,9 @@ enabled_tools = ["sessions_list", "session_features", "apps_list", "windows_list
   "web_activate", "workspace_list", "workspace_read", "workspace_write", "teach_search",
   "teach_resolve", "app_open_document", "element_tree", "element_set_text", "element_invoke",
   "operation_status"]
+
+[mcp_servers.loopbridge.tools.sessions_list]
+approval_mode = "approve"
 ```
 
 Use a disposable host profile and `codex exec --ephemeral`. Provide only a natural-language objective. For example, alternate Harbor/North and Orchard/North, vary the required output name and fields, and independently check the live report content and path. The model should discover the browser controls, search and read records, optionally resolve a save annotation, and verify its artifact. Keep credentials out of the objective and evidence. See the official [Codex configuration](https://developers.openai.com/codex/config-reference) and [MCP configuration](https://developers.openai.com/codex/mcp).
@@ -96,20 +110,31 @@ python3 -B -m unittest discover -s tests
 
 | Scope | Gate | Evidence and limit |
 | --- | --- | --- |
-| Unit and fixture regression | GO | 157 local unittest cases passed. |
+| Unit and fixture regression | GO | 161 local unittest cases passed. |
 | Two managed sessions and real app mission | GO | Independent MCP client queried real Firefox ESR, used LoopTeach on GNOME Text Editor, and read back the saved report. Host, sibling and private endpoints were denied to the isolated client. |
 | Visual observation and pointer/keyboard | PARTIAL | Private output capture and Wayland input are qualified within the private desktop. GTK text/key effects were independently read back. Calculator target selection was intermittent on repetition. |
 | Failure and manual replacement | GO | Abrupt client, Sway and adapter exits exercised. The old unknown intent survived and the new instance rejected the old lease. |
 | Automatic recovery | PARTIAL | Disabled. The operator can request a fresh independent instance. |
-| Actual AI operator | PARTIAL | Real Codex model turn and dynamic MCP tool choice occurred. The selected call failed before Bridge dispatch/audit. No report was produced. |
+| Actual AI operator | GO for read-only discovery | Codex invoked `sessions_list` through MCP and the Bridge audited the call. The broader report mission remains unqualified. |
 | Private HTTPS and generic browser | GO for tested scope | Firefox loaded `example.com` and Vai Coberto over HTTPS. Dynamic DOM discovery, field edits and option selection were confirmed. Per-session proxy is exact-host allowlisted, CONNECT 443 only and rejects non-public DNS results. TLS remains opaque, so allowed host subpaths and subresources cannot be separately inspected. |
 | Vai Coberto ordinary interaction | PARTIAL | One explicitly authorized submit was dispatched once. The page displayed “Verificando segurança...” and Firefox connected to `challenges.cloudflare.com`. No visible challenge control or commercial confirmation was observed. The outcome is unknown and was not retried. |
 | Commercial quote | PARTIAL | No protocol, quote, plan, price or offer was verified. No purchase or payment occurred. |
+| GTK viewer and live private Firefox | GO for visual delivery | A mapped window rendered 133 frames in a single pinned instance, from before Firefox launched through the completed form and a 120-second hold. Human attendance remains unconfirmed. |
+| Asynchronous observation | GO for fixtures | A separate MCP observer sampled the editor through 10, 30, 60 and 120-second transitions. Each state was paired with a new frame from the open GTK window. |
+| New independently authorized quote | PARTIAL | The live rehearsal reached a validated form. The prior attempt still requires its production read-only reconciliation before dispatch. |
 
 The integrated V0.6 run took 21.108 seconds. This corrective run passed 157 unit tests and the V0.1–V0.5 agent, desktop, LoopTeach and practical demos. GTK failure reproduced at `close_teaching_editor` as `editor_document_ambiguous`. The close path required an editable text buffer marked `showing`, a transient visibility condition. It now requires a unique editable buffer and independently verifies the exact workspace file and content. The fixed GTK demo returned GO. The input repetition returned PARTIAL at Calculator target selection. Historical evidence remains unchanged. [Original evidence](labs/evidence/LOOPBRIDGE_V0_6_PRIVATE_WORKSPACE_01.json) and [corrective qualification](labs/evidence/LOOPBRIDGE_V0_6_QUALIFICATION_01.json).
 
-The real [Vai Coberto](https://vaicoberto.com.br) page was loaded in private Firefox and its DOM was observed. Following explicit operator authorization, one normal submit click was dispatched. The site displayed “Verificando segurança...” and Firefox made a TLS connection to `challenges.cloudflare.com`; no visible verification control, receipt, quote or offer appeared. The commercial outcome is unknown. The action was not repeated. Bridge submit confirmation now requires a fresh Firefox response document; that is only a browser response, not proof that a lead or quote was created, and requires independent review.
+The original production run dispatched one authorized click, observed a security-check notice and opened a Cloudflare connection. The six post-click polling iterations nominally slept for 12 seconds in a 25.471-second run, which ended at approximately 20:52:13 UTC on 19 November 2026. The evidence kept distinct sampled states without per-poll timestamps. It never captured a transition to submission. The capture API host was outside that instance's exact allowlist. The reconstruction therefore establishes **no HTTP submission demonstrated**. Backend persistence remains unverified.
 
-The HTTPS demo command is `python3 -B -m tools.loopbridge_https_demo --help`. It supports read-only navigation and DOM inspection of owner-allowlisted HTTPS hosts. Submission support must be used only after explicit operator authorization and is single-attempt per browser instance. The real model runner is `python3 -B -m tools.loopbridge_codex_demo --help`; it accepts an existing auth file and emits sanitized evidence. This model mission remains PARTIAL at the MCP host call boundary.
+After a single foreground dispatch, the demo polls on a separate scope for up to 330 seconds by default. It records monotonic offsets and distinct observation states. Verification, sending, receipt and processing are intermediate. Explicit machine-readable terminal states can end the generic observer. A deadline leaves the commercial outcome unknown. A fresh response document can confirm browser navigation. Commercial completion requires an independently verified result. The read-only observer never replays the operation or clears its journal.
 
 A failed or stopped instance keeps its journal and possibly affected workspace. Starting another instance creates an empty independent workspace and never releases the old journal. A manager killed with SIGKILL can leave stale filesystem entries. The manager does not reattach old roots or attempt takeover. The evidence covers bounded namespace and endpoint checks on the tested host, not arbitrary hostile native applications or a general Linux security certification.
+
+### Reconcile the original production attempt
+
+The original code polled through the browser for about 12 seconds after the click. The documented security check can wait for 120 seconds before capture starts. The original allowlist covered the public site and the challenge host. The reconstructed egress evidence contains no connection attempt to the separate API host and no HTTP request, receipt or quotation state. The CONNECT proxy does not see the encrypted HTTP method or response.
+
+An authorized production operator can check the capture database for the synthetic trip from Brazil to Portugal, 12–19 February 2027, one traveler aged 35. Use 19 November 2026, 20:51:30–20:52:30 UTC and compare any candidate privately with the approved test contact if needed. Check the request and outbox first, then the job and result statuses if the quotation tables exist. Report only whether there is a matching request and its state. Use a separate fresh browser profile and a new synthetic request for any independent exercise. Verify the public form creates its own idempotency key and include `api.vaicoberto.com.br` in that instance's egress policy alongside the site and challenge hosts.
+
+[Live observation and reconciliation evidence](labs/evidence/LOOPBRIDGE_V0_6_HUMAN_OBSERVATION_01.json)

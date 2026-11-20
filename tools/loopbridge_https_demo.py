@@ -12,15 +12,18 @@ import time
 from urllib.parse import urlsplit
 
 from loopbridge.__main__ import provision, read_private
+from loopbridge.observation import observe
+from loopbridge.protocol import Fault
 from loopbridge.service import DESKTOP_SESSION, Journal
 
 from .loopbridge_demo import Process
 from .loopbridge_desktop_demo import grant
+from .loopbridge_live_demo import LiveView
 from .loopbridge_private_demo import connect_rpc
 from .mcp_mission import Client, SESSION, require, window
 
 
-def run(root, hosts, urls, evidence, inspect=None, submit=False):
+def run(root, hosts, urls, evidence, inspect=None, submit=False, live=False, hold=0):
     with ExitStack() as stack:
         credentials = root / 'credentials'
         provision(credentials)
@@ -41,6 +44,45 @@ def run(root, hosts, urls, evidence, inspect=None, submit=False):
         evidence.update(namespaces=private['namespaces'], siblingOffline=True)
         try:
             owner = connect_rpc(stack, private['socket'], token('owner'))
+            viewer = None
+            observation_expiry = 0
+
+            def grant_observation():
+                nonlocal observation_expiry
+                with ExitStack() as scope:
+                    issuer = connect_rpc(scope, private['socket'], token('owner'))
+                    if live:
+                        grant(issuer, 'observer', 'desktop.capture')
+                    if submit:
+                        grant(issuer, 'observer', 'desktop.observe', 'app:browser')
+                observation_expiry = time.monotonic() + 120
+
+            if live or submit:
+                grant_observation()
+            if live:
+                viewer = LiveView(stack, private, credentials)
+                evidence['viewer'] = [dict(stage='before_firefox', **viewer.sample())]
+                time.sleep(3)
+
+            def visual(stage):
+                if viewer:
+                    try:
+                        evidence['viewer'].append(dict(stage=stage, **viewer.sample(after=time.monotonic(),
+                                                                                     timeout=4)))
+                    except RuntimeError:
+                        evidence['viewer'].append(dict(stage=stage, frameUnavailable=True))
+
+            def browser_read():
+                if time.monotonic() >= observation_expiry:
+                    grant_observation()
+                with ExitStack() as scope:
+                    peer = connect_rpc(scope, private['socket'], token('observer'))
+                    items = peer.call('window.list', **SESSION, app='browser')['windows']
+                    refs = [row['ref'] for row in items if row['ref']]
+                    if len(refs) != 1:
+                        return {}
+                    return peer.call('web.discover', **SESSION, ref=refs[0])
+
             grant(owner, 'delegate', 'session.discover')
             for capability in ('app.launch', 'desktop.observe', 'desktop.control'):
                 grant(owner, 'delegate', capability, 'app:browser')
@@ -52,6 +94,7 @@ def run(root, hosts, urls, evidence, inspect=None, submit=False):
                 permit = client.call('lease_acquire', **SESSION, ttl=175)
                 lease = dict(**SESSION, lease=permit['id'], epoch=permit['epoch'], generation=permit['generation'])
                 client.call('web_open_external', **lease, app='browser')
+                visual('web_open_external')
                 denied = client.refused('web_navigate_https', **lease, ref=window(client, 'browser'),
                                         url='https://127.0.0.1/')
                 require(denied == 'web_destination_denied', 'private_address_was_not_denied')
@@ -70,9 +113,13 @@ def run(root, hosts, urls, evidence, inspect=None, submit=False):
                     attempt.update(document=data['url'], title=data['title'], source=data['source'],
                                    controls=[{key: item[key] for key in ('role', 'name', 'kind', 'options')
                                               if key in item} for item in data['controls']])
+                    visual('web_navigate_https')
                     if inspect and url == urls[-1]:
-                        inspect(client, lease, data, attempt)
+                        inspect(client, lease, data, attempt, visual, browser_read)
                 evidence['result'] = 'GO' if all(row['status'] == 'confirmed' for row in evidence['attempts']) else 'PARTIAL'
+                if viewer and hold:
+                    time.sleep(hold)
+                    visual('end_of_hold')
         finally:
             evidence['network'] = admin('private.network', id=private['id'])
             evidence['shutdown'] = admin('private.stop', id=private['id'])['phase']
@@ -87,8 +134,13 @@ def main():
     parser.add_argument('--activate', metavar='NAME', action='append', default=[])
     parser.add_argument('--test-contact-stdin', action='store_true')
     parser.add_argument('--submit-once', metavar='BUTTON_NAME')
+    parser.add_argument('--with-viewer', action='store_true')
+    parser.add_argument('--hold', type=int, default=0, help='seconds to keep final browser state visible')
+    parser.add_argument('--observe-seconds', type=int, default=330, help='read-only post-submit observation budget')
     parser.add_argument('--evidence', type=Path, required=True)
     args = parser.parse_args()
+    if not 0 <= args.hold <= 120 or not 120 <= args.observe_seconds <= 420:
+        parser.error('hold must be 0–120 seconds and observation must be 120–420 seconds')
     root = Path(tempfile.mkdtemp(prefix='lb6-https-'))
     evidence = dict(result='PARTIAL', attempts=[])
     start = time.monotonic()
@@ -98,7 +150,7 @@ def main():
     if args.submit_once and not contact:
         parser.error('submission requires an explicitly supplied test contact')
 
-    def inspect(client, lease, data, attempt):
+    def inspect(client, lease, data, attempt, visual, browser_read):
         if not args.set and not args.activate and not contact:
             return
         actions = attempt['interactions'] = []
@@ -115,6 +167,7 @@ def main():
                 response = client.call('web_activate', **lease, ref=row['ref'])
             actions.append(dict(name=name, operation=operation, result=response['status']))
             data = client.call('web_discover', **SESSION, ref=window(client, 'browser'))
+            visual('web_set_text' if operation == 'set' else 'web_activate')
         if contact:
             email = [row for row in data['controls'] if row.get('kind') == 'email']
             require(len(email) == 1, 'test_contact_field_ambiguous')
@@ -123,38 +176,41 @@ def main():
             email = [row for row in data['controls'] if row.get('kind') == 'email']
             require(len(email) == 1 and email[0]['value'] == contact, 'test_contact_readback_failed')
             attempt['authorizedTestContactVerified'] = True
+            visual('test_contact_readback')
         attempt['after'] = [{key: item[key] for key in ('role', 'name', 'kind', 'state', 'options',
                                                        'required', 'valid', 'filled')}
                             for item in data['controls'] if item['kind'] not in ('link', 'email')]
+        attempt['readyToSubmit'] = any(row['kind'] == 'submit' for row in data['controls']) and all(
+            row['valid'] for row in data['controls'] if row['required'])
+        visual('form_readback')
         if args.submit_once:
             buttons = [row for row in data['controls'] if row['kind'] == 'submit'
                        and ' '.join(row['name'].split()) == args.submit_once]
             require(len(buttons) == 1, 'submit_button_ambiguous')
             require(all(row['valid'] for row in data['controls'] if row['required']),
                     'required_fields_invalid')
-            attempt['submission'] = dict(operatorAuthorized=True, dispatches=1)
+            visual('before_submit')
+            attempt['submission'] = dict(operatorAuthorized=True, attempts=1)
             reply, failed = client.invoke('web_submit_https', **lease, ref=buttons[0]['ref'])
             attempt['submission'].update(bridgeStatus=reply['status'],
                                          reason=reply.get('reason', ''))
             if failed and reply['status'] == 'refused':
                 attempt['submission']['dispatches'] = 0
-            observations = attempt['submission']['observations'] = []
-            for _ in range(6):
+                return
+            attempt['submission']['dispatches'] = 'unconfirmed' if failed else 1
+
+            def read():
                 try:
-                    live = client.call('web_discover', **SESSION, ref=window(client, 'browser'))
-                except RuntimeError:
-                    time.sleep(2)
-                    continue
-                scrub = lambda rows: [text.replace(contact, '[test contact]') for text in rows]
-                result = dict(url=live['url'], title=live['title'], notices=scrub(live['notices']),
-                              headings=scrub(live['headings']),
-                              iframes=[row['name'] for row in live['controls'] if row['kind'] == 'frame'])
-                if not observations or observations[-1] != result:
-                    observations.append(result)
-                time.sleep(2)
+                    return browser_read()
+                except (Fault, EOFError, OSError):
+                    return {}
+
+            attempt['submission']['observation'] = observe(read, timeout=args.observe_seconds, interval=2,
+                on_change=lambda event: visual('observe_' + event['state']))
     try:
-        run(root, args.host, args.url, evidence, inspect=inspect, submit=bool(args.submit_once))
-    except (OSError, RuntimeError, EOFError, KeyError, ValueError) as error:
+        run(root, args.host, args.url, evidence, inspect=inspect, submit=bool(args.submit_once),
+            live=args.with_viewer, hold=args.hold)
+    except (OSError, RuntimeError, EOFError, KeyError, ValueError, Fault) as error:
         evidence['failure'] = str(error) if type(error) is RuntimeError else type(error).__name__
     finally:
         if any(Journal(path).blocked(DESKTOP_SESSION) for path in root.glob('private/*/runtime')):
