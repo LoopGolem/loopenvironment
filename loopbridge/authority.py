@@ -59,10 +59,11 @@ class Handle:
 
 
 class Session:
-    def __init__(self, sid, clock=time.monotonic, blocked=False, catalog=(), workspace=False):
+    def __init__(self, sid, clock=time.monotonic, blocked=False, catalog=(), workspace=False,
+                 extra_capabilities=()):
         self.id, self.clock = sid, clock
         self.catalog, self.workspace = frozenset(catalog), workspace
-        self.capabilities = DESKTOP_CAPABILITIES if self.catalog else CAPABILITIES
+        self.capabilities = (DESKTOP_CAPABILITIES if self.catalog else CAPABILITIES) | set(extra_capabilities)
         if not workspace:
             self.capabilities = self.capabilities - {'workspace.read', 'workspace.write'}
         self.lock = threading.RLock()  # Per session, never a process-wide adapter lock.

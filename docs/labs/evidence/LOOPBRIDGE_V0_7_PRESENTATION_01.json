@@ -1,0 +1,186 @@
+{
+  "stage": "complete",
+  "result": "PARTIAL",
+  "operatorConfirmedWindow": false,
+  "operatorConfirmedMotion": false,
+  "readyWindow": {
+    "width": 800,
+    "height": 600,
+    "firstPaintMs": 86.36,
+    "handshakeMs": 40.32
+  },
+  "withObserver": {
+    "compositor": {
+      "cpuOneCorePct": 3.62,
+      "rssMiB": 28.88
+    },
+    "capturer": {
+      "cpuOneCorePct": 3.25,
+      "rssMiB": 3.38
+    },
+    "bridge": {
+      "cpuOneCorePct": 3.5,
+      "rssMiB": 24.07
+    },
+    "viewer": {
+      "cpuOneCorePct": 31.12,
+      "rssMiB": 198.09
+    }
+  },
+  "view": {
+    "state": "AO VIVO",
+    "reason": null,
+    "width": 800,
+    "height": 600,
+    "received": 500,
+    "unique": 496,
+    "mailboxDropped": 11,
+    "duplicate": 4,
+    "painted": 485,
+    "presentationFeedback": 485,
+    "fps": 54.5,
+    "captureToReceiveMs": {
+      "samples": 500,
+      "median": 2.17,
+      "p95": 7.55
+    },
+    "appToPaintMs": {
+      "samples": 468,
+      "median": 31.89,
+      "p95": 42.81
+    },
+    "appToPresentationMs": {
+      "samples": 468,
+      "median": 32.98,
+      "p95": 43.86
+    },
+    "handshakeMs": 40.32,
+    "firstPaintMs": 86.36,
+    "motion": {
+      "sourceFrames": 499,
+      "painted": 468,
+      "missed": 31,
+      "seconds": 8.301,
+      "fps": 56.26,
+      "receivedSourceFrames": 479
+    }
+  },
+  "viewerExitToCaptureIdleMs": 48.26,
+  "privateFirefoxAfterViewerExit": "confirmed",
+  "withoutObserver": {
+    "compositor": {
+      "cpuOneCorePct": 1.87,
+      "rssMiB": 27.04
+    },
+    "bridge": {
+      "cpuOneCorePct": 0.12,
+      "rssMiB": 24.18
+    },
+    "capturer": null,
+    "viewer": null
+  },
+  "pngBaseline": {
+    "frames": 8,
+    "unique": 8,
+    "seconds": 7.99,
+    "uniqueFps": 1.0
+  },
+  "negative": {
+    "sameUidUnauthenticatedDenied": true,
+    "discoverObserveAndCaptureDoNotGrantStream": true,
+    "grantDoesNotCrossSession": true,
+    "stalePrivateIdAndEpochDenied": true,
+    "streamDoesNotGrantCaptureInspectOrLease": true,
+    "sameUidHostProcAccess": {
+      "private_wayland": true,
+      "private_sway": true,
+      "private_dbus": true
+    },
+    "sameUidCanReadLabCredentialFile": true,
+    "isolatedObserver": {
+      "endpointsDenied": 26,
+      "privatePathsDenied": 2,
+      "inheritedSockets": 0,
+      "visibleDevices": 0,
+      "namespaces": [
+        "user",
+        "mnt",
+        "pid",
+        "net",
+        "ipc"
+      ]
+    },
+    "noMediaOrDisplayListenerInExposedRuntime": true,
+    "revokeToReaderEofMs": 0.2,
+    "revocationStopsDeliveryReconnectDenied": true,
+    "grantExpiryStopsDelivery": true,
+    "mediaRejectsInboundBytes": true,
+    "viewerCrashKeepsDesktopReady": true,
+    "capturerDeathKeepsDesktopReady": true,
+    "sessionStopClosesStream": true,
+    "reconnectToReplacementWithOldIdentityDenied": true
+  },
+  "gates": {
+    "streaming": "GO",
+    "performance": "GO",
+    "sandboxAuthorization": "GO",
+    "unrestrictedSameUid": "PARTIAL",
+    "humanObservation": "PARTIAL"
+  },
+  "lab": {
+    "date": "2026-11-20",
+    "os": "Debian 13 (trixie)",
+    "vcpus": 2,
+    "memoryMiB": 3921,
+    "mainDisplay": "Wayland, about 60 Hz",
+    "privateCompositor": "Sway 1.10.1; wlroots 0.18.2; Pixman; headless",
+    "packagesInstalledForExperiment": false
+  },
+  "preflight": {
+    "wayvnc": "PARTIAL",
+    "selectedNativeCapture": "GO",
+    "debianWayvncCandidate": "0.9.1-1",
+    "debianTigerVncViewerCandidate": "1.15.0+dfsg-2.1~deb13u1",
+    "simulatedNewPackages": [
+      "libaml0t64",
+      "libfltk-images1.3t64",
+      "libfltk1.3t64",
+      "libneatvnc0",
+      "libturbojpeg0",
+      "tigervnc-viewer",
+      "wayvnc"
+    ],
+    "simulatedDownloadKB": 1349,
+    "simulatedDiskKB": 4417
+  },
+  "commands": [
+    {
+      "command": "apt-get -s install --no-install-recommends wayvnc tigervnc-viewer",
+      "result": "simulation only"
+    },
+    {
+      "command": "/usr/bin/cc -O2 -Wall -Wextra -Werror -fsyntax-only tools/private_wayland_stream.c",
+      "result": "pass"
+    },
+    {
+      "command": "/usr/bin/python3 -B -m unittest discover -s tests",
+      "result": "165 passed"
+    },
+    {
+      "command": "/usr/bin/python3 -B -m tools.loopbridge_presentation_demo --evidence /tmp/loopbridge-v07-record.json --seconds 8 --hold 25",
+      "result": "complete; partial overall"
+    },
+    {
+      "command": "/usr/bin/python3 -B -m tools.loopbridge_private_demo --evidence /tmp/loopbridge-v07-reg-private.json",
+      "result": "GO; PNG capture, MCP, pointer, namespaces and lifecycle"
+    },
+    {
+      "command": "/usr/bin/python3 -B -m tools.loopbridge_input_demo --evidence /tmp/loopbridge-v07-reg-input.json",
+      "result": "PARTIAL; the harness requires an explicit visual coordinate"
+    },
+    {
+      "command": "/usr/bin/python3 -B -m tools.loopbridge_input_demo --visual-point 130 465 --evidence /tmp/loopbridge-v07-reg-input-point.json",
+      "result": "GO; Calculator click, editor typing and BackSpace independently read back"
+    }
+  ]
+}

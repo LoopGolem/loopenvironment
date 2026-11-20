@@ -2,7 +2,7 @@
 
 **An open-source agent-oriented Linux environment, centered on LoopBridge: structured, permissioned access for operators controlled by people, AI or other software.**
 
-> **Status: experimental / pre-alpha.** LoopEnvironment runs on existing Linux, with Debian in VirtualBox as the current lab. LoopBridge V0.6 provides managed private desktops and authorized PNG-based viewing. A stable public API and production security remain unqualified. A preconfigured VM image is optional.
+> **Status: experimental / pre-alpha.** LoopEnvironment runs on existing Linux, with Debian in VirtualBox as the current lab. LoopBridge provides managed private desktops, authorized PNG capture and experimental read-only local streaming. A stable public API and production security remain unqualified. A preconfigured VM image is optional.
 
 ## The idea
 
@@ -81,7 +81,9 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.6 — private agent workspace.** Managed headless Sway sessions run existing adapters and support isolated MCP clients, separately scoped capture and bounded input fallback. A GTK4 viewer polls authorized PNG captures for a pinned session. The [V0.6 qualification matrix](docs/LOOPBRIDGE_V0_6.md) records the tested scope and limits.
 
-**Planned next milestones.** [V0.7–V0.9](docs/ROADMAP.md#loopbridge-release-track) sequence local live presentation, the first Session Supervisor and configurable actuation. Verified operator handoff remains a separate future milestone.
+**LoopBridge V0.7 — live session presentation (PARTIAL overall).** A GTK4 window on the main Debian desktop displays a pinned private Sway session through an authenticated local stream. The [V0.7 experiment](docs/LOOPBRIDGE_V0_7.md) records performance and authorization results, including the limits of unrestricted same-UID isolation.
+
+**Planned next milestones.** [V0.8–V0.9](docs/ROADMAP.md#loopbridge-release-track) cover the first Session Supervisor and configurable actuation. Verified operator handoff remains a separate future milestone.
 
 ## Documentation
 
