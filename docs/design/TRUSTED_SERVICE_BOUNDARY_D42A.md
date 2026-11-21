@@ -68,6 +68,8 @@ The tests use actual filesystem ACLs and Unix sockets with synthetic data. They 
 
 ## D4.2B checklist for separate operator approval
 
+Use the [D4.2A.1 administrative bootstrap contract](TRUSTED_SERVICE_ADMIN_D42A1.md) to seed a **fresh** installation and verify authenticated readiness. Do not manually reset or overwrite the verifier registry.
+
 1. Review the implementation and release digest. Snapshot the disposable VM, identify the ordinary UID, and record the primary Sway baseline.
 2. Review creation of a dedicated static account and group with no login. Confirm the approved administrative workflow can run a narrowly authorized client with the service UID. Keep all owner bearers in restricted administrative storage or protected process input. Review token enrollment and distribution for the observer and delegate separately.
 3. Review root ownership and verified artifact transfer to the versioned path. Confirm executable mounts, system package dependencies and unprivileged Bubblewrap. Set the resolved revision, digest and client UID in the reviewed unit.
