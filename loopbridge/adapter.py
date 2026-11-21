@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Private process boundary for blocking desktop calls."""
 from collections import OrderedDict
+from contextlib import suppress
 import multiprocessing
 import os
 import secrets
@@ -8,6 +9,16 @@ import signal
 import time
 
 from .protocol import encode
+from .service_diagnostics import Reason
+
+
+STARTUP_TIMEOUT = 40
+STARTUP_SOURCES = {b'ready:' + source.encode('ascii'): source
+                   for source in ('fixture_query', 'atspi_query', 'sway_atspi_workspace')}
+STARTUP_FAILURES = {b'error:' + reason.encode('ascii'): reason
+                    for reason in (Reason.ADAPTER_WORKER_INIT, Reason.ADAPTER_IMPORT,
+                                   Reason.ADAPTER_CONSTRUCT, Reason.ADAPTER_STARTUP_CHANNEL)}
+STARTUP_RECORD_LIMIT = max(map(len, STARTUP_SOURCES | STARTUP_FAILURES))
 
 
 class Unavailable(RuntimeError):
@@ -15,6 +26,12 @@ class Unavailable(RuntimeError):
 
 
 class Refused(Unavailable):
+    def __init__(self, reason):
+        self.reason = reason
+        super().__init__(reason)
+
+
+class StartupFailed(Unavailable):
     def __init__(self, reason):
         self.reason = reason
         super().__init__(reason)
@@ -47,19 +64,28 @@ class Fixture:
 
 
 def worker(channel, mode, runtime, workspace):
-    os.setsid()
     # Only this process imports or touches session accessibility objects.
     adapter = None
+    startup_failure = Reason.ADAPTER_WORKER_INIT
     try:
+        os.setsid()
+        startup_failure = Reason.ADAPTER_IMPORT
         if mode == 'calculator':
             from .calculator import Calculator
-            adapter = Calculator()
+            factory, arguments = Calculator, ()
         elif mode == 'desktop':
             from .desktop import Desktop
-            adapter = Desktop(runtime, workspace)
+            factory, arguments = Desktop, (runtime, workspace)
         else:
-            adapter = Fixture()
-        channel.send((True, adapter.source))
+            factory, arguments = Fixture, ()
+        startup_failure = Reason.ADAPTER_CONSTRUCT
+        adapter = factory(*arguments)
+        startup_failure = Reason.ADAPTER_STARTUP_CHANNEL
+        ready = b'ready:' + adapter.source.encode('ascii')
+        if ready not in STARTUP_SOURCES:
+            raise ValueError('invalid adapter startup source')
+        startup_failure = None
+        channel.send_bytes(ready)
         references = OrderedDict()
         prepared = None
         while True:
@@ -106,27 +132,70 @@ def worker(channel, mode, runtime, workspace):
             except Exception:
                 channel.send((False, None))
     except (Exception, KeyboardInterrupt):
-        # The private protocol never exports raw errors or environment data.
-        pass
+        if startup_failure is not None:
+            with suppress(OSError, ValueError):
+                channel.send_bytes(b'error:' + startup_failure.encode('ascii'))
     finally:
+        channel.close()
         if adapter is not None:
             adapter.close()
-        channel.close()
 
 
 class Adapter:
     def __init__(self, mode, runtime=None, workspace=None):
         ctx = multiprocessing.get_context('spawn')
-        self.channel, child = ctx.Pipe()
-        self.process = ctx.Process(target=worker, args=(child, mode, runtime, workspace))
-        self.process.start()
-        child.close()
-        self.faulted = False
         try:
-            self.source = self.receive(40)
+            self.channel, child = ctx.Pipe()
+        except OSError:
+            raise StartupFailed(Reason.ADAPTER_STARTUP_CHANNEL) from None
+        self.faulted = False
+        process = None
+        try:
+            with child:
+                process = ctx.Process(target=worker, args=(child, mode, runtime, workspace))
+                process.start()
+        except BaseException as error:
+            self.channel.close()
+            if process is not None:
+                if process.is_alive():
+                    self.process = process
+                    self.faulted = True
+                    self.close()
+                else:
+                    process.close()
+            if isinstance(error, Exception):
+                raise StartupFailed(Reason.ADAPTER_SPAWN) from None
+            raise
+        self.process = process
+        try:
+            self.source = self._startup_source()
         except BaseException:
+            self.faulted = True
             self.close()
             raise
+
+    def _startup_source(self):
+        # The worker sends one small byte record before operation messages.
+        try:
+            if not self.channel.poll(STARTUP_TIMEOUT):
+                raise TimeoutError
+            # A readable socket can contain an incomplete record. Keep that
+            # failure bounded, then restore blocking receives for operations.
+            fd = self.channel.fileno()
+            os.set_blocking(fd, False)
+            try:
+                record = self.channel.recv_bytes(STARTUP_RECORD_LIMIT)
+            finally:
+                os.set_blocking(fd, True)
+        except TimeoutError:
+            raise StartupFailed(Reason.ADAPTER_STARTUP_TIMEOUT) from None
+        except EOFError:
+            raise StartupFailed(Reason.ADAPTER_STARTUP_EOF) from None
+        except OSError:
+            raise StartupFailed(Reason.ADAPTER_STARTUP_CHANNEL) from None
+        if record in STARTUP_SOURCES:
+            return STARTUP_SOURCES[record]
+        raise StartupFailed(STARTUP_FAILURES.get(record, Reason.ADAPTER_STARTUP_CHANNEL))
 
     def receive(self, timeout):
         try:

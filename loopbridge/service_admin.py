@@ -127,26 +127,33 @@ def owner_input(data):
     return data[:-1].decode('ascii')
 
 
-def manager_readiness(runtime, token, service_uid, service_gid):
-    """Only two read-only RPCs; no general administrative command forwarding."""
-    with protected_directory(runtime, service_uid, service_gid):
-        endpoint = runtime / 'manager.sock'
+@contextmanager
+def private_owner(endpoint, token, uid, gid, *, manager=False):
+    with protected_directory(endpoint.parent, uid, gid):
         info = endpoint.lstat()
-        if (not stat.S_ISSOCK(info.st_mode) or info.st_uid != service_uid
-                or info.st_gid != service_gid or stat.S_IMODE(info.st_mode) != 0o600):
-            raise ValueError('unsafe_manager_endpoint')
+        if (not stat.S_ISSOCK(info.st_mode) or info.st_uid != uid or info.st_gid != gid
+                or stat.S_IMODE(info.st_mode) != 0o600 or read_acl(endpoint) is not None):
+            raise ValueError('unsafe_private_admin_endpoint')
         with closing(socket.socket(socket.AF_UNIX)) as peer:
             peer.settimeout(3)
             peer.connect(str(endpoint))
-            if peer_uid(peer) != service_uid:
-                raise ValueError('unexpected_manager_peer')
+            if peer_uid(peer) != uid:
+                raise ValueError('unexpected_admin_peer')
             rpc = RPC(peer)
-            if rpc.call('auth', credential=token) != {'principal': 'owner'}:
-                raise ValueError('unexpected_manager_auth')
-            result = rpc.call('private.list')
-            if (type(result) is not dict or set(result) != {'instances'}
-                    or type(result['instances']) is not list or result['instances']):
-                raise ValueError('manager_not_empty')
+            auth = rpc.call('auth', credential=token)
+            if (type(auth) is not dict or auth.get('principal') != 'owner'
+                    or manager and auth != {'principal': 'owner'}):
+                raise ValueError('unexpected_admin_auth')
+            yield rpc
+
+
+def manager_readiness(runtime, token, service_uid, service_gid):
+    """Only two read-only RPCs; no general administrative command forwarding."""
+    with private_owner(runtime / 'manager.sock', token, service_uid, service_gid, manager=True) as rpc:
+        result = rpc.call('private.list')
+        if (type(result) is not dict or set(result) != {'instances'}
+                or type(result['instances']) is not list or result['instances']):
+            raise ValueError('manager_not_empty')
 
 
 def require_root():
@@ -160,11 +167,8 @@ def admin_initialize(uid, gid):
     initialize(ADMIN, CREDENTIALS, STATE, RUNTIME, uid, gid)
 
 
-def admin_ready(release, digest, uid, gid):
-    require_root()
-    protect_admin_process()
-    with protected_directory(ADMIN, 0, 0) as admin_fd:
-        data = read_protected(admin_fd, OWNER_FILE, 0, 0, 44)
+def checked_owner_data(admin_fd):
+    data = read_protected(admin_fd, OWNER_FILE, 0, 0, 44)
     with protected_directory(CREDENTIALS, 0, 0) as credential_fd:
         raw = read_protected(credential_fd, MANIFEST_FILE, 0, 0, 4096)
     identities = Identities()
@@ -174,31 +178,50 @@ def admin_ready(release, digest, uid, gid):
             raise ValueError('admin_manifest_mismatch')
     except Fault:
         raise ValueError('admin_manifest_mismatch') from None
+    return data
+
+
+def run_service_client(release, digest, uid, gid, data, action, *,
+                       arguments=(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=15):
     # The installed launcher revalidates the exact release in the child.
     # No shell, no inherited supplementary groups, no bearer in argv or env.
+    return subprocess.run(
+        ['/usr/bin/python3', '-I', '-B', str(release / 'launcher.py'),
+         '--manifest-sha256', digest, '--action', action, *arguments],
+        input=data, stdout=stdout, stderr=stderr,
+        user=uid, group=gid, extra_groups=[], cwd='/',
+        env={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'},
+        start_new_session=True, close_fds=True, timeout=timeout, check=False)
+
+
+def admin_ready(release, digest, uid, gid):
+    require_root()
+    protect_admin_process()
+    with protected_directory(ADMIN, 0, 0) as admin_fd:
+        data = checked_owner_data(admin_fd)
     try:
-        result = subprocess.run(
-            ['/usr/bin/python3', '-I', '-B', str(release / 'launcher.py'),
-             '--manifest-sha256', digest, '--action', 'ready-client'],
-            input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            user=uid, group=gid, extra_groups=[], cwd='/',
-            env={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'},
-            start_new_session=True, close_fds=True, timeout=15, check=False)
+        result = run_service_client(release, digest, uid, gid, data, 'ready-client')
     except subprocess.SubprocessError:
         raise ValueError('manager_readiness_failed') from None
     if result.returncode != 0:
         raise ValueError('manager_readiness_failed')
 
 
-def ready_client(uid, gid):
+def service_client_token(uid, gid):
     if (not uid or os.getuid() != uid or os.geteuid() != uid
             or os.getgid() != gid or os.getegid() != gid or os.getgroups()):
-        raise ValueError('dedicated_readiness_identity_required')
+        raise ValueError('dedicated_admin_client_identity_required')
     protect_admin_process()
     try:
         token = owner_input(sys.stdin.buffer.read(45))
     finally:
         close_bootstrap_stdin()
+    return token
+
+
+def ready_client(uid, gid):
+    token = service_client_token(uid, gid)
     try:
         manager_readiness(RUNTIME, token, uid, gid)
     except (Fault, AssertionError, EOFError, KeyError, TypeError):
