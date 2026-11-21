@@ -2,13 +2,15 @@
 """Unprivileged D2 tests for OS-peer admission vs logical Bridge authority."""
 import os
 from pathlib import Path
+import socket
+import threading
 import tempfile
 import unittest
 
 from loopbridge.adapter import Fixture
 from loopbridge.broker import Broker, Connection
 from loopbridge.identity import Identities
-from loopbridge.protocol import Fault
+from loopbridge.protocol import Fault, RPC
 from loopbridge.service import Journal
 from loopbridge.service_ingress import IngressLayout, PeerAdmission
 
@@ -127,6 +129,34 @@ class IngressContractTests(unittest.TestCase):
             with self.subTest(public=public):
                 with self.assertRaisesRegex(ValueError, '^invalid_ingress_layout$'):
                     IngressLayout(public, Path('/var/lib/loopbridge/private'))
+
+    def test_real_unix_socket_peer_uid_follows_kernel_admission(self):
+        # Same-user socketpair verifies SO_PEERCRED reaches the broker; the
+        # policy deliberately admits a different synthetic UID only.
+        policy = PeerAdmission(self.service_uid, frozenset({self.operator_uid}))
+        broker = self.make_broker(policy)
+        with socket.socketpair() as (client, server):
+            worker = threading.Thread(target=broker.serve_connection, args=(server,))
+            worker.start()
+            with self.assertRaisesRegex(Fault, '^denied
+        candidates = (
+            (Path('relative/control.sock'), Path('/var/lib/loopbridge/private')),
+            (Path('/run/service/../control.sock'), Path('/var/lib/loopbridge/private')),
+            (Path('/run/ingress/control.sock'), Path('../private')),
+            (Path('/run/ingress/control.sock'), Path('/')),
+        )
+        for public, private in candidates:
+            with self.subTest(public=public, private=private):
+                with self.assertRaisesRegex(ValueError, '^invalid_ingress_layout$'):
+                    IngressLayout(public, private)
+
+
+if __name__ == '__main__':
+    unittest.main()
+):
+                RPC(client).call('auth', credential=self.tokens['owner'])
+        worker.join(timeout=3)
+        self.assertFalse(worker.is_alive())
 
     def test_ingress_paths_reject_relative_and_traversal_forms(self):
         candidates = (
