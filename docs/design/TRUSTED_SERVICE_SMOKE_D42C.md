@@ -277,7 +277,7 @@ d42c_host_unchanged host-before-second.txt &&
     tee "$D42C_ROOT_EVIDENCE/second-start.json"
 ```
 
-Validate the new pin and compositor. In the root console, establish that each live resource exists before counting a permission error against it. Record only metadata.
+Validate the new pin and compositor. In the root console, establish that each live resource exists before counting a permission error against it. Check the delivered credential in the active manager's mount namespace, as in Stop 2. The ordinary client tests direct reachability from its own namespace. Record only metadata.
 
 ```bash
 read -r D42C_SECOND_ID D42C_SECOND_EPOCH < <(d42c_pin "$D42C_ROOT_EVIDENCE/second-start.json")
@@ -301,7 +301,9 @@ test -d "/var/lib/loopbridge/sessions/$D42C_SECOND_ID/workspace"
 test -f /var/lib/loopbridge/verifiers.json
 test -f /var/lib/loopbridge-admin/owner.token
 test -f /etc/loopbridge/credentials/manager-verifiers.json
-test -f /run/credentials/loopbridge.service/manager-verifiers.json
+test "$(systemctl show loopbridge.service -p MainPID --value)" = "$D42C_MANAGER_PID" &&
+  nsenter --target "$D42C_MANAGER_PID" --mount -- \
+    /usr/bin/test -f /run/credentials/loopbridge.service/manager-verifiers.json
 test -d "/proc/$D42C_SECOND_SWAY/fd"
 test -f "/proc/$D42C_SECOND_SWAY/environ"
 getfacl -cp "$D42C_INGRESS" > "$D42C_ROOT_EVIDENCE/second-ingress-acl.txt"
