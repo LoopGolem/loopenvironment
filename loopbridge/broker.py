@@ -10,6 +10,7 @@ import threading
 import time
 
 from .protocol import Fault, VERSION, DeadlineChannel, encode, request
+from .service_ingress import PeerAdmission
 from .authority import Handle, Session, TARGET, fail
 
 
@@ -41,8 +42,15 @@ class Broker:
     connection_limits = (30, 180, 64)
 
     def __init__(self, identities, adapters, uid, journal, clock=time.monotonic,
-                 catalog=(), workspace=False, extra_capabilities=()):
+                 catalog=(), workspace=False, extra_capabilities=(), *, ingress_policy=None):
         self.identities, self.adapters, self.uid, self.clock = identities, adapters, uid, clock
+        # D2: preserve the single-UID behavior unless a future trusted deployment
+        # explicitly supplies a validated roster. Admission never grants authority.
+        if ingress_policy is None:
+            ingress_policy = PeerAdmission.local_only(uid)
+        if not isinstance(ingress_policy, PeerAdmission) or ingress_policy.service_uid != uid:
+            raise ValueError('invalid_ingress_peer_policy')
+        self.ingress_policy = ingress_policy
         self.journal = journal
         self.sessions = {sid: Session(sid, clock, journal.blocked(sid), catalog, workspace,
                                       extra_capabilities) for sid in adapters}
@@ -66,14 +74,15 @@ class Broker:
         connection.active = False
 
     def authenticated(self, connection):
-        if not connection.active or connection.uid != self.uid or connection.principal is None:
+        if not connection.active or not self.ingress_policy.permits(connection.uid) or connection.principal is None:
             fail('denied')
         return connection.principal
 
     def handle(self, connection, method, params):
         if method == 'auth':
             self.clear(connection)  # Every reauth attempt drops old authority first.
-            if (set(params) != {'credential'} or connection.uid != self.uid or not connection.active):
+            if (set(params) != {'credential'} or not self.ingress_policy.permits(connection.uid)
+                    or not connection.active):
                 fail('denied')
             connection.principal = self.identities.authenticate(params['credential'])
             return dict(principal=connection.principal, connection=connection.id)

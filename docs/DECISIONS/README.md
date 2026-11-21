@@ -6,7 +6,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 
 [ADR 0011](0011-session-presentation-and-operator-shell.md) establishes independent private sessions, a separate presentation plane, streaming as the initial presentation path and the LoopEnvironment Shell as an authorized supervision client.
 
-[ADR 0012](0012-trusted-service-identity-boundary.md) **proposes** a distinct Linux service identity for the private-session runtime. It is under review; the security gate remains PARTIAL.
+[ADR 0012](0012-trusted-service-identity-boundary.md) accepts the **architectural direction** of a distinct Linux service identity for the private-session runtime (D1). Implementation and qualification are pending; the host security gate remains PARTIAL.
 
 | ADR | Decision | Status |
 | --- | --- | --- |
@@ -21,7 +21,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0009](0009-native-loopteach.md) | Native LoopTeach and persistent application semantics | Accepted product direction |
 | [0010](0010-linux-environment-not-os.md) | Agent-oriented Linux environment, central LoopBridge, optional image | Accepted; supersedes 0001 |
 | [0011](0011-session-presentation-and-operator-shell.md) | Independent session presentation and operator supervision | Accepted — architectural direction |
-| [0012](0012-trusted-service-identity-boundary.md) | Proposed private-session Linux service identity | Proposed — review required |
+| [0012](0012-trusted-service-identity-boundary.md) | Dedicated private-session Linux service identity | Accepted — design only; not deployed |
 
 ## ADR workflow
 

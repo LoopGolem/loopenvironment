@@ -1,6 +1,6 @@
 # ADR 0012 — Trusted Linux Service Identity for Private Sessions
 
-**Status:** Proposed — architecture under review, not an implemented or accepted security guarantee
+**Status:** Accepted — architectural direction (D1, PR #20); implementation and host security qualification remain pending
 
 **Date:** 2026-11-21
 
@@ -55,7 +55,7 @@ Do not widen that result to root, kernel compromise, an attacker controlling an 
 
 ## Delivery sequence and decision gates
 
-The [trusted-service boundary plan](../design/TRUSTED_SERVICE_BOUNDARY_V1.md) defines five short, separately reviewed deliveries. This ADR contains the **proposed architecture**, not authority to install units, create users, modify privileged system settings or claim a GO.
+The [trusted-service boundary plan](../design/TRUSTED_SERVICE_BOUNDARY_V1.md) defines five short, separately reviewed deliveries. D1 accepted the **architectural direction**, not a deployed protection or authority to install units, create users, modify privileged system settings or claim GO. [D2](../design/TRUSTED_SERVICE_INGRESS_D2.md) defines an unprivileged ingress prototype with the same pending host boundary.
 
 ## Open questions
 
