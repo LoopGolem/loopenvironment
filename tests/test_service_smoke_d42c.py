@@ -23,7 +23,7 @@ from loopbridge.private_session import Instance, NS, handle, inside, inside_serv
 from loopbridge.protocol import Fault, RPC
 from loopbridge.service import serve
 from loopbridge.service_bootstrap import VerifierRegistry
-from loopbridge.service_diagnostics import Diagnostic, Phase, Reason
+from loopbridge.service_diagnostics import ADAPTER_REASONS, Diagnostic, Phase, Reason
 from loopbridge.service_ingress import peer_uid
 from test_trusted_service_d42a import ServiceFixture
 from tools.loopbridge_d42c_probe import check_ingress, ingress_rpc
@@ -195,15 +195,18 @@ class SmokeFixture(ServiceFixture):
         self.assertEqual(len(list((self.state / 'sessions').iterdir())), 1)
 
     def test_readiness_stage_and_reason_cross_manager_rpc_and_survive_cleanup(self):
-        _, verifier = self.observer()
-        failure = Diagnostic(Phase.BROKER_ADAPTER, reason=Reason.TIMEOUT)
-        journal = StringIO()
-        with (patch.object(Instance, 'start_desktop', side_effect=failure), redirect_stderr(journal),
-              self.assertRaisesRegex(Diagnostic, 'phase=broker_adapter cleanup=confirmed reason=readiness_timeout')):
-            self.admin('start', observer_verifier=verifier)
-        self.assertEqual(journal.getvalue(), 'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n')
-        self.assertIn(verifier, VerifierRegistry(self.state).used)
-        self.assertEqual(self.admin('list'), {'instances': []})
+        for reason in (Reason.TIMEOUT, *sorted(ADAPTER_REASONS)):
+            with self.subTest(reason=reason):
+                _, verifier = self.observer()
+                failure = Diagnostic(Phase.BROKER_ADAPTER, reason=reason)
+                journal = StringIO()
+                expected = f'loopbridge: phase=broker_adapter cleanup=confirmed reason={reason}'
+                with (patch.object(Instance, 'start_desktop', side_effect=failure), redirect_stderr(journal),
+                      self.assertRaisesRegex(Diagnostic, expected)):
+                    self.admin('start', observer_verifier=verifier)
+                self.assertEqual(journal.getvalue(), expected + '\n')
+                self.assertIn(verifier, VerifierRegistry(self.state).used)
+                self.assertEqual(self.admin('list'), {'instances': []})
 
     def test_desktop_exit_before_returning_a_ready_instance_has_its_own_phase(self):
         _, verifier = self.observer()
@@ -306,24 +309,30 @@ class SmokeFixture(ServiceFixture):
 
 class DiagnosticTransportTests(unittest.TestCase):
     def test_supervisor_reports_broker_readiness_failure_and_terminates_children(self):
-        compositor, bridge = Mock(), Mock()
-        text = StringIO()
-        with (patch('loopbridge.private_session.protect_process'),
-              patch('loopbridge.private_session.executable_helper', return_value=True),
-              patch('loopbridge.private_session.signal.signal'),
-              patch('loopbridge.private_session.sys.stdin', SimpleNamespace(buffer=BytesIO(b'{}\n'))),
-              patch('loopbridge.private_session.subprocess.Popen', side_effect=[compositor, bridge]),
-              patch('loopbridge.private_session.inherited_display', return_value={}),
-              patch('loopbridge.private_session.wait_ready', side_effect=RuntimeError('private child trace')),
-              patch('loopbridge.private_session.terminate') as terminate,
-              redirect_stdout(text)):
-            self.assertEqual(inside(hardened=True), 1)
-        self.assertEqual(text.getvalue(), 'stage:desktop_display\nstage:desktop_broker\nerror:desktop_broker\n')
-        self.assertEqual([call.args for call in terminate.call_args_list], [(bridge,), (compositor,)])
+        for failure, record in (
+                (RuntimeError('private child trace'), 'error:desktop_broker'),
+                (Diagnostic(Phase.BROKER_ADAPTER, reason=Reason.ADAPTER_IMPORT), 'error:broker_adapter:adapter_import')):
+            with self.subTest(record=record):
+                compositor, bridge = Mock(), Mock()
+                text = StringIO()
+                with (patch('loopbridge.private_session.protect_process'),
+                      patch('loopbridge.private_session.executable_helper', return_value=True),
+                      patch('loopbridge.private_session.signal.signal'),
+                      patch('loopbridge.private_session.sys.stdin', SimpleNamespace(buffer=BytesIO(b'{}\n'))),
+                      patch('loopbridge.private_session.subprocess.Popen', side_effect=[compositor, bridge]),
+                      patch('loopbridge.private_session.inherited_display', return_value={}),
+                      patch('loopbridge.private_session.wait_ready', side_effect=failure),
+                      patch('loopbridge.private_session.terminate') as terminate,
+                      redirect_stdout(text)):
+                    self.assertEqual(inside(hardened=True), 1)
+                self.assertEqual(text.getvalue(), f'stage:desktop_display\nstage:desktop_broker\n{record}\n')
+                self.assertEqual([call.args for call in terminate.call_args_list], [(bridge,), (compositor,)])
         with TemporaryDirectory() as root:
             for record, phase, reason in (
                     (b'error:desktop_broker\n', Phase.DESKTOP_BROKER, None),
                     (b'error:broker_ready:readiness_timeout\n', Phase.BROKER_READY, Reason.TIMEOUT),
+                    (b'error:broker_adapter:adapter_import\n', Phase.BROKER_ADAPTER, Reason.ADAPTER_IMPORT),
+                    (b'error:broker_ready:adapter_import\n', Phase.DESKTOP_STARTUP, Reason.EOF),
                     (b'error:private child trace\n', Phase.DESKTOP_STARTUP, Reason.EOF)):
                 path = Path(root) / 'readiness'
                 path.write_bytes(record)
@@ -420,6 +429,10 @@ class DiagnosticTransportTests(unittest.TestCase):
                  'loopbridge: phase=relay_publication cleanup=confirmed\n'),
                 (b'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n',
                  'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n'),
+                (b'loopbridge: phase=broker_adapter cleanup=confirmed reason=adapter_import\n',
+                 'loopbridge: phase=broker_adapter cleanup=confirmed reason=adapter_import\n'),
+                (b'loopbridge: phase=broker_ready cleanup=confirmed reason=adapter_import\n',
+                 'loopbridge: phase=admin_client_failed cleanup=unconfirmed\n'),
                 (b'loopbridge: phase=broker_adapter cleanup=confirmed reason=/private/token\n',
                  'loopbridge: phase=admin_client_failed cleanup=unconfirmed\n'),
                 (b'loopbridge: phase=calculator cleanup=confirmed private-secret\n',

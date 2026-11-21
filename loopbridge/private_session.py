@@ -562,19 +562,26 @@ def inside_service(*, hardened=False):
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     presentation = Presentation(private_id())
-    with serve(PRIVATE / 'runtime', identities, 'desktop', PRIVATE / 'workspace',
-               watch_adapter=True, presentation=presentation,
-               session_state=PRIVATE / 'state' if hardened else None,
-               startup_progress=progress) as (endpoint, adapter):
-        try:
-            if progress is not None:
-                progress(Phase.BROKER_READY)
-            print('ready', flush=True)
-            while not stop.wait(.1):
-                if not adapter.process.is_alive():
-                    return 1
-        finally:
-            presentation.close()
+    try:
+        with serve(PRIVATE / 'runtime', identities, 'desktop', PRIVATE / 'workspace',
+                   watch_adapter=True, presentation=presentation,
+                   session_state=PRIVATE / 'state' if hardened else None,
+                   startup_progress=progress) as (endpoint, adapter):
+            try:
+                if progress is not None:
+                    progress(Phase.BROKER_READY)
+                print('ready', flush=True)
+                while not stop.wait(.1):
+                    if not adapter.process.is_alive():
+                        return 1
+            finally:
+                presentation.close()
+    except Diagnostic as error:
+        if not hardened or error.phase != Phase.BROKER_ADAPTER:
+            raise
+        with suppress(OSError, ValueError):
+            print(readiness_error(error.phase, error.reason), flush=True)
+        return 1
     return 0
 
 

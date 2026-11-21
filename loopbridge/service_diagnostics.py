@@ -43,6 +43,18 @@ class Reason(StrEnum):
     TIMEOUT = 'readiness_timeout'
     EOF = 'readiness_eof'
     FRAME = 'readiness_frame_limit'
+    ADAPTER_SPAWN = 'adapter_spawn'
+    ADAPTER_WORKER_INIT = 'adapter_worker_init'
+    ADAPTER_IMPORT = 'adapter_import'
+    ADAPTER_CONSTRUCT = 'adapter_construct'
+    ADAPTER_STARTUP_CHANNEL = 'adapter_startup_channel'
+    ADAPTER_STARTUP_EOF = 'adapter_startup_eof'
+    ADAPTER_STARTUP_TIMEOUT = 'adapter_startup_timeout'
+
+
+ADAPTER_REASONS = frozenset((Reason.ADAPTER_SPAWN, Reason.ADAPTER_WORKER_INIT, Reason.ADAPTER_IMPORT,
+                            Reason.ADAPTER_CONSTRUCT, Reason.ADAPTER_STARTUP_CHANNEL,
+                            Reason.ADAPTER_STARTUP_EOF, Reason.ADAPTER_STARTUP_TIMEOUT))
 
 
 class Diagnostic(RuntimeError):
@@ -50,6 +62,8 @@ class Diagnostic(RuntimeError):
         self.phase = Phase(phase)
         self.cleanup = Cleanup(cleanup)
         self.reason = Reason(reason) if reason is not None else None
+        if self.reason in ADAPTER_REASONS and self.phase != Phase.BROKER_ADAPTER:
+            self.reason = None
         message = f'loopbridge: phase={self.phase} cleanup={self.cleanup}'
         if self.reason is not None:
             message += f' reason={self.reason}'
@@ -89,5 +103,6 @@ READINESS_PROGRESS = {f'stage:{phase}'.encode('ascii'): phase for phase in READI
 READINESS_ERRORS = {
     readiness_error(phase, reason).encode('ascii'): (phase, reason)
     for phase in READINESS_PHASES
-    for reason in (None, *Reason)
+    for reason in (None, Reason.TIMEOUT, Reason.EOF, Reason.FRAME,
+                   *(ADAPTER_REASONS if phase == Phase.BROKER_ADAPTER else ()))
 }

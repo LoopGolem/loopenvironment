@@ -8,9 +8,9 @@ import socket
 import stat
 import tempfile
 
-from .adapter import Adapter
+from .adapter import Adapter, StartupFailed
 from .broker import Broker, Server
-from .service_diagnostics import Phase
+from .service_diagnostics import Diagnostic, Phase
 from .service_ingress import IngressLayout, PeerAdmission, bound_listener, managed_ingress_listener
 
 SESSION = 'calculator'
@@ -177,7 +177,12 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
             raise OSError('unresolved_operation_in_other_mode')
         if startup_progress is not None:
             startup_progress(Phase.BROKER_ADAPTER)
-        adapter = Adapter(mode, root, workspace)
+        try:
+            adapter = Adapter(mode, root, workspace)
+        except StartupFailed as error:
+            if startup_progress is None:
+                raise
+            raise Diagnostic(Phase.BROKER_ADAPTER, reason=error.reason) from None
         try:
             if startup_progress is not None:
                 startup_progress(Phase.BROKER_LISTENERS)
