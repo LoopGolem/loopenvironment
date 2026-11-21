@@ -15,6 +15,7 @@ MAX_CONNECTIONS = 8
 BUFFER_BYTES = 64 * 1024
 CONNECT_TIMEOUT = 1
 IDLE_TIMEOUT = 30
+CLOSE_TIMEOUT = 2
 POLL_INTERVAL = .1
 
 
@@ -45,11 +46,14 @@ def pump(client, private, stop):
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, BUFFER_BYTES)
         sock.setblocking(False)
     deadline = time.monotonic() + IDLE_TIMEOUT
+    close_deadline = None
     while not stop.is_set():
-        remaining = deadline - time.monotonic()
+        remaining = min(deadline, close_deadline or deadline) - time.monotonic()
         if remaining <= 0:
             return
         masks = {client: 0}  # Detect viewer close even when ingress is backpressured.
+        if close_deadline is None:
+            masks[private] = 0  # Detect Bridge close even with a full output buffer.
         for direction in directions:
             if not direction.eof and len(direction.buffer) < BUFFER_BYTES:
                 masks[direction.source] = masks.get(direction.source, 0) | select.POLLIN
@@ -65,8 +69,9 @@ def pump(client, private, stop):
             return
         if any(mask & (select.POLLERR | select.POLLNVAL) for mask in events.values()):
             return
-        if events.get(private.fileno(), 0) & select.POLLHUP:
+        if close_deadline is None and events.get(private.fileno(), 0) & select.POLLHUP:
             # A fully closed Bridge can still have a final reply queued.
+            close_deadline = time.monotonic() + CLOSE_TIMEOUT
             requests = directions[0]
             requests.eof = True
             requests.buffer.clear()

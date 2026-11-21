@@ -235,6 +235,21 @@ class SessionRelayTests(RelayFixture):
             with self.assertRaises(BrokenPipeError):
                 client.sendall(b'next request')
 
+    def test_closed_bridge_cannot_hold_transport_with_backpressured_client(self):
+        backend, relay = self.relay()
+        with patch('loopbridge.service_relay.CLOSE_TIMEOUT', .2), relay.serve():
+            client = self.client()
+            private, _ = backend.accept()
+            with private:
+                private.settimeout(3)
+                private.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 4 * BUFFER_BYTES)
+                sent = private.send(b'x' * (4 * BUFFER_BYTES))
+                self.assertGreater(sent, 2 * BUFFER_BYTES)
+            poll = select.poll()
+            poll.register(client, select.POLLHUP)
+            self.assertTrue(poll.poll(2000))
+            self.assertLess(len(self.receive_all(client)), sent)
+
     def test_replaced_private_socket_is_never_dialed(self):
         backend, relay = self.relay()
         with relay.serve():
