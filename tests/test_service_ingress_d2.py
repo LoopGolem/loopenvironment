@@ -138,22 +138,7 @@ class IngressContractTests(unittest.TestCase):
         with socket.socketpair() as (client, server):
             worker = threading.Thread(target=broker.serve_connection, args=(server,))
             worker.start()
-            with self.assertRaisesRegex(Fault, '^denied
-        candidates = (
-            (Path('relative/control.sock'), Path('/var/lib/loopbridge/private')),
-            (Path('/run/service/../control.sock'), Path('/var/lib/loopbridge/private')),
-            (Path('/run/ingress/control.sock'), Path('../private')),
-            (Path('/run/ingress/control.sock'), Path('/')),
-        )
-        for public, private in candidates:
-            with self.subTest(public=public, private=private):
-                with self.assertRaisesRegex(ValueError, '^invalid_ingress_layout$'):
-                    IngressLayout(public, private)
-
-
-if __name__ == '__main__':
-    unittest.main()
-):
+            with self.assertRaisesRegex(Fault, '^denied$'):
                 RPC(client).call('auth', credential=self.tokens['owner'])
         worker.join(timeout=3)
         self.assertFalse(worker.is_alive())
