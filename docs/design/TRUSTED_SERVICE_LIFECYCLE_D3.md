@@ -50,7 +50,7 @@ Whether a static service UID or systemd `DynamicUser=` best fits durable workspa
 
 ## Review acceptance / remaining gates
 
-- [ ] GitHub CI confirms the full Python suite, including D3's local socket tests, is green.
+- [x] GitHub Actions PR #22, run #60: both jobs successful; full Unix sockets/fixtures suite **198 tests passed**, including 11 new D3 cases. This does not qualify the cross-UID host boundary.
 - [ ] No changes to existing private Sway startup, live presentation media, captured frames or operator grant model.
 - [ ] Opt-in failure cases are fail-closed, do not unlink unrelated paths, and retain durable journal/workspace state.
 - [ ] D4 design and provisioning actions remain separately approved; no privileged configuration is changed by the D3 PR.
