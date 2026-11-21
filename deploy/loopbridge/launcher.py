@@ -138,10 +138,10 @@ def administrative_action(release, digest, action, observer_verifier=None, sessi
         service_admin.ready_client(account.pw_uid, account.pw_gid)
         return
     if action in SMOKE_CLIENT_ACTIONS:
-        from loopbridge.service_smoke import smoke_client
-        smoke_client(account.pw_uid, account.pw_gid, action.removeprefix('smoke-').removesuffix('-client'),
-                     observer_verifier, session_id)
-        return
+        from loopbridge.service_smoke import report_smoke, smoke_client
+        return report_smoke(smoke_client, account.pw_uid, account.pw_gid,
+                            action.removeprefix('smoke-').removesuffix('-client'),
+                            observer_verifier, session_id)
     service_admin.require_root()
     require_root_directories(set(service_admin.ADMIN.parents)
                              | set(service_admin.CREDENTIALS.parents)
@@ -154,9 +154,9 @@ def administrative_action(release, digest, action, observer_verifier=None, sessi
         service_admin.admin_ready(release, digest, account.pw_uid, account.pw_gid)
         print('authenticated empty manager ready')
     elif action in SMOKE_ADMIN_ACTIONS:
-        from loopbridge.service_smoke import admin_smoke
-        admin_smoke(release, digest, account.pw_uid, account.pw_gid, action.removeprefix('admin-smoke-'),
-                    observer_verifier, session_id)
+        from loopbridge.service_smoke import admin_smoke, report_smoke
+        return report_smoke(admin_smoke, release, digest, account.pw_uid, account.pw_gid,
+                            action.removeprefix('admin-smoke-'), observer_verifier, session_id)
     else:
         raise ReleaseError('unsupported administrative action')
 
@@ -191,8 +191,8 @@ def main():
             if args.action == 'verify-installed':
                 print('installed release verified')
             else:
-                administrative_action(release, args.manifest_sha256, args.action,
-                                      args.observer_verifier, args.session_id)
+                return administrative_action(release, args.manifest_sha256, args.action,
+                                             args.observer_verifier, args.session_id) or 0
     except ReleaseError as error:
         print(f'loopbridge: {error}', file=sys.stderr)
         return 1

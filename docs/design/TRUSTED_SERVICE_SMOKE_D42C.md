@@ -22,12 +22,66 @@ The checkout's `main` and local `origin/main` reference matched the requested ba
 | Check | Result |
 | --- | --- |
 | `/usr/bin/python3 -B -m unittest discover -s tests` on the base | 249 passed |
-| `/usr/bin/python3 -B -m unittest discover -s tests` with D4.2C | 255 passed |
-| Focused ingress, relay, bootstrap, release, smoke and presentation suites | 84 passed |
+| `/usr/bin/python3 -B -m unittest discover -s tests` with the first D4.2C candidate | 255 passed |
+| Focused ingress, relay, bootstrap, release, smoke and presentation suites for the first candidate | 84 passed |
 | `git fsck --no-dangling` and the installed launcher `verify-installed` | Passed |
 | `setpriv --no-new-privs bwrap --unshare-all … /usr/bin/id` | Started under UID 1000 with a transient namespace |
 
 The fixtures use real local Unix sockets, an actual synthetic ACL layout and the manager and broker RPC contracts. The new smoke fixture simulates the admitted UID and the Calculator operation. Existing fixtures verify rejection of an unlisted kernel peer, no transfer of ancillary FDs, real byte transport, stale verifiers, bounded relay shutdown and media revocation. A lost start reply leaves a session discoverable through protected listing and requires explicit stop. The namespace preflight ran without starting Sway, GTK or a private session. The result for the repository candidate is **READY_FOR_VM_TEST**.
+
+## First cross-UID attempt
+
+The first Stop 2 attempt on November 21, 2026 returned the generic launcher error. The trusted root console reported these metadata in the VM's local time.
+
+| Evidence | Observed result |
+| --- | --- |
+| `first-start.json` | Created at 08:32:06 with zero bytes |
+| `4eed830e88a33d68` and its workspace | Created at 08:32:07 |
+| `annotations.sqlite3` | Created at 08:32:09, 12,288 bytes |
+| `desktop.pending` and `desktop.resolved` | Both absent |
+| Private runtime, public route and active instance | Absent |
+| Manager and primary Sway | PIDs 16793 and 1617 preserved. Manager active with zero restarts. |
+
+The time and instance directory place the request after manager authentication and verifier reservation. The hardened manager reserves the verifier set before constructing the instance. The missing public descriptor prevents any GTK or observer-event claim for this attempt.
+
+The supervisor launches `inside_service` after it finds the private Wayland and Sway IPC sockets. The SQLite file shows that `inside_service` passed verifier bootstrap and entered `serve` far enough to create its annotation store. The code creates that store before the adapter, broker readiness, private listeners and public relay. Early failure to launch Bubblewrap, enter the D-Bus session or find the private display is inconsistent with this artifact. The artifact cannot establish that the adapter, private listeners or relay were ready. [Supervisor and readiness](../../loopbridge/private_session.py) · [Broker startup order](../../loopbridge/service.py)
+
+`app.launch` journals `desktop.pending` before asking the adapter to send the operation and retains that file even after resolution. Its absence leaves failure in adapter preparation, lease checks or intent publication plausible. A completed Calculator launch through this workflow and subsequent failures in observer grants or control release would have left the marker. The remaining paths include adapter startup, broker or socket readiness, namespace checks, public relay publication, exit around the ready reply, private presentation setup and Calculator preparation. The data does not identify which path failed. An empty active list and absent runtime can result from constructor cleanup, manager reaping or the administrative rollback for a known ID. They do not establish which cleanup path executed. [Dispatch order](../../loopbridge/broker.py) · [Administrative workflow](../../loopbridge/service_smoke.py)
+
+The following optional read-only query is for the trusted root console. It covers the reported window in São Paulo time. It reports counts and discards message text, including multi-line payloads. The ordinary UID could see no entries in this window. The releases used for this attempt redirect the private desktop subprocess stderr to `/dev/null`, so even an empty root result cannot exclude a private startup failure.
+
+```bash
+TZ=America/Sao_Paulo /usr/bin/journalctl --unit=loopbridge.service \
+  --since '2026-11-21 08:31:55' --until '2026-11-21 08:32:25' \
+  --no-pager --quiet --output=cat |
+  awk '{
+    text = tolower($0)
+    if (text ~ /bwrap|namespace|mount|permission denied|read-only file system/) boundary++
+    if (text ~ /sway|wayland|dbus|at-spi|adapter|calculator|relay/) desktop++
+  }
+  END {
+    printf "journal_lines=%d boundary_matches=%d desktop_matches=%d\n", NR, boundary, desktop
+  }'
+```
+
+## Diagnostic candidate and retest plan
+
+The updated administrative launcher returns a nonzero status and one sanitized line on failure. It prints a fixed `phase` and `cleanup` value on stderr. Successful stdout retains its existing JSON shape. The root parent accepts only an exact allowed record from its verified child. Raw stderr, exception strings, RPC replies, paths, secrets and graphical data are excluded.
+
+| Phase | Meaning |
+| --- | --- |
+| `state_prepare`, `desktop_startup`, `desktop_display`, `desktop_broker`, `desktop_boundary`, `relay_publication` | The diagnostic manager identified the failure before a usable session was returned, or the client rejected a returned instance that was unusable. |
+| `manager_start_unclassified` | The manager returned a fault without a supported phase, including `private_session_failed` from the installed D4.2B manager. |
+| `start_reply_lost` | The client received no validated start reply. Delivery and cleanup require independent confirmation. |
+| `presentation`, `control_acquire`, `calculator`, `grants`, `control_release` | A validated start gave the client an ID. Preparation failed at the reported phase. |
+| `cleanup` | An explicit stop did not yield a confirmed stop and retirement receipt. |
+| `admin_client_timeout` or `admin_client_failed` | The administrative parent has no validated child diagnostic. For start or stop the effect remains uncertain. |
+
+`cleanup=confirmed` reports successful cleanup of the owned transient resources on manager startup failure, or verified stop and retirement through the administrative rollback. `cleanup=unconfirmed` requires listing and the [lost-confirmation procedure](#lost-confirmation-and-recovery). `cleanup=not_attempted` indicates a failure before a cleanup action. It does not permit reuse of any verifier supplied to a request.
+
+1. Review this commit and stage its versioned release using the builder below. Pin the resulting revision and manifest SHA-256. Any installation follows the Stop 1 quarantine and verification procedure under separate authorization.
+2. The new administrative client can distinguish transport, presentation, Calculator, grants and cleanup failures alongside the unchanged D4.2B manager. A new attempt on that pairing could still return `manager_start_unclassified` for startup or relay. To distinguish those phases on the next attempt, qualify the diagnostic manager in a separately approved disposable VM deployment. The live D4.2B manager continues to use its pinned revision.
+3. Obtain a fresh authorization for one offline session only after confirming the manager baseline, empty active list and absence of transient paths. Preserve `4eed830e88a33d68` and all prior evidence. Use an independent observer verifier set. Capture the phase/cleanup line separately from the public descriptor. End the one known session explicitly and stop for review. An ambiguous start goes to listing and recovery without another start.
 
 ## Administrative workflow
 

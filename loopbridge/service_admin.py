@@ -182,13 +182,14 @@ def checked_owner_data(admin_fd):
 
 
 def run_service_client(release, digest, uid, gid, data, action, *,
-                       arguments=(), stdout=subprocess.DEVNULL, timeout=15):
+                       arguments=(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=15):
     # The installed launcher revalidates the exact release in the child.
     # No shell, no inherited supplementary groups, no bearer in argv or env.
     return subprocess.run(
         ['/usr/bin/python3', '-I', '-B', str(release / 'launcher.py'),
          '--manifest-sha256', digest, '--action', action, *arguments],
-        input=data, stdout=stdout, stderr=subprocess.DEVNULL,
+        input=data, stdout=stdout, stderr=stderr,
         user=uid, group=gid, extra_groups=[], cwd='/',
         env={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'},
         start_new_session=True, close_fds=True, timeout=timeout, check=False)
