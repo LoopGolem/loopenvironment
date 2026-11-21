@@ -66,11 +66,13 @@ TZ=America/Sao_Paulo /usr/bin/journalctl --unit=loopbridge.service \
 
 ## Diagnostic candidate and retest plan
 
-The updated administrative launcher returns a nonzero status and one sanitized line on failure. It prints a fixed `phase` and `cleanup` value on stderr. Successful stdout retains its existing JSON shape. The root parent accepts only an exact allowed record from its verified child. Raw stderr, exception strings, RPC replies, paths, secrets and graphical data are excluded.
+The updated administrative launcher returns a nonzero status and one sanitized line on failure. It prints fixed `phase` and `cleanup` values and an optional readiness `reason` on stderr. Successful stdout retains its existing JSON shape. The root parent accepts only an exact allowed record from its verified child. Raw stderr, exception strings, RPC replies, paths, secrets and graphical data are excluded.
 
 | Phase | Meaning |
 | --- | --- |
-| `state_prepare`, `desktop_startup`, `desktop_display`, `desktop_broker`, `desktop_boundary`, `relay_publication` | The diagnostic manager identified the failure before a usable session was returned, or the client rejected a returned instance that was unusable. |
+| `state_prepare`, `desktop_startup`, `desktop_display`, `desktop_broker` | State reservation, supervisor start, display sockets or handoff to the private broker process. |
+| `broker_bootstrap`, `broker_storage`, `broker_adapter`, `broker_listeners`, `broker_ready` | Last reported stage inside the private broker. The adapter marker follows SQLite and journal initialization. The ready marker follows private socket setup and server startup. |
+| `desktop_boundary`, `relay_publication`, `desktop_ready_exited` | Post-ready boundary validation, public relay setup or an exit before the manager returned a ready instance. |
 | `manager_start_unclassified` | The manager returned a fault without a supported phase, including `private_session_failed` from the installed D4.2B manager. |
 | `start_reply_lost` | The client received no validated start reply. Delivery and cleanup require independent confirmation. |
 | `presentation`, `control_acquire`, `calculator`, `grants`, `control_release` | A validated start gave the client an ID. Preparation failed at the reported phase. |
@@ -79,9 +81,202 @@ The updated administrative launcher returns a nonzero status and one sanitized l
 
 `cleanup=confirmed` reports successful cleanup of the owned transient resources on manager startup failure, or verified stop and retirement through the administrative rollback. `cleanup=unconfirmed` requires listing and the [lost-confirmation procedure](#lost-confirmation-and-recovery). `cleanup=not_attempted` indicates a failure before a cleanup action. It does not permit reuse of any verifier supplied to a request.
 
+The supervisor forwards allowlisted progress from the private broker on the private readiness pipes. The manager reports the last received phase when the pipe reaches EOF, its deadline expires or a record exceeds its bound. Progress records never satisfy the ready handshake. Bounded reads keep a partial line from blocking past the readiness deadline. The manager's 28-second budget can expire while the broker's adapter is still waiting for its worker. Progress allows classification even when the inner timeout cannot be delivered first. The manager writes one sanitized failure line to its own journal independently of delivering the RPC reply. The phase `broker_adapter` can still cover worker spawn, Sway IPC, AT-SPI initialization or worker timeout. [Readiness protocol](../../loopbridge/private_session.py) · [Broker startup order](../../loopbridge/service.py)
+
 1. Review this commit and stage its versioned release using the builder below. Pin the resulting revision and manifest SHA-256. Any installation follows the Stop 1 quarantine and verification procedure under separate authorization.
-2. The new administrative client can distinguish transport, presentation, Calculator, grants and cleanup failures alongside the unchanged D4.2B manager. A new attempt on that pairing could still return `manager_start_unclassified` for startup or relay. To distinguish those phases on the next attempt, qualify the diagnostic manager in a separately approved disposable VM deployment. The live D4.2B manager continues to use its pinned revision.
+2. Qualify the diagnostic manager in the separately authorized environment below when the next attempt must distinguish startup from relay publication.
 3. Obtain a fresh authorization for one offline session only after confirming the manager baseline, empty active list and absence of transient paths. Preserve `4eed830e88a33d68` and all prior evidence. Use an independent observer verifier set. Capture the phase/cleanup line separately from the public descriptor. End the one known session explicitly and stop for review. An ambiguous start goes to listing and recovery without another start.
+
+### Retest alternatives
+
+| Alternative | Diagnostic coverage | Risk and effort |
+| --- | --- | --- |
+| A. Diagnostic administrative client with current D4.2B manager | Classifies transport, presentation, Calculator, grants and cleanup. D4.2B can still collapse private startup and relay publication into `private_session_failed`, reported as `manager_start_unclassified`. | Low setup effort. A start on the working VM adds a verifier reservation and persistent state. This pairing is useful if independent evidence places the incident after a usable instance was returned. |
+| B. Instrumented manager in a disposable VM | Adds broker phase and readiness cause. Distinguishes private listeners from the public relay. Retains a sanitized manager diagnostic independently of the RPC reply. | Moderate setup effort. A full clone gives separate disks, kernel, systemd, accounts and state. Check release and platform parity for a relevant comparison. |
+
+Use B for this incident. The observed window includes both private startup and relay publication. The launcher and credential reader require the project's fixed Linux account, `loopbridge.service`, sockets and directories. A second unit in the working guest would require reworking those boundaries. The unprivileged fixtures can exercise the readiness protocol and real local sockets with synthetic identities. They cannot qualify an actual systemd credential store or the cross-UID boundary. The current guest identifies VirtualBox, with neither `VBoxManage` nor `/dev/kvm` visible. Prepare the clone on the hypervisor host.
+
+### Disposable VM — Gate 1, isolated clone
+
+Authorize only creation and offline configuration of a powered-off clone on the hypervisor host. Select a verified clean, cold pre-provisioning snapshot such as `LoopEnvironment-Pre-D42B`. It must precede the D4.2B credentials, registry and sessions, and contain no saved execution state. If the hypervisor cannot make a full clone from that snapshot while the source runs, use a clean Debian/Sway lab base with matching dependencies. Keep the working VM and its existing snapshots in place.
+
+In a Bash terminal on the VirtualBox host, set `SOURCE_UUID` and the verified unique snapshot name `CLEAN_SNAPSHOT`. Inspect these read-only outputs before any clone operation. [Oracle VirtualBox command reference](https://docs.oracle.com/en/virtualization/virtualbox/7.1/user/vboxmanage.html)
+
+```bash
+VBoxManage --version
+VBoxManage showvminfo "$SOURCE_UUID" --machinereadable
+VBoxManage snapshot "$SOURCE_UUID" list --machinereadable
+VBoxManage snapshot "$SOURCE_UUID" showvminfo "$CLEAN_SNAPSHOT"
+```
+
+After Gate 1 authorization, use a new name and clone the selected snapshot with full disks. Use the new UUID for all further changes. Confirm that the host version supports the options.
+
+```bash
+set -e
+set -o pipefail
+CLONE_NAME=LoopEnvironment-D42C-Diagnostic
+if VBoxManage showvminfo "$CLONE_NAME" >/dev/null 2>&1; then exit 1; fi
+VBoxManage clonevm "$SOURCE_UUID" --snapshot="$CLEAN_SNAPSHOT" --mode=machine \
+  --name="$CLONE_NAME" --register
+DIAG_UUID=$(VBoxManage showvminfo "$CLONE_NAME" --machinereadable | awk -F '"' '$1=="UUID=" {print $2}')
+[[ "$DIAG_UUID" =~ ^[a-fA-F0-9-]{36}$ && "$DIAG_UUID" != "$SOURCE_UUID" ]]
+VBoxManage modifyvm "$DIAG_UUID" --hardware-uuid="$DIAG_UUID" \
+  --clipboard-mode=disabled --clipboard-file-transfers=disabled --drag-and-drop=disabled \
+  --usb-ohci=off --usb-ehci=off --usb-xhci=off --vrde=off
+NICS=$(VBoxManage showvminfo "$DIAG_UUID" --machinereadable | sed -nE 's/^nic([0-9]+)=.*/\1/p')
+test -n "$NICS"
+for nic in $NICS; do
+  VBoxManage modifyvm "$DIAG_UUID" "--nic${nic}=none"
+done
+VBoxManage showvminfo "$DIAG_UUID" --machinereadable
+```
+
+Require `VMState="poweroff"`, every adapter set to `none`, and no shared folders, host-backed serial ports, passthrough devices or raw disks. For each clone disk run `VBoxManage showmediuminfo disk "$CLONE_DISK_UUID"`. Require distinct disk UUIDs and backing files, with no parent disk. Remove inherited per-VM shares from the clone while powered off with `VBoxManage sharedfolder remove "$DIAG_UUID" --name="$SHARE"`. Verify the settings again. Any inherited global share or host channel that cannot be excluded stops the gate. Record host evidence and leave the clone powered off. An incomplete clone stays powered off for review.
+
+### Disposable VM — Gate 2, verify an empty manager
+
+Obtain separate authorization to boot and provision the verified clone. Stage the approved revision from the repository as UID 1000. Use the standard release builder and the existing systemd unit template.
+
+```bash
+set -e
+set -o pipefail
+REV=$(git rev-parse --verify "$D42C_APPROVED_REV^{commit}")
+STAGE=$(mktemp -d /tmp/d42c-release.XXXXXX)
+BUNDLE=$(mktemp -d /tmp/d42c-transfer.XXXXXX)
+/usr/bin/python3 -I -B tools/prepare_loopbridge_release.py build "$REV" "$STAGE"
+DIGEST=$(sha256sum "$STAGE/$REV/release.json" | cut -d ' ' -f 1)
+/usr/bin/python3 -I -B tools/prepare_loopbridge_release.py verify "$STAGE/$REV" "$DIGEST"
+tar -C "$STAGE" -cf "$BUNDLE/candidate.tar" -- "$REV"
+git show "$REV:deploy/loopbridge/loopbridge.service.in" |
+  sed -e "s/@REVISION@/$REV/g" -e "s/@MANIFEST_SHA256@/$DIGEST/g" -e 's/@CLIENT_UID@/1000/g' \
+  > "$BUNDLE/loopbridge.service"
+git archive --format=tar --prefix=source/ "$REV" loopbridge tools > "$BUNDLE/client.tar"
+(cd "$BUNDLE" && sha256sum candidate.tar loopbridge.service client.tar)
+printf 'revision=%s\nmanifest=%s\ntransfer=%s\n' "$REV" "$DIGEST" "$BUNDLE"
+```
+
+Record the manifest and three file hashes independently of the medium. Transfer only those three files to the hypervisor host using an approved offline channel. On a host with an existing ISO tool, for example, run `xorriso -as mkisofs -R -J -V D42C-DIAG -o "$DIAG_ISO" "$BUNDLE"` from the approved bundle copy. Attach the image as a virtual DVD to the verified clone. Set the controller, port and device from the clone's optical drive. [VirtualBox storage commands](https://docs.oracle.com/en/virtualization/virtualbox/7.1/user/vboxmanage.html)
+
+```bash
+VBoxManage storageattach "$DIAG_UUID" --storagectl="$DVD_CONTROLLER" --port="$DVD_PORT" \
+  --device="$DVD_DEVICE" --type=dvddrive --medium="$DIAG_ISO"
+VBoxManage startvm "$DIAG_UUID" --type=gui
+```
+
+In the clone, verify the Debian and kernel versions, dependencies and the ordinary UID/GID. Record deviations from the working guest. It uses kernel `6.12.117+deb13-amd64`, systemd `257.13-1~deb13u1`, Bubblewrap `0.12.0-1~deb13u1`, Sway `1.10.1-2`, D-Bus `1.16.2-2` and Python `3.13.5-1`. Calculator, PyGObject, PyAT-SPI and GTK versions also matter. Missing essentials stop the gate pending review of the clean base or a separately approved offline dependency change.
+
+```bash
+uname -r
+dpkg-query -W bubblewrap sway dbus dbus-daemon systemd python3 python3-gi python3-pyatspi \
+  gnome-calculator gir1.2-gtk-4.0 acl
+id vboxuser
+ip -br link
+findmnt -t vboxsf,9p,virtiofs,nfs,nfs4,cifs
+```
+
+On the trusted root console **inside the clone**, supply the approved clone `DIAG_UUID`, `REV` and `DIGEST`, and independently recorded `TAR_SHA`, `UNIT_SHA` and `CLIENT_SHA`. Set `DVD_DEVICE` to the clone's guest optical block device such as `/dev/sr0`. Run the guarded block in a dedicated Bash shell. Use fresh root-owned evidence paths. The archive's digest pins every byte before extraction and the installed launcher independently checks its root-controlled inventory before initialization.
+
+```bash
+set -e
+set -o pipefail
+umask 022
+test "$(id -u):$(id -g)" = 0:0
+GUEST_UUID=$(cat /sys/class/dmi/id/product_uuid)
+[[ "$DIAG_UUID" =~ ^[a-fA-F0-9-]{36}$ && "${GUEST_UUID,,}" = "${DIAG_UUID,,}" ]]
+test "$(ip -o link show | awk -F': ' '{print $2}')" = lo
+test "$(id -u vboxuser):$(id -g vboxuser)" = 1000:1000
+test "$(systemctl show loopbridge.service -p LoadState --value)" = not-found
+for path in /etc/systemd/system/loopbridge.service /run/loopbridge-private /run/loopbridge-ingress \
+            /var/lib/loopbridge /var/lib/loopbridge-admin /etc/loopbridge/credentials \
+            "/opt/loopbridge/releases/$REV"; do
+  [[ ! -e "$path" && ! -L "$path" ]]
+done
+[[ "$REV" =~ ^[a-f0-9]{40}$ && "$DIGEST" =~ ^[a-f0-9]{64}$ ]]
+for hash in "$TAR_SHA" "$UNIT_SHA" "$CLIENT_SHA"; do [[ "$hash" =~ ^[a-f0-9]{64}$ ]]; done
+if findmnt -n -t vboxsf,9p,virtiofs,nfs,nfs4,cifs; then exit 1; fi
+MEDIA=$(mktemp -d /mnt/d42c-optical.XXXXXX)
+mount -t iso9660 -o ro,nosuid,nodev,noexec "$DVD_DEVICE" "$MEDIA"
+findmnt -n -o OPTIONS --mountpoint "$MEDIA" | grep -Eq '(^|,)ro(,|$)'
+printf '%s  %s\n' "$TAR_SHA" "$MEDIA/candidate.tar" "$UNIT_SHA" "$MEDIA/loopbridge.service" \
+  "$CLIENT_SHA" "$MEDIA/client.tar" | sha256sum --check --strict
+
+if getent passwd 980 || getent group 980 || getent passwd loopbridge-svc ||
+   getent group loopbridge-svc; then exit 1; fi
+groupadd --system --gid 980 loopbridge-svc
+useradd --system --uid 980 --gid 980 --home-dir /nonexistent --shell /usr/sbin/nologin \
+  --no-create-home loopbridge-svc
+install -d -m 0755 -o 0 -g 0 /opt/loopbridge /opt/loopbridge/releases /etc/loopbridge
+install -d -m 0700 -o 0 -g 0 /var/lib/loopbridge-admin /etc/loopbridge/credentials
+install -d -m 0700 -o 980 -g 980 /var/lib/loopbridge /run/loopbridge-ingress
+setfacl --set='u::rwx,u:1000:--x,g::---,m::--x,o::---' /run/loopbridge-ingress
+getfacl -cp /run/loopbridge-ingress
+
+QUARANTINE=$(mktemp -d /opt/loopbridge/.diagnostic.XXXXXX)
+tar -xf "$MEDIA/candidate.tar" -C "$QUARANTINE" --no-same-owner --same-permissions
+printf '%s  %s\n' "$DIGEST" "$QUARANTINE/$REV/release.json" | sha256sum --check --strict
+DEST="/opt/loopbridge/releases/$REV"
+mv -T --update=none-fail -- "$QUARANTINE/$REV" "$DEST"
+d42c_admin() {
+  /usr/bin/python3 -I -B "$DEST/launcher.py" --manifest-sha256 "$DIGEST" "$@"
+}
+d42c_admin --action verify-installed
+CLIENT_DELIVERY=$(mktemp -d /var/tmp/d42c-client-media.XXXXXX)
+install -m 0644 -o 0 -g 0 "$MEDIA/client.tar" "$CLIENT_DELIVERY/client.tar"
+chmod 0755 "$CLIENT_DELIVERY"
+
+# Fresh clone only. This generates a different owner, manifest and registry.
+d42c_admin --action admin-init
+install -m 0644 -o 0 -g 0 "$MEDIA/loopbridge.service" /etc/systemd/system/loopbridge.service
+systemd-analyze verify --generators=no --man=no /etc/systemd/system/loopbridge.service
+systemctl daemon-reload
+systemctl start loopbridge.service
+d42c_admin --action admin-ready
+LIST=$(d42c_admin --action admin-smoke-list)
+test "$LIST" = '{"instances":[]}'
+test "$(systemctl show loopbridge.service -p UnitFileState --value)" = disabled
+printf '%s\nclient_archive=%s\n' "$LIST" "$CLIENT_DELIVERY/client.tar"
+```
+
+The exact name `loopbridge.service` preserves the pinned systemd credential directory. Run these read-only checks in the clone root console. Require UID/GID 980, the manager alone in its cgroup, private runtime and state mode `0700` and the exact named ingress ACL. The delivered credential in the manager mount namespace must be read-only with the [allowed ownership and ACL](TRUSTED_SERVICE_BOUNDARY_D42A.md#bootstrap-rotation-and-recovery).
+
+```bash
+CLONE_MANAGER_PID=$(systemctl show loopbridge.service -p MainPID --value)
+CGROUP=$(systemctl show loopbridge.service -p ControlGroup --value)
+[[ "$CLONE_MANAGER_PID" =~ ^[1-9][0-9]+$ && "$CGROUP" = /system.slice/loopbridge.service ]]
+test "$(cat "/sys/fs/cgroup$CGROUP/cgroup.procs")" = "$CLONE_MANAGER_PID"
+ps -p "$CLONE_MANAGER_PID" -o pid,uid,gid,lstart,args
+stat -c '%u:%g %a %n' /run/loopbridge-private /run/loopbridge-ingress /var/lib/loopbridge
+getfacl -cp /run/loopbridge-ingress
+CRED=/run/credentials/loopbridge.service
+nsenter --target "$CLONE_MANAGER_PID" --mount -- findmnt -n -o TARGET,OPTIONS --target "$CRED"
+nsenter --target "$CLONE_MANAGER_PID" --mount -- stat -c '%u:%g %a %n' "$CRED" "$CRED/manager-verifiers.json"
+nsenter --target "$CLONE_MANAGER_PID" --mount -- getfacl -cp "$CRED" "$CRED/manager-verifiers.json"
+```
+
+Retain the fresh clone credentials with their existing protections. The working VM's paths and logs remain separate. If qualification fails, retain the clone disk and sanitized evidence. An authorized stop targets only the clone's unit after rechecking its DMI UUID. Gate 2 ends with an empty manager.
+
+### Disposable VM — Gate 3, one diagnostic attempt
+
+Request authorization for one offline session in the verified clone. Set `CLIENT_ARCHIVE` to the root-published path above and `CLIENT_SHA` to the pinned digest in the clone's UID 1000 terminal. The published copy contains only the reviewed client code.
+
+```bash
+printf '%s  %s\n' "$CLIENT_SHA" "$CLIENT_ARCHIVE" | sha256sum --check --strict
+CLIENT_SRC=$(mktemp -d "$HOME/d42c-client.XXXXXX")
+tar -xf "$CLIENT_ARCHIVE" -C "$CLIENT_SRC"
+cd "$CLIENT_SRC/source"
+```
+
+Use the Stop 2 viewer, probe and recovery procedure. In its root preflight and snapshot comparisons, use the clone's manager PID, primary Sway PID and evidence directory. Replace the original Sway PID literal in `d42c_host_identity` and `d42c_namespaces`. Use the diagnostic release digest and fresh clone-local owner and observer material. Confirm an empty list and absence of public session routes. Keep the sole start's stderr separate from the public descriptor in a fresh root-owned directory.
+
+```bash
+d42c_admin --action admin-smoke-start --observer-verifier "$D42C_VERIFIER_FIRST" \
+  > "$D42C_ROOT_EVIDENCE/diagnostic-start.json" \
+  2> "$D42C_ROOT_EVIDENCE/diagnostic-start.stderr"
+```
+
+Collect only the reviewed phase and cleanup records and artifact metadata.
+
+A failed start should report a concrete phase and cleanup outcome, or a transport result that flags uncertainty. A generic failure without independent phase evidence leaves the attempt inconclusive. List before resolving ambiguity and use exact-ID shutdown only for a known active instance. Preserve the stored state and evidence. A successful start still requires the observed GTK frame, `control.released` and confirmed exact-ID stop. Either result closes the gate. Keep the clone for review and power off only that clone under separate approval.
 
 ## Administrative workflow
 

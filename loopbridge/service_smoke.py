@@ -12,7 +12,7 @@ from .presentation import CAPABILITY
 from .private_session import INSTANCE_ID, NS
 from .protocol import Fault
 from .service import DESKTOP_SESSION
-from .service_diagnostics import Cleanup, Diagnostic, Phase, STARTUP_PHASES
+from .service_diagnostics import Cleanup, Diagnostic, Phase, Reason, STARTUP_PHASES
 
 INGRESS = Path('/run/loopbridge-ingress')
 GRANT_TTL = 180
@@ -87,13 +87,17 @@ def seed_presentation(endpoint, token, uid, gid, instance_id):
 def start_fault(error):
     if error.code == -32006 and isinstance(error.message, str) and error.message in STARTUP_PHASES:
         cleanup = Cleanup.UNCONFIRMED
-        if type(error.data) is dict and error.data.keys() == {'cleanup'}:
-            state = error.data['cleanup']
+        reason = None
+        if type(error.data) is dict and error.data.keys() <= {'cleanup', 'reason'}:
+            state = error.data.get('cleanup')
             if state == Cleanup.CONFIRMED:
                 cleanup = Cleanup.CONFIRMED
             elif state == Cleanup.NOT_ATTEMPTED and error.message == Phase.STATE_PREPARE:
                 cleanup = Cleanup.NOT_ATTEMPTED
-        return Diagnostic(error.message, cleanup)
+            reason = error.data.get('reason')
+            if not isinstance(reason, str) or reason not in tuple(Reason):
+                reason = None
+        return Diagnostic(error.message, cleanup, reason=reason)
     if (error.code, error.message) in ((-32700, 'parse_error'), (-32600, 'frame_limit')):
         return Diagnostic(Phase.START_REPLY_LOST, Cleanup.UNCONFIRMED)
     if (error.code == -32602 and error.message in ('invalid_https_hosts', 'invalid_session_verifiers',
@@ -162,8 +166,8 @@ def smoke(runtime, ingress, token, uid, gid, operation, observer_verifier=None, 
             with admin.private_owner(manager_endpoint, token, uid, gid, manager=True) as manager:
                 stop_instance(manager, instance_id)
         except ERRORS:
-            raise Diagnostic(failure.phase, Cleanup.UNCONFIRMED) from None
-        raise Diagnostic(failure.phase, Cleanup.CONFIRMED) from None
+            raise Diagnostic(failure.phase, Cleanup.UNCONFIRMED, reason=failure.reason) from None
+        raise Diagnostic(failure.phase, Cleanup.CONFIRMED, reason=failure.reason) from None
 
 
 def admin_smoke(release, digest, uid, gid, operation, observer_verifier, session_id):

@@ -10,6 +10,7 @@ import tempfile
 
 from .adapter import Adapter
 from .broker import Broker, Server
+from .service_diagnostics import Phase
 from .service_ingress import IngressLayout, PeerAdmission, bound_listener, managed_ingress_listener
 
 SESSION = 'calculator'
@@ -123,7 +124,9 @@ def legacy_listener(endpoint, *, backlog=8):
 
 @contextmanager
 def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presentation=None,
-          ingress_layout=None, ingress_policy=None, session_state=None):
+          ingress_layout=None, ingress_policy=None, session_state=None, startup_progress=None):
+    if startup_progress is not None:
+        startup_progress(Phase.BROKER_STORAGE)
     if (ingress_layout is None) != (ingress_policy is None):
         raise ValueError('incomplete_ingress_configuration')
     if ingress_layout is not None:
@@ -172,8 +175,12 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
         legacy = SESSION if session == DESKTOP_SESSION else DESKTOP_SESSION
         if journal.blocked(legacy):
             raise OSError('unresolved_operation_in_other_mode')
+        if startup_progress is not None:
+            startup_progress(Phase.BROKER_ADAPTER)
         adapter = Adapter(mode, root, workspace)
         try:
+            if startup_progress is not None:
+                startup_progress(Phase.BROKER_LISTENERS)
             broker = broker_class(identities, {session: adapter}, os.getuid(), journal,
                                   catalog=catalog, workspace=bool(workspace),
                                   ingress_policy=ingress_policy, **broker_options)

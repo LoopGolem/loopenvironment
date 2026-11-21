@@ -24,7 +24,8 @@ from .service import (DESKTOP_SESSION, Journal, directory_lock, legacy_listener,
                       private_directory, serve)
 from .service_bootstrap import (HELPERS, HardenedService, VerifierRegistry, executable_helper,
                                 load_systemd_manifest)
-from .service_diagnostics import Cleanup, Diagnostic, Phase, READINESS_ERRORS
+from .service_diagnostics import (Cleanup, Diagnostic, Phase, Reason, READINESS_ERRORS,
+                                  READINESS_PROGRESS, readiness_error)
 from .service_ingress import UNIX_PATH_LIMIT, bound_listener, path_inode, peer_uid
 from .service_relay import SessionRelay
 
@@ -32,6 +33,7 @@ NS = ('user', 'pid', 'mnt', 'net', 'ipc')
 PRIVATE = Path('/private')
 MAX_SESSIONS = 4
 STARTUP = 28
+READINESS_RECORD_LIMIT = 4096
 INSTANCE_ID = re.compile('[0-9a-f]{16}')
 
 
@@ -52,17 +54,43 @@ def terminate(process, timeout=5):
     return process.returncode
 
 
-def wait_ready(process, deadline, *, diagnostics=False):
-    while time.monotonic() < deadline:
-        if select.select([process.stdout], [], [], .1)[0]:
-            line = process.stdout.readline(4096)
-            if line == b'ready\n':
+def wait_ready(process, deadline, *, phase=None, progress=None):
+    def failure(reason):
+        if phase is not None:
+            return Diagnostic(phase, reason=reason)
+        return RuntimeError('private_desktop_startup_failed')
+
+    # Read directly from the pipe so buffered lines or a partial frame cannot
+    # hide progress or keep readline() blocked past the readiness deadline.
+    fd = process.stdout.fileno()
+    pending = b''
+    while (remaining := deadline - time.monotonic()) > 0:
+        if not select.select([fd], [], [], remaining)[0]:
+            break
+        chunk = os.read(fd, READINESS_RECORD_LIMIT)
+        if not chunk:
+            raise failure(Reason.EOF)
+        pending += chunk
+        while b'\n' in pending:
+            line, _, pending = pending.partition(b'\n')
+            if len(line) >= READINESS_RECORD_LIMIT:
+                raise failure(Reason.FRAME)
+            if line == b'ready':
                 return
-            if not line:
-                break
-            if diagnostics and line in READINESS_ERRORS:
-                raise Diagnostic(READINESS_ERRORS[line])
-    raise RuntimeError('private_desktop_startup_failed')
+            if phase is not None and line in READINESS_PROGRESS:
+                phase = READINESS_PROGRESS[line]
+                if progress is not None:
+                    progress(phase)
+            elif phase is not None and line in READINESS_ERRORS:
+                failed_phase, reason = READINESS_ERRORS[line]
+                raise Diagnostic(failed_phase, reason=reason)
+        if len(pending) >= READINESS_RECORD_LIMIT:
+            raise failure(Reason.FRAME)
+    raise failure(Reason.TIMEOUT)
+
+
+def announce_startup(phase):
+    print(f'stage:{phase}', flush=True)
 
 
 def lab_helpers(root, tools):
@@ -141,8 +169,9 @@ class Instance:
                     cleanup = Cleanup.CONFIRMED
             except (OSError, RuntimeError, ValueError, KeyError):
                 pass
-            phase = error.phase if isinstance(error, Diagnostic) else startup_phase
-            raise Diagnostic(phase, cleanup) from None
+            if isinstance(error, Diagnostic):
+                raise Diagnostic(error.phase, cleanup, reason=error.reason) from None
+            raise Diagnostic(startup_phase, cleanup) from None
         finally:
             if self.process:
                 self.process.stdout.close()
@@ -204,7 +233,8 @@ class Instance:
                                         close_fds=True)
         self.process.stdin.write((json.dumps(manifest) + '\n').encode())
         self.process.stdin.flush()
-        wait_ready(self.process, time.monotonic() + STARTUP, diagnostics=self.hardened is not None)
+        phase = Phase.DESKTOP_STARTUP if self.hardened is not None else None
+        wait_ready(self.process, time.monotonic() + STARTUP, phase=phase)
         try:
             checks = json.loads((self.root / 'display/boundary.json').read_text())
             self.checks = {name: checks[name] != host for name, host in namespaces().items()}
@@ -309,8 +339,12 @@ def inside(*, hardened=False):
     bridge = None
     startup_phase = Phase.DESKTOP_DISPLAY
     try:
+        if hardened:
+            announce_startup(startup_phase)
         env = {**os.environ, **inherited_display(compositor)}
         startup_phase = Phase.DESKTOP_BROKER
+        if hardened:
+            announce_startup(startup_phase)
         command = (isolated_python('inside_service') if hardened else
                    [sys.executable, '-B', '-m', 'loopbridge.private_session', '--inside-service'])
         bridge = subprocess.Popen(command, env=env, stdin=subprocess.PIPE,
@@ -318,9 +352,13 @@ def inside(*, hardened=False):
         bridge.stdin.write(manifest)
         bridge.stdin.close()
         del manifest
-        wait_ready(bridge, time.monotonic() + STARTUP - 2)
+        wait_ready(bridge, time.monotonic() + STARTUP - 2,
+                   phase=startup_phase if hardened else None,
+                   progress=announce_startup if hardened else None)
         bridge.stdout.close()
         startup_phase = Phase.DESKTOP_BOUNDARY
+        if hardened:
+            announce_startup(startup_phase)
         (PRIVATE / 'metadata/boundary.json').write_text(json.dumps(namespaces()))
         print('ready', flush=True)
         startup_phase = None
@@ -330,10 +368,13 @@ def inside(*, hardened=False):
             if select.select([sys.stdin], [], [], 0)[0]:
                 return 0
         return 0
-    except (OSError, RuntimeError, ValueError):
+    except (OSError, RuntimeError, ValueError) as error:
         if not hardened or startup_phase is None:
             raise
-        print(f'error:{startup_phase}', flush=True)
+        if isinstance(error, Diagnostic):
+            print(readiness_error(error.phase, error.reason), flush=True)
+        else:
+            print(readiness_error(startup_phase, None), flush=True)
         return 1
     finally:
         if bridge:
@@ -470,6 +511,10 @@ def handle(client, root, identities, instances, manifest, scoped, used_verifiers
                     used_verifiers.update(verifiers)
                 instances[instance.id] = instance
                 result = instance.status()
+                if hardened is not None and result['phase'] != 'ready':
+                    del instances[instance.id]
+                    cleanup = Cleanup.UNCONFIRMED if os.path.lexists(instance.root) else Cleanup.CONFIRMED
+                    raise Diagnostic(Phase.DESKTOP_READY_EXITED, cleanup)
             elif method in ('private.status', 'private.stop', 'private.network') and set(params) == {'id'} and isinstance(params['id'], str):
                 instance = instances.get(params['id'])
                 if instance is None and hardened is not None and method == 'private.status':
@@ -488,8 +533,12 @@ def handle(client, root, identities, instances, manifest, scoped, used_verifiers
         except Fault as error:
             reply = dict(error=dict(code=error.code, message=error.message))
         except Diagnostic as error:
-            reply = dict(error=dict(code=-32006, message=error.phase,
-                                    data={'cleanup': error.cleanup}))
+            data = {'cleanup': error.cleanup}
+            if error.reason is not None:
+                data['reason'] = error.reason
+            reply = dict(error=dict(code=-32006, message=error.phase, data=data))
+            with suppress(OSError):
+                print(error, file=sys.stderr, flush=True)
         except (OSError, ValueError, RuntimeError):
             reply = dict(error=dict(code=-32006, message='private_session_failed'))
         try:
@@ -502,6 +551,9 @@ def inside_service(*, hardened=False):
     from .presentation import Presentation
     from .private_effects import private_id
 
+    progress = announce_startup if hardened else None
+    if progress is not None:
+        progress(Phase.BROKER_BOOTSTRAP)
     protect_process()
     identities = Identities()
     identities.load_manifest(json.loads(sys.stdin.buffer.readline(4097), object_pairs_hook=unique_object))
@@ -512,8 +564,11 @@ def inside_service(*, hardened=False):
     presentation = Presentation(private_id())
     with serve(PRIVATE / 'runtime', identities, 'desktop', PRIVATE / 'workspace',
                watch_adapter=True, presentation=presentation,
-               session_state=PRIVATE / 'state' if hardened else None) as (endpoint, adapter):
+               session_state=PRIVATE / 'state' if hardened else None,
+               startup_progress=progress) as (endpoint, adapter):
         try:
+            if progress is not None:
+                progress(Phase.BROKER_READY)
             print('ready', flush=True)
             while not stop.wait(.1):
                 if not adapter.process.is_alive():

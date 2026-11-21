@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext, redirect_stderr, redirect_stdout
 import hashlib
 from io import BytesIO, StringIO
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -18,11 +19,11 @@ from loopbridge import service_admin as admin, service_smoke as smoke
 from loopbridge.identity import Identities
 from loopbridge.presentation import Presentation
 from loopbridge.presentation_client import LiveConnection
-from loopbridge.private_session import Instance, NS, handle, inside, manager_socket, wait_ready
+from loopbridge.private_session import Instance, NS, handle, inside, inside_service, manager_socket, wait_ready
 from loopbridge.protocol import Fault, RPC
 from loopbridge.service import serve
 from loopbridge.service_bootstrap import VerifierRegistry
-from loopbridge.service_diagnostics import Diagnostic, Phase
+from loopbridge.service_diagnostics import Diagnostic, Phase, Reason
 from loopbridge.service_ingress import peer_uid
 from test_trusted_service_d42a import ServiceFixture
 from tools.loopbridge_d42c_probe import check_ingress, ingress_rpc
@@ -193,6 +194,30 @@ class SmokeFixture(ServiceFixture):
         self.assertIn(verifier, VerifierRegistry(self.state).used)
         self.assertEqual(len(list((self.state / 'sessions').iterdir())), 1)
 
+    def test_readiness_stage_and_reason_cross_manager_rpc_and_survive_cleanup(self):
+        _, verifier = self.observer()
+        failure = Diagnostic(Phase.BROKER_ADAPTER, reason=Reason.TIMEOUT)
+        journal = StringIO()
+        with (patch.object(Instance, 'start_desktop', side_effect=failure), redirect_stderr(journal),
+              self.assertRaisesRegex(Diagnostic, 'phase=broker_adapter cleanup=confirmed reason=readiness_timeout')):
+            self.admin('start', observer_verifier=verifier)
+        self.assertEqual(journal.getvalue(), 'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n')
+        self.assertIn(verifier, VerifierRegistry(self.state).used)
+        self.assertEqual(self.admin('list'), {'instances': []})
+
+    def test_desktop_exit_before_returning_a_ready_instance_has_its_own_phase(self):
+        _, verifier = self.observer()
+
+        def exit_after_start(instance, manifest):
+            self.start_desktop(instance, manifest)
+            instance.process.poll.return_value = 1
+
+        with (patch.object(Instance, 'start_desktop', new=exit_after_start),
+              self.assertRaisesRegex(Diagnostic, 'phase=desktop_ready_exited cleanup=confirmed')):
+            self.admin('start', observer_verifier=verifier)
+        self.assertFalse(list(self.ingress.iterdir()))
+        self.assertEqual(self.admin('list'), {'instances': []})
+
     def test_registry_failure_is_reported_without_starting_an_instance(self):
         _, verifier = self.observer()
         with (patch.object(self.registry, 'reserve_session', side_effect=OSError('private path')),
@@ -293,24 +318,110 @@ class DiagnosticTransportTests(unittest.TestCase):
               patch('loopbridge.private_session.terminate') as terminate,
               redirect_stdout(text)):
             self.assertEqual(inside(hardened=True), 1)
-        self.assertEqual(text.getvalue(), 'error:desktop_broker\n')
+        self.assertEqual(text.getvalue(), 'stage:desktop_display\nstage:desktop_broker\nerror:desktop_broker\n')
         self.assertEqual([call.args for call in terminate.call_args_list], [(bridge,), (compositor,)])
         with TemporaryDirectory() as root:
-            for record, phase in ((b'error:desktop_broker\n', Phase.DESKTOP_BROKER),
-                                  (b'error:desktop_boundary\n', Phase.DESKTOP_BOUNDARY),
-                                  (b'error:private child trace\n', None)):
+            for record, phase, reason in (
+                    (b'error:desktop_broker\n', Phase.DESKTOP_BROKER, None),
+                    (b'error:broker_ready:readiness_timeout\n', Phase.BROKER_READY, Reason.TIMEOUT),
+                    (b'error:private child trace\n', Phase.DESKTOP_STARTUP, Reason.EOF)):
                 path = Path(root) / 'readiness'
                 path.write_bytes(record)
                 with path.open('rb') as output:
-                    with self.assertRaises(RuntimeError) as failure:
-                        wait_ready(SimpleNamespace(stdout=output), time.monotonic() + 1, diagnostics=True)
-                self.assertEqual(getattr(failure.exception, 'phase', None), phase)
+                    with self.assertRaises(Diagnostic) as failure:
+                        wait_ready(SimpleNamespace(stdout=output), time.monotonic() + 1,
+                                   phase=Phase.DESKTOP_STARTUP)
+                self.assertEqual(failure.exception.phase, phase)
+                self.assertEqual(failure.exception.reason, reason)
                 self.assertNotIn('private child trace', str(failure.exception))
+
+    def test_progress_records_and_ready_survive_one_read_from_an_open_pipe(self):
+        read_fd, write_fd = os.pipe()
+        changes = []
+        with os.fdopen(read_fd, 'rb') as reader, os.fdopen(write_fd, 'wb') as writer:
+            writer.write(b'stage:broker_adapter\nstage:broker_listeners\nstage:broker_ready\nready\n')
+            writer.flush()
+            wait_ready(SimpleNamespace(stdout=reader), time.monotonic() + 1,
+                       phase=Phase.DESKTOP_BROKER, progress=changes.append)
+        self.assertEqual(changes, [Phase.BROKER_ADAPTER, Phase.BROKER_LISTENERS, Phase.BROKER_READY])
+
+    def test_partial_ready_record_times_out_with_last_progress_even_if_pipe_stays_open(self):
+        read_fd, write_fd = os.pipe()
+        with os.fdopen(read_fd, 'rb') as reader, os.fdopen(write_fd, 'wb') as writer:
+            writer.write(b'stage:broker_ready\nrea')
+            writer.flush()
+            fallback = threading.Timer(.5, writer.close)
+            fallback.start()
+            try:
+                with self.assertRaisesRegex(Diagnostic, 'phase=broker_ready.*reason=readiness_timeout'):
+                    wait_ready(SimpleNamespace(stdout=reader), time.monotonic() + .05,
+                               phase=Phase.DESKTOP_BROKER)
+            finally:
+                fallback.cancel()
+                fallback.join()
+
+    def test_oversized_readiness_record_cannot_smuggle_a_ready_suffix(self):
+        with TemporaryDirectory() as root:
+            path = Path(root) / 'readiness'
+            path.write_bytes(b'stage:broker_ready\n' + b'x' * 4096 + b'ready\n')
+            with path.open('rb') as reader:
+                with self.assertRaisesRegex(Diagnostic, 'phase=broker_ready.*reason=readiness_frame_limit'):
+                    wait_ready(SimpleNamespace(stdout=reader), time.monotonic() + 1,
+                               phase=Phase.DESKTOP_BROKER)
+
+    def test_broker_progress_is_reported_after_real_sqlite_before_private_readiness(self):
+        for failed_phase in (Phase.BROKER_ADAPTER, Phase.BROKER_LISTENERS, Phase.BROKER_READY):
+            with self.subTest(phase=failed_phase), TemporaryDirectory() as root:
+                private = Path(root)
+                for directory in ('state', 'workspace', 'runtime'):
+                    (private / directory).mkdir(mode=0o700)
+                socket_dir = private / 'runtime/socket'
+                if failed_phase == Phase.BROKER_LISTENERS:
+                    socket_dir.mkdir(mode=0o700)
+                    (socket_dir / 'relay.sock').write_text('existing occupant')
+                identities = Identities()
+                identities.provision()
+                manifest = BytesIO(json.dumps(identities.manifest()).encode() + b'\n')
+                output = StringIO()
+
+                def mark(phase):
+                    print(f'stage:{phase}')
+                    if failed_phase == Phase.BROKER_READY and phase == failed_phase:
+                        self.assertTrue((socket_dir / 'control.sock').is_socket())
+                        self.assertTrue((socket_dir / 'relay.sock').is_socket())
+                        raise OSError('private ready write')
+
+                with (patch('loopbridge.private_session.PRIVATE', private),
+                      patch('loopbridge.private_session.protect_process'),
+                      patch('loopbridge.private_session.close_bootstrap_stdin'),
+                      patch('loopbridge.private_session.signal.signal'),
+                      patch('loopbridge.private_session.sys.stdin', SimpleNamespace(buffer=manifest)),
+                      patch('loopbridge.private_session.announce_startup', side_effect=mark),
+                      patch('loopbridge.service.Adapter') as adapter,
+                      redirect_stdout(output), self.assertRaises(OSError)):
+                    if failed_phase == Phase.BROKER_ADAPTER:
+                        adapter.side_effect = OSError('synthetic adapter bootstrap')
+                    inside_service(hardened=True)
+                self.assertGreater((private / 'state/annotations.sqlite3').stat().st_size, 0)
+                self.assertFalse((private / 'state/desktop.pending').exists())
+                self.assertEqual(output.getvalue().splitlines()[-1], f'stage:{failed_phase}')
+                self.assertNotIn('ready', output.getvalue().splitlines())
+                self.assertFalse((socket_dir / 'control.sock').exists())
+                if failed_phase == Phase.BROKER_LISTENERS:
+                    self.assertEqual((socket_dir / 'relay.sock').read_text(), 'existing occupant')
+                else:
+                    self.assertFalse((socket_dir / 'relay.sock').exists())
+                if failed_phase != Phase.BROKER_ADAPTER:
+                    adapter.return_value.close.assert_called_once()
 
     def test_admin_parent_reports_only_exact_allowed_child_record(self):
         for sample, expected in (
                 (b'loopbridge: phase=relay_publication cleanup=confirmed\n',
                  'loopbridge: phase=relay_publication cleanup=confirmed\n'),
+                (b'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n',
+                 'loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_timeout\n'),
+                (b'loopbridge: phase=broker_adapter cleanup=confirmed reason=/private/token\n',
+                 'loopbridge: phase=admin_client_failed cleanup=unconfirmed\n'),
                 (b'loopbridge: phase=calculator cleanup=confirmed private-secret\n',
                  'loopbridge: phase=admin_client_failed cleanup=unconfirmed\n'),
                 (b'loopbridge: phase=/private/token cleanup=confirmed\n',

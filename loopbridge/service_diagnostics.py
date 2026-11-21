@@ -17,7 +17,13 @@ class Phase(StrEnum):
     DESKTOP_STARTUP = 'desktop_startup'
     DESKTOP_DISPLAY = 'desktop_display'
     DESKTOP_BROKER = 'desktop_broker'
+    BROKER_BOOTSTRAP = 'broker_bootstrap'
+    BROKER_STORAGE = 'broker_storage'
+    BROKER_ADAPTER = 'broker_adapter'
+    BROKER_LISTENERS = 'broker_listeners'
+    BROKER_READY = 'broker_ready'
     DESKTOP_BOUNDARY = 'desktop_boundary'
+    DESKTOP_READY_EXITED = 'desktop_ready_exited'
     RELAY_PUBLICATION = 'relay_publication'
     PRESENTATION = 'presentation'
     CONTROL_ACQUIRE = 'control_acquire'
@@ -33,21 +39,32 @@ class Cleanup(StrEnum):
     UNCONFIRMED = 'unconfirmed'
 
 
+class Reason(StrEnum):
+    TIMEOUT = 'readiness_timeout'
+    EOF = 'readiness_eof'
+    FRAME = 'readiness_frame_limit'
+
+
 class Diagnostic(RuntimeError):
-    def __init__(self, phase, cleanup=Cleanup.NOT_ATTEMPTED):
+    def __init__(self, phase, cleanup=Cleanup.NOT_ATTEMPTED, *, reason=None):
         self.phase = Phase(phase)
         self.cleanup = Cleanup(cleanup)
-        super().__init__(f'loopbridge: phase={self.phase} cleanup={self.cleanup}')
+        self.reason = Reason(reason) if reason is not None else None
+        message = f'loopbridge: phase={self.phase} cleanup={self.cleanup}'
+        if self.reason is not None:
+            message += f' reason={self.reason}'
+        super().__init__(message)
 
     @classmethod
     def from_child(cls, data):
         # Only a single exact, finite record is accepted. Never relay child output.
-        if not data or len(data) > 100:
+        if not data or len(data) > 128:
             return None
         try:
-            prefix, phase, cleanup = data.decode('ascii').split()
-            if prefix == 'loopbridge:':
-                diagnostic = cls(phase.removeprefix('phase='), cleanup.removeprefix('cleanup='))
+            prefix, phase, cleanup, *details = data.decode('ascii').split()
+            if prefix == 'loopbridge:' and len(details) <= 1:
+                reason = details[0].removeprefix('reason=') if details else None
+                diagnostic = cls(phase.removeprefix('phase='), cleanup.removeprefix('cleanup='), reason=reason)
                 if data == (str(diagnostic) + '\n').encode('ascii'):
                     return diagnostic
         except ValueError:
@@ -55,12 +72,22 @@ class Diagnostic(RuntimeError):
         return None
 
 
-STARTUP_PHASES = frozenset((Phase.STATE_PREPARE, Phase.DESKTOP_STARTUP, Phase.DESKTOP_DISPLAY,
-                            Phase.DESKTOP_BROKER, Phase.DESKTOP_BOUNDARY, Phase.RELAY_PUBLICATION))
+READINESS_PHASES = frozenset((Phase.DESKTOP_DISPLAY, Phase.DESKTOP_BROKER, Phase.BROKER_BOOTSTRAP,
+                              Phase.BROKER_STORAGE, Phase.BROKER_ADAPTER, Phase.BROKER_LISTENERS,
+                              Phase.BROKER_READY, Phase.DESKTOP_BOUNDARY))
+STARTUP_PHASES = READINESS_PHASES | {Phase.STATE_PREPARE, Phase.DESKTOP_STARTUP,
+                                     Phase.DESKTOP_READY_EXITED, Phase.RELAY_PUBLICATION}
+
+
+def readiness_error(phase, reason):
+    return f'error:{phase}' + (f':{reason}' if reason is not None else '')
+
 
 # Private supervisor readiness pipe. These are the only failure records the
 # manager accepts from that pipe.
+READINESS_PROGRESS = {f'stage:{phase}'.encode('ascii'): phase for phase in READINESS_PHASES}
 READINESS_ERRORS = {
-    f'error:{phase}\n'.encode('ascii'): phase
-    for phase in (Phase.DESKTOP_DISPLAY, Phase.DESKTOP_BROKER, Phase.DESKTOP_BOUNDARY)
+    readiness_error(phase, reason).encode('ascii'): (phase, reason)
+    for phase in READINESS_PHASES
+    for reason in (None, *Reason)
 }
