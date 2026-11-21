@@ -32,6 +32,7 @@ The following figures were supplied from a local, complete demonstration run and
 | Signal | Recorded result |
 | --- | ---: |
 | Existing Python regression suite before the additional tests in this PR | 165 passed / 0 failed |
+| GitHub Actions after adding the V0.7.1 unit tests (PR #19, run 22) | 175 passed / 0 failed |
 | Full demonstration stage / overall result | `complete` / `PARTIAL` |
 | Motion | 55.99 painted source FPS (462 frames in 8.233 s) |
 | App-to-presentation feedback p95 | 40.84 ms (462 samples) |
@@ -43,7 +44,7 @@ The following figures were supplied from a local, complete demonstration run and
 | Credential checks | 7 reported true, including separation and retired-session rejection |
 | Isolated client and presentation negative checks | Reported passing in the full matrix |
 
-The new `tests/test_loopbridge_identity_v071.py` adds deterministic, nonprivileged unit coverage of the verifier schema and role authentication. It does not replace the end-to-end VM matrix. Its passing status must be established by a fresh test or CI run; **do not count it among the previously observed 165 tests**.
+The new `tests/test_loopbridge_identity_v071.py` adds deterministic, nonprivileged unit coverage of the verifier schema and role authentication. It does not replace the end-to-end VM matrix. GitHub Actions subsequently ran the complete Unix-socket/fixture suite with **175 passing tests**, including these 10 new tests (PR #19, workflow run 22). This establishes unit-regression coverage, not unrestricted same-UID security.
 
 ## Gate matrix
 
@@ -67,7 +68,7 @@ The lab authorizes neither execution of hostile agents with unrestricted host cr
 
 ## Remaining verification before merge / follow-on work
 
-1. Run the full suite after adding the new tests and check PR CI. Record the actual new total; the historical 165-test result is not a new-suite result.
+1. **Completed for this revision:** GitHub Actions PR #19 (run 22) reported 175 passing tests and both workflow jobs successful. Recheck the current head after any further commit; do not conflate unit CI with the VM-only graphical and host-isolation gates.
 2. Check that legacy fixture/service startup and scoped private-session mode both work with the new manifest format. Confirm rejection of invalid verifier maps and that malformed input cannot replace active identities.
 3. Rerun the full GUI integration if changes touch runtime or presentation code. Preserve independent `desktop.stream`, `desktop.capture`, semantic and control grants.
 4. Document the host trust assumptions, operationally supported modes and any downgrade/legacy compatibility policy before production use.
