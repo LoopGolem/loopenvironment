@@ -1,16 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 """Owner-mediated local lifecycle for disposable Wayland desktops."""
-from contextlib import contextmanager, suppress
-import fcntl
+from contextlib import ExitStack, contextmanager, suppress
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import select
 import shutil
 import signal
 import socket
-import struct
 import subprocess
 import sys
 import threading
@@ -21,12 +20,18 @@ from .identity import Identities
 from .https_egress import Egress, UNIX_PROXY, destinations
 from .process_boundary import close_bootstrap_stdin, protect_process
 from .protocol import DeadlineChannel, Fault, request, unique_object
-from .service import DESKTOP_SESSION, Journal, private_directory, serve
+from .service import (DESKTOP_SESSION, Journal, directory_lock, legacy_listener,
+                      private_directory, serve)
+from .service_bootstrap import (HELPERS, HardenedService, VerifierRegistry, executable_helper,
+                                load_systemd_manifest)
+from .service_ingress import UNIX_PATH_LIMIT, bound_listener, path_inode, peer_uid
+from .service_relay import SessionRelay
 
 NS = ('user', 'pid', 'mnt', 'net', 'ipc')
 PRIVATE = Path('/private')
 MAX_SESSIONS = 4
 STARTUP = 28
+INSTANCE_ID = re.compile('[0-9a-f]{16}')
 
 
 def namespaces():
@@ -57,18 +62,40 @@ def wait_ready(process, deadline):
     raise RuntimeError('private_desktop_startup_failed')
 
 
+def lab_helpers(root, tools):
+    effects = root / 'effects'
+    stream = root / 'stream'
+    for output, name, flags, libraries in (
+            (effects, 'effects', [], ['-lwayland-client', '-lxkbcommon']),
+            (stream, 'stream', ['-O2'], ['-lwayland-client'])):
+        try:
+            subprocess.run(['/usr/bin/cc', *flags, '-Wall', '-Wextra', '-Werror',
+                            str(tools / f'private_wayland_{name}.c'), *libraries, '-o', str(output)],
+                           stdin=subprocess.DEVNULL, capture_output=True, timeout=10, check=True)
+        except (OSError, subprocess.SubprocessError):
+            output.unlink(missing_ok=True)
+    return effects, stream
+
+
+def isolated_python(entry):
+    # -I omits /app from sys.path. Only the verified, read-only mount is added.
+    code = ("import sys; sys.path.insert(0, '/app'); "
+            f"from loopbridge.private_session import {entry}; raise SystemExit({entry}(hardened=True))")
+    return ['/usr/bin/python3', '-I', '-B', '-c', code]
+
+
 class Instance:
-    def __init__(self, root, manifest, hosts=()):
+    def __init__(self, root, manifest, hosts=(), *, hardened=None):
         self.id = secrets.token_hex(8)
         self.root = root / self.id
         self.root.mkdir(mode=0o700)
+        self.root_inode = path_inode(self.root.lstat())
         self.runtime = self.root / 'runtime'
-        self.workspace = self.root / 'workspace'
-        for path in (self.runtime, self.workspace, self.root / 'display', self.root / 'home'):
-            path.mkdir(mode=0o700)
         self.endpoint = self.runtime / 'socket/control.sock'
-        if len(os.fsencode(self.endpoint)) >= 108:
-            raise ValueError('private_socket_path_too_long')
+        self.hardened = hardened
+        self.state = self.runtime
+        self.relay = None
+        self.ingress = ExitStack()
         self.process = None
         self.phase = 'starting'
         self.egress = None
@@ -76,28 +103,41 @@ class Instance:
         self.hosts = hosts
         self.checks = {}
         self.exit = None
+        try:
+            if hardened is not None:
+                self.state = hardened.state / 'sessions' / self.id
+                self.state.mkdir(mode=0o700)
+                Journal(self.state.parent).sync()
+            self.workspace = (self.root if hardened is None else self.state) / 'workspace'
+            for path in (self.runtime, self.workspace, self.root / 'display', self.root / 'home'):
+                path.mkdir(mode=0o700)
+            if len(os.fsencode(self.endpoint)) >= UNIX_PATH_LIMIT:
+                raise ValueError('private_socket_path_too_long')
+            self.start_desktop(manifest)
+            if hardened is not None:
+                self.relay = SessionRelay(hardened.ingress, hardened.ingress.directory / (self.id + '.sock'),
+                                          self.runtime / 'socket/relay.sock')
+                self.ingress.enter_context(self.relay.serve())
+            self.phase = 'ready'
+        except (OSError, RuntimeError, ValueError, KeyError):
+            self.stop('failed')
+            raise
+        finally:
+            if self.process:
+                self.process.stdout.close()
+
+    def start_desktop(self, manifest):
         source = Path(__file__).resolve().parent
         system = private_directory(self.root / 'system')
         uid, gid = os.getuid(), os.getgid()
         (system / 'passwd').write_text(f'loopbridge:x:{uid}:{gid}:Private desktop:/private/home:/bin/false\n')
         (system / 'group').write_text(f'loopbridge:x:{gid}:\n')
         (system / 'machine-id').write_text(secrets.token_hex(16) + '\n')
-        effects = self.root / 'effects'
-        try:
-            subprocess.run(['/usr/bin/cc', '-Wall', '-Wextra', '-Werror',
-                            str(source.parent / 'tools/private_wayland_effects.c'),
-                            '-lwayland-client', '-lxkbcommon', '-o', str(effects)], stdin=subprocess.DEVNULL,
-                           capture_output=True, timeout=10, check=True)
-        except (OSError, subprocess.SubprocessError):
-            effects.unlink(missing_ok=True)
-        stream = self.root / 'stream'
-        try:
-            subprocess.run(['/usr/bin/cc', '-O2', '-Wall', '-Wextra', '-Werror',
-                            str(source.parent / 'tools/private_wayland_stream.c'),
-                            '-lwayland-client', '-o', str(stream)], stdin=subprocess.DEVNULL,
-                           capture_output=True, timeout=10, check=True)
-        except (OSError, subprocess.SubprocessError):
-            stream.unlink(missing_ok=True)
+        if self.hardened is None:
+            effects, stream = lab_helpers(self.root, source.parent / 'tools')
+        else:
+            self.hardened.require_helpers()
+            effects, stream = self.hardened.helpers / 'effects', self.hardened.helpers / 'stream'
         (self.root / 'sway.conf').write_text(
             'output HEADLESS-1 mode 800x600\nseat seat0 fallback true\n')
         env = dict(PATH='/usr/bin', HOME='/private/home', XDG_RUNTIME_DIR='/private/run',
@@ -125,34 +165,29 @@ class Instance:
             command += ['--ro-bind', str(effects), '/private/effects']
         if stream.is_file():
             command += ['--ro-bind', str(stream), '/private/stream']
-        if hosts:
-            self.egress = Egress(self.root / 'display/https.sock', hosts)
+        if self.hardened is not None:
+            command += ['--bind', str(self.state), '/private/state']
+        if self.hosts:
+            self.egress = Egress(self.root / 'display/https.sock', self.hosts)
             self.egress_thread = threading.Thread(target=self.egress.serve_forever, daemon=True)
             self.egress_thread.start()
             command += ['--ro-bind', str(self.root / 'display/https.sock'), UNIX_PROXY]
-            env['LOOPBRIDGE_HTTPS_HOSTS'] = json.dumps(sorted(hosts))
+            env['LOOPBRIDGE_HTTPS_HOSTS'] = json.dumps(sorted(self.hosts))
         for key, value in env.items():
             command.extend(('--setenv', key, value))
-        command += ['--', '/usr/bin/dbus-run-session', '--config-file=/app/loopbridge/private_dbus.conf',
-                    '--', '/usr/bin/python3', '-B', '-m', 'loopbridge.private_session', '--inside']
-        try:
-            self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.DEVNULL, start_new_session=True,
-                                            close_fds=True)
-            self.process.stdin.write((json.dumps(manifest) + '\n').encode())
-            self.process.stdin.flush()
-            wait_ready(self.process, time.monotonic() + STARTUP)
-            checks = json.loads((self.root / 'display/boundary.json').read_text())
-            self.checks = {name: checks[name] != host for name, host in namespaces().items()}
-            if not all(self.checks.values()) or not self.endpoint.is_socket():
-                raise RuntimeError('private_namespace_check_failed')
-            self.phase = 'ready'
-        except (OSError, RuntimeError, ValueError, KeyError):
-            self.stop('failed')
-            raise
-        finally:
-            if self.process:
-                self.process.stdout.close()
+        command += ['--', '/usr/bin/dbus-run-session', '--config-file=/app/loopbridge/private_dbus.conf', '--']
+        command += (['/usr/bin/python3', '-B', '-m', 'loopbridge.private_session', '--inside']
+                    if self.hardened is None else isolated_python('inside'))
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.DEVNULL, start_new_session=True,
+                                        close_fds=True)
+        self.process.stdin.write((json.dumps(manifest) + '\n').encode())
+        self.process.stdin.flush()
+        wait_ready(self.process, time.monotonic() + STARTUP)
+        checks = json.loads((self.root / 'display/boundary.json').read_text())
+        self.checks = {name: checks[name] != host for name, host in namespaces().items()}
+        if not all(self.checks.values()) or not self.endpoint.is_socket():
+            raise RuntimeError('private_namespace_check_failed')
 
     def cleanup(self):
         # Persistent effects and journal records remain together at the old root.
@@ -170,8 +205,10 @@ class Instance:
 
     def stop(self, phase='stopped'):
         if self.phase in ('starting', 'ready'):
+            self.ingress.close()
             if self.process:
-                self.process.stdin.close()
+                with suppress(OSError):
+                    self.process.stdin.close()
                 try:
                     self.exit = self.process.wait(timeout=12)
                 except subprocess.TimeoutExpired:
@@ -181,24 +218,42 @@ class Instance:
                 self.egress.server_close()
                 self.egress_thread.join(timeout=1)
             self.phase = 'failed' if phase == 'stopped' and self.exit != 0 else phase
-            self.cleanup()
+            if self.hardened is None:
+                self.cleanup()
+            else:
+                with suppress(FileNotFoundError):
+                    if path_inode(self.root.lstat()) == self.root_inode:
+                        shutil.rmtree(self.root)
 
     def network(self):
         return dict(mode='https_connect' if self.hosts else 'offline', hosts=sorted(self.hosts),
                     events=self.egress.snapshot() if self.egress else [])
 
-    def status(self):
-        if self.phase == 'ready' and self.process.poll() is not None:
+    def check_running(self):
+        if self.phase == 'ready' and (self.process.poll() is not None
+                                     or self.relay is not None and self.relay.stop.is_set()):
             self.stop('failed')
-        journal = Journal(self.runtime)
-        blocked = journal.blocked(DESKTOP_SESSION)
-        unknown = None
-        if blocked and self.phase != 'ready':
-            with suppress(OSError):
-                unknown = journal.intent(DESKTOP_SESSION)
+        return self.phase == 'ready'
+
+    def status(self):
+        self.check_running()
+        endpoints = {}
+        if self.phase == 'ready':
+            endpoints['socket'] = str(self.endpoint)
+            if self.relay is not None:
+                endpoints['ingressSocket'] = str(self.relay.endpoint)
         return dict(id=self.id, phase=self.phase, namespaces=self.checks, exitCode=self.exit,
-                    blocked=blocked, unknownOperation=unknown, cancellationAssumed=False,
-                    **({'socket': str(self.endpoint)} if self.phase == 'ready' else {}))
+                    **journal_status(self.state, inspect_pending=self.phase != 'ready'), **endpoints)
+
+
+def journal_status(state, *, inspect_pending):
+    journal = Journal(state)
+    blocked = journal.blocked(DESKTOP_SESSION)
+    unknown = None
+    if blocked and inspect_pending:
+        with suppress(OSError):
+            unknown = journal.intent(DESKTOP_SESSION)
+    return dict(blocked=blocked, unknownOperation=unknown, cancellationAssumed=False)
 
 
 def inherited_display(compositor):
@@ -213,8 +268,10 @@ def inherited_display(compositor):
     raise RuntimeError('private_display_unavailable')
 
 
-def inside():
+def inside(*, hardened=False):
     protect_process()
+    if hardened and not all(executable_helper(PRIVATE / name) for name in HELPERS):
+        return 1
     manifest = sys.stdin.buffer.readline(4097)
     if not manifest.endswith(b'\n'):
         return 1
@@ -226,8 +283,9 @@ def inside():
     bridge = None
     try:
         env = {**os.environ, **inherited_display(compositor)}
-        bridge = subprocess.Popen([sys.executable, '-B', '-m', 'loopbridge.private_session',
-                                   '--inside-service'], env=env, stdin=subprocess.PIPE,
+        command = (isolated_python('inside_service') if hardened else
+                   [sys.executable, '-B', '-m', 'loopbridge.private_session', '--inside-service'])
+        bridge = subprocess.Popen(command, env=env, stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE, close_fds=True)
         bridge.stdin.write(manifest)
         bridge.stdin.close()
@@ -249,62 +307,81 @@ def inside():
 
 
 @contextmanager
-def manager_socket(root, endpoint):
-    lock = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        if endpoint.is_socket():
+def manager_socket(root, endpoint, *, hardened=False):
+    with directory_lock(root):
+        if not hardened and endpoint.is_socket():
             endpoint.unlink()
-        with socket.socket(socket.AF_UNIX) as server:
-            server.bind(str(endpoint))
-            try:
-                endpoint.chmod(0o600)
-                server.listen(4)
-                server.settimeout(.25)
-                yield server
-            finally:
-                endpoint.unlink(missing_ok=True)
-    finally:
-        os.close(lock)
+        listener = bound_listener if hardened else legacy_listener
+        with listener(endpoint, backlog=4) as server:
+            server.settimeout(.25)
+            yield server
 
 
-def manage(root, credentials, *, scoped=False):
+def manage(root, credentials=None, *, scoped=False, hardened=None):
     protect_process()
     if not root.is_absolute():
         raise ValueError('absolute_private_root_required')
-    root = private_directory(root)
     identities = Identities()
-    identities.load_manifest(json.loads(read_private(credentials), object_pairs_hook=unique_object),
-                             allow_legacy=not scoped)
-    manifest = identities.manifest()
-    used_verifiers = set(manifest['verifiers'].values())
     endpoint = root / 'manager.sock'
     stop = threading.Event()
     instances = {}
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
-    with manager_socket(root, endpoint) as server:
+    with ExitStack() as stack:
+        registry = None
+        if hardened is None:
+            private_directory(root)
+            identities.load_manifest(json.loads(read_private(credentials), object_pairs_hook=unique_object),
+                                     allow_legacy=not scoped)
+        else:
+            if not isinstance(hardened, HardenedService) or credentials is not None:
+                raise ValueError('invalid_hardened_bootstrap')
+            hardened.validate(root)
+            stack.enter_context(directory_lock(hardened.state))
+            identities.load_manifest(load_systemd_manifest())
+            registry = VerifierRegistry(hardened.state)
+            registry.enroll_manager(identities.manifest())
+            private_directory(hardened.state / 'sessions')
+            Journal(hardened.state).sync()
+            scoped = True
+        manifest = identities.manifest()
+        used_verifiers = set(manifest['verifiers'].values())
+        server = stack.enter_context(manager_socket(root, endpoint, hardened=hardened is not None))
         try:
             print('ready', flush=True)
             while not stop.is_set():
-                for instance in instances.values():
-                    if instance.phase == 'ready' and instance.process.poll() is not None:
-                        instance.stop('failed')
+                for instance in list(instances.values()):
+                    if not instance.check_running() and hardened is not None:
+                        del instances[instance.id]
                 try:
                     client, _ = server.accept()
                 except TimeoutError:
                     continue
                 with client:
-                    handle(client, root, identities, instances, manifest, scoped, used_verifiers)
+                    handle(client, root, identities, instances, manifest, scoped, used_verifiers,
+                           hardened=hardened, registry=registry)
         finally:
             for instance in instances.values():
                 instance.stop()
 
 
-def handle(client, root, identities, instances, manifest, scoped, used_verifiers):
+def retired_status(state, instance_id):
+    if not INSTANCE_ID.fullmatch(instance_id):
+        raise Fault(-32006, 'private_session_unavailable')
+    try:
+        folder = private_directory(state / 'sessions' / instance_id, create=False)
+    except FileNotFoundError:
+        raise Fault(-32006, 'private_session_unavailable') from None
+    return dict(id=instance_id, phase='retired', namespaces={}, exitCode=None,
+                **journal_status(folder, inspect_pending=True))
+
+
+def handle(client, root, identities, instances, manifest, scoped, used_verifiers, *,
+           hardened=None, registry=None):
+    if (hardened is None) != (registry is None) or hardened is not None and not scoped:
+        raise ValueError('incomplete_hardened_enrollment')
     channel = DeadlineChannel(client)
-    uid = struct.unpack('3i', client.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
-    if uid != os.getuid():
+    if peer_uid(client) != os.getuid():
         return
     owner = False
     last_id = -1
@@ -344,22 +421,29 @@ def handle(client, root, identities, instances, manifest, scoped, used_verifiers
                         raise Fault(-32602, 'invalid_session_verifiers') from None
                     session_manifest = session_identities.manifest()
                     verifiers = set(session_manifest['verifiers'].values())
-                    if used_verifiers & verifiers:
+                    reserved = (registry.reserve_session(verifiers) if registry is not None
+                                else not used_verifiers & verifiers)
+                    if not reserved:
                         raise Fault(-32602, 'reused_session_verifier')
                 elif 'credentialVerifiers' in params:
                     raise Fault(-32602, 'scoped_credentials_disabled')
-                instance = Instance(root, session_manifest, hosts)
-                if scoped:
+                instance = Instance(root, session_manifest, hosts, hardened=hardened)
+                if scoped and registry is None:
                     used_verifiers.update(verifiers)
                 instances[instance.id] = instance
                 result = instance.status()
             elif method in ('private.status', 'private.stop', 'private.network') and set(params) == {'id'} and isinstance(params['id'], str):
                 instance = instances.get(params['id'])
-                if not instance:
+                if instance is None and hardened is not None and method == 'private.status':
+                    result = retired_status(hardened.state, params['id'])
+                elif instance is None:
                     raise Fault(-32006, 'private_session_unavailable')
-                if method == 'private.stop':
-                    instance.stop()
-                result = instance.network() if method == 'private.network' else instance.status()
+                else:
+                    if method == 'private.stop':
+                        instance.stop()
+                    result = instance.network() if method == 'private.network' else instance.status()
+                    if hardened is not None and instance.phase != 'ready':
+                        del instances[instance.id]
             else:
                 raise Fault(-32601, 'method_not_found')
             reply = dict(result=result)
@@ -373,7 +457,7 @@ def handle(client, root, identities, instances, manifest, scoped, used_verifiers
             return
 
 
-def inside_service():
+def inside_service(*, hardened=False):
     from .presentation import Presentation
     from .private_effects import private_id
 
@@ -386,7 +470,8 @@ def inside_service():
         signal.signal(sig, lambda *_: stop.set())
     presentation = Presentation(private_id())
     with serve(PRIVATE / 'runtime', identities, 'desktop', PRIVATE / 'workspace',
-               watch_adapter=True, presentation=presentation) as (endpoint, adapter):
+               watch_adapter=True, presentation=presentation,
+               session_state=PRIVATE / 'state' if hardened else None) as (endpoint, adapter):
         try:
             print('ready', flush=True)
             while not stop.wait(.1):

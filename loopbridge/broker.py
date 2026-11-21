@@ -5,12 +5,11 @@ from dataclasses import asdict, dataclass, field
 import select
 import secrets
 import socket
-import struct
 import threading
 import time
 
 from .protocol import Fault, VERSION, DeadlineChannel, encode, request
-from .service_ingress import PeerAdmission
+from .service_ingress import PeerAdmission, peer_uid
 from .authority import Handle, Session, TARGET, fail
 
 
@@ -24,6 +23,7 @@ class Connection:
     handles: dict = field(default_factory=OrderedDict)
     snapshots: dict = field(default_factory=dict)
     alive: object = field(default=lambda: True, repr=False)
+    allow_owner: bool = True
 
 
 SCHEMA = {
@@ -84,7 +84,10 @@ class Broker:
             if (set(params) != {'credential'} or not self.ingress_policy.permits(connection.uid)
                     or not connection.active):
                 fail('denied')
-            connection.principal = self.identities.authenticate(params['credential'])
+            principal = self.identities.authenticate(params['credential'])
+            if principal == 'owner' and not connection.allow_owner:
+                fail('denied')
+            connection.principal = principal
             return dict(principal=connection.principal, connection=connection.id)
         principal = self.authenticated(connection)
         if method not in self.schema:
@@ -317,14 +320,14 @@ class Broker:
                     history.popitem(last=False)
         return result
 
-    def serve_connection(self, sock):
+    def serve_connection(self, sock, *, allow_owner=True):
         idle_timeout, lifetime, request_limit = self.connection_limits
         try:
-            _, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+            uid = peer_uid(sock)
         except OSError:
             sock.close()
             return
-        connection = Connection(uid)
+        connection = Connection(uid, allow_owner=allow_owner)
         poll = select.poll()
         hangup = select.POLLRDHUP | select.POLLHUP | select.POLLERR
         poll.register(sock, hangup)
@@ -370,8 +373,9 @@ class Broker:
 
 class Server:
     """At most eight peers; finite connection budget, managed lifetime in the runner."""
-    def __init__(self, broker, listener):
+    def __init__(self, broker, listener, *, allow_owner=True):
         self.broker, self.listener = broker, listener
+        self.allow_owner = allow_owner
         self.stop = threading.Event()
         self.workers, self.sockets = [], []
         self.thread = threading.Thread(target=self.run)
@@ -391,7 +395,8 @@ class Server:
                 sock.close()
                 continue
             self.sockets.append(sock)
-            t = threading.Thread(target=self.broker.serve_connection, args=(sock,))
+            t = threading.Thread(target=self.broker.serve_connection, args=(sock,),
+                                 kwargs={'allow_owner': self.allow_owner})
             self.workers.append(t)
             t.start()
 
