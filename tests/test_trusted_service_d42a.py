@@ -257,8 +257,9 @@ class ManagedSessionTests(ServiceFixture):
 
         with patch.object(Instance, 'start_desktop', autospec=True, side_effect=conflict):
             with self.admin() as rpc:
-                with self.assertRaisesRegex(Fault, 'private_session_failed'):
+                with self.assertRaisesRegex(Fault, '^relay_publication$') as failure:
                     rpc.call('private.start', credentialVerifiers=verifiers)
+                self.assertEqual(failure.exception.data, {'cleanup': 'confirmed'})
                 instance, incumbent = started[0]
                 self.assertEqual(incumbent.read_text(), 'incumbent')
                 self.assertFalse(instance.root.exists())

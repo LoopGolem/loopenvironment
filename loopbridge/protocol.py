@@ -11,8 +11,9 @@ MAX_FRAME = 8192
 
 
 class Fault(Exception):
-    def __init__(self, code, message):
+    def __init__(self, code, message, *, data=None):
         self.code, self.message = code, message
+        self.data = data
         super().__init__(message)
 
 
@@ -72,7 +73,8 @@ class RPC:
         if reply.get('version') != self.version or reply.get('id') != self.seq or reply.get('jsonrpc') != '2.0':
             raise AssertionError('invalid_reply')
         if 'error' in reply:
-            raise Fault(reply['error']['code'], reply['error']['message'])
+            error = reply['error']
+            raise Fault(error['code'], error['message'], data=error.get('data'))
         return reply['result']
 
 

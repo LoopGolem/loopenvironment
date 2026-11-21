@@ -86,7 +86,8 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertIn('versioned installed release required', completed.stderr)
 
     def test_administrative_actions_cannot_run_from_staging(self):
-        for action in ('verify-installed', 'admin-init', 'admin-ready', 'ready-client'):
+        for action in ('verify-installed', 'admin-init', 'admin-ready', 'ready-client',
+                       *LAUNCHER['SMOKE_ADMIN_ACTIONS'], *LAUNCHER['SMOKE_CLIENT_ACTIONS']):
             with self.subTest(action=action):
                 completed = subprocess.run(
                     [sys.executable, '-I', '-B', str(self.release / 'launcher.py'),
