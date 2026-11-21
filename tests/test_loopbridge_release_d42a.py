@@ -84,3 +84,13 @@ class ReleaseVerificationTests(unittest.TestCase):
             env={**os.environ, 'PYTHONPATH': str(self.release), 'CREDENTIALS_DIRECTORY': str(self.base)})
         self.assertEqual(completed.returncode, 1)
         self.assertIn('versioned installed release required', completed.stderr)
+
+    def test_administrative_actions_cannot_run_from_staging(self):
+        for action in ('verify-installed', 'admin-init', 'admin-ready', 'ready-client'):
+            with self.subTest(action=action):
+                completed = subprocess.run(
+                    [sys.executable, '-I', '-B', str(self.release / 'launcher.py'),
+                     '--manifest-sha256', self.digest, '--action', action],
+                    cwd=self.base, input=b'', capture_output=True, check=False)
+                self.assertEqual(completed.returncode, 1)
+                self.assertIn(b'versioned installed release required', completed.stderr)

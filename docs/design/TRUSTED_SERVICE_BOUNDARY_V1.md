@@ -1,6 +1,6 @@
 # Trusted Service Boundary V1 — Five Deliveries
 
-**Status:** D1 accepted (PR #20), D2 merged (PR #21), D3 merged (PR #22), and [D4.2A repository preparation](TRUSTED_SERVICE_BOUNDARY_D42A.md) provides a candidate profile. **Current host isolation gate:** PARTIAL (V0.7.1); no privileged VM changes are authorized by this document.
+**Status:** D1 accepted (PR #20), D2 merged (PR #21), D3 merged (PR #22), and [D4.2A repository preparation](TRUSTED_SERVICE_BOUNDARY_D42A.md) provides a candidate profile, with [D4.2A.1 administrative bootstrap](TRUSTED_SERVICE_ADMIN_D42A1.md) prepared for review. **Current host isolation gate:** PARTIAL (V0.7.1); no privileged VM changes are authorized by this document.
 
 ## Goal and precise acceptance claim
 
