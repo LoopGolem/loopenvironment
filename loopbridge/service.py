@@ -10,6 +10,7 @@ import tempfile
 
 from .adapter import Adapter
 from .broker import Broker, Server
+from .service_ingress import IngressLayout, PeerAdmission, managed_ingress_listener
 
 SESSION = 'calculator'
 DESKTOP_SESSION = 'desktop'
@@ -97,7 +98,29 @@ class Journal:
 
 
 @contextmanager
-def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presentation=None):
+def legacy_listener(endpoint):
+    """Existing V0.7 Unix socket lifecycle, unchanged by D3 opt-in ingress."""
+    with socket.socket(socket.AF_UNIX) as listener:
+        listener.bind(str(endpoint))
+        try:
+            endpoint.chmod(0o600)
+            listener.listen(8)
+            yield listener
+        finally:
+            endpoint.unlink(missing_ok=True)
+
+
+@contextmanager
+def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presentation=None,
+          ingress_layout=None, ingress_policy=None):
+    if (ingress_layout is None) != (ingress_policy is None):
+        raise ValueError('incomplete_ingress_configuration')
+    if ingress_layout is not None:
+        if (not isinstance(ingress_layout, IngressLayout)
+                or not isinstance(ingress_policy, PeerAdmission)
+                or ingress_policy.service_uid != os.getuid()
+                or ingress_layout.private_root != Path(root)):
+            raise ValueError('invalid_ingress_configuration')
     root = private_directory(Path(root))
     # Persist the runtime directory entry before accepting a journal intent.
     parent_fd = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -110,10 +133,17 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
     lock = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        sockets = private_directory(root / 'socket')
-        endpoint = sockets / 'control.sock'
-        if endpoint.is_socket():
-            endpoint.unlink()
+        if ingress_layout is None:
+            sockets = private_directory(root / 'socket')
+            endpoint = sockets / 'control.sock'
+            if endpoint.is_socket():
+                endpoint.unlink()
+        else:
+            # In hardened-profile experiments, never start the legacy listener
+            # alongside the new ingress: an incomplete migration fails closed.
+            if os.path.lexists(root / 'socket/control.sock'):
+                raise RuntimeError('legacy_endpoint_present')
+            endpoint = ingress_layout.public_socket
         broker_options = {}
         if mode == 'desktop':
             from .catalog import CATALOG
@@ -132,16 +162,13 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
         adapter = Adapter(mode, root, workspace)
         try:
             broker = broker_class(identities, {session: adapter}, os.getuid(), journal,
-                                  catalog=catalog, workspace=bool(workspace), **broker_options)
-            with socket.socket(socket.AF_UNIX) as listener:
-                listener.bind(str(endpoint))
-                try:
-                    endpoint.chmod(0o600)
-                    listener.listen(8)
-                    with Server(broker, listener):
-                        yield (endpoint, adapter) if watch_adapter else endpoint
-                finally:
-                    endpoint.unlink(missing_ok=True)
+                                  catalog=catalog, workspace=bool(workspace),
+                                  ingress_policy=ingress_policy, **broker_options)
+            lifecycle = (legacy_listener(endpoint) if ingress_layout is None
+                         else managed_ingress_listener(ingress_layout))
+            with lifecycle as listener:
+                with Server(broker, listener):
+                    yield (endpoint, adapter) if watch_adapter else endpoint
         finally:
             adapter.close()
     finally:
