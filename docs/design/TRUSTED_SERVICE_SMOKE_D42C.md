@@ -1,6 +1,70 @@
 # D4.2C — First cross-UID graphical smoke
 
-The D4.2B handoff reports `READY_FOR_D42C`. The VM retains the installed `af6057c3bbbe83c9058c28dca2fa4abb156202fa` manager. Overall host isolation remains **PARTIAL**.
+## Disposable lab handoff
+
+**Gate 3 result `D42C_GATE3_FUNCTIONAL_PASS`.** The first attempt in the disposable clone ended at `broker_adapter`. After a separately authorized migration, the operator reported that one new offline attempt passed the [functional checks](#gate-3-functional-result). The first failure's exact cause remains inconclusive. Overall host isolation remains **PARTIAL**.
+
+| Role | VirtualBox machine and UUID | Service baseline |
+| --- | --- | --- |
+| Functional D4.2B reference | `LoopEnvironment-M1-Lab` · `1fdf7e93-4d4b-4ddd-aa72-ddb41d8b16fc` | Release `af6057c3bbbe83c9058c28dca2fa4abb156202fa`. Manager PID `16793`, UID/GID `980:980`, active with zero restarts, unit disabled at boot. Primary Sway PID `1617`, UID `1000`. These process and unit states were also checked by local read-only inspection during this handoff. |
+| Disposable D4.2C diagnostic | `LoopEnvironment-D42C-Diagnostic` · `10a1d971-aba2-4d2b-b01e-74b7e85f7c26` | Operator reported PID `3116` for the original clone manager and PID `30622` after migration. At closure the new manager was active with zero restarts, the unit was disabled at boot, and the authenticated instance list was empty. |
+
+The full clone used the cold snapshot `LoopEnvironment-Pre-D42B` (`84cf825d-7036-4356-99b7-acdb80cb098a`) and independent VDI `8a4320d1-88fd-440e-ab7e-02f93ee4299a`. Linux DMI reports `71d9a110-a2ab-2b4d-b01e-74b7e85f7c26`. Decoding the DMI value with `uuid.UUID(bytes_le=...)` yields the clone UUID above. The clone inherited the original hostname. Use the UUID for identity.
+
+The operator confirmed eight disabled virtual NICs, only `lo` in Debian, disabled clipboard, file transfer and drag-and-drop, and no mounted file shares. The clone runs Debian kernel `6.12.117+deb13-amd64`. Sway, Bubblewrap, D-Bus, GTK, PyGObject, PyAT-SPI, Calculator and ACL tooling were present.
+
+Gate 1 ended at `GATE1_VERIFIED_POWERED_OFF`. Gate 2 provisioned revision `76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2`, manifest SHA-256 `1be7c99bbd2ed91a7772fc7d369218bc9ac3d4d9b90b5387f45593d5d15a18e6`. The operator verified the five files on `C:\Projetos\D42C\Gate2\D42C-Diagnostic-v2.iso` on Windows and rechecked the scripts inside the clone.
+
+| ISO file | Approved SHA-256 |
+| --- | --- |
+| `candidate.tar` | `1b43f057dadee3b28961133db574dee51c0b8b141b1237654c505a38552e6fad` |
+| `loopbridge.service` | `bdb53f4f944f26f2d41bafca06e1dc33bb3605a84326db39ba8051498956a977` |
+| `client.tar` | `472fc62d1ce0915bb5d26ca880f9618144f79b9090c48d69093b22efea1387cc` |
+| `gate2-preflight.sh` | `7f4fe84c1e70dd0b952a45f85ff1ef427472b21dcb7700bdf68643e8cec96697` |
+| `gate2-provision.sh` | `860a2d7cf7b9fa7faf09975d18519ee674c57828a7579bf9784a24b604692bad` |
+
+The operator ran `sudo /usr/bin/env -i /bin/bash /mnt/d42c-gate2/gate2-provision.sh --authorize-d42c-gate2-e` exclusively in the clone. The reported sequence was `GATE2_E_PREFLIGHT_OK`, `stage_media`, `publish_release`, `create_account_and_directories`, `bootstrap_once` verified, `install_unit`, `start_manager`, `verify_empty_manager` approved, `publish_client_archive`, then `GATE2_E_PROVISIONED_EMPTY` with `EXIT_CODE=0`. These are operator-reported results. The clone paths `/var/log/loopbridge-d42c-gate2-e/status.log` and `/var/tmp/d42c-client-media.AAavij/client.tar` are the reported evidence and client publication. Recheck both on the clone before use.
+
+Continue review on `codex/trusted-service-d4.2c` in [PR #25](https://github.com/LoopGolem/loopenvironment/pull/25). The original holds the evidence of the earlier D4.2B incident. The clone holds the Gate 3 evidence for its two attempts. The first clone attempt ended with `INVESTIGATION_INCONCLUSIVE` after local diagnosis. The functional pass on the second attempt is a separate result.
+
+Local validation for this handoff covered the archive SHA-256 and byte-for-byte comparison with the pinned Git archive, the Bash and PowerShell syntax and documentation links, plus synthetic UUID, descriptor, diagnostics and viewer-metrics checks. Four identity regressions and 22 smoke fixture tests passed. The clone checkpoint remains operator evidence.
+
+## Gate 3 functional result
+
+The objective was one offline Calculator session in the private desktop, mediated by LoopBridge across client UID `1000` and service UID `980`. The operator reported that `check`, `stage` and `switch` succeeded on the verified offline Debian 13 clone. The active release for the successful attempt was `38e36828d1aad62617de05315df1a20ab7849668`, manifest SHA-256 `c10173b649841d860ca29b256af5497a96f9d2ff6b72baef7b3ec2b3b9367706`. The new manager PID `30622` passed authenticated readiness and returned an empty list before the start. It was reported active after the run with `NRestarts=0` and `UnitFileState=disabled`.
+
+### Operator evidence and criteria
+
+| Criterion | Reported result |
+| --- | --- |
+| Private graphical session startup | `START_EXIT=0` on the single authorized attempt with the migrated release. |
+| Calculator launch and observed output | The operator saw Calculator inside the `LoopBridge · sessão privada ao vivo` window at `800x600`. |
+| Observer authorization | The UID `1000` observer authenticated after verifying kernel peer UID `980`. |
+| Control release | The authorized probe returned `control.released`. This records release of the setup lease. |
+| Frame delivery and paint | The observer received two frames, one unique, and painted one. The human observation confirms the content of that paint. |
+| Exact-ID stop | The stop for `9e343bcf3659e680` returned `phase=stopped` and `retired=true`. |
+| Retirement and disconnect | The follow-up authenticated list was `{"instances":[]}`. The window displayed disconnection and the observer process was closed separately. |
+
+The operator reported the following values from the viewer metrics after the stop.
+
+| Metric | Value |
+| --- | --- |
+| `received`, `unique`, `painted`, `presentationFeedback` | `2`, `1`, `1`, `1` |
+| `mailboxDropped`, `duplicate` | `0`, `1` |
+| `handshakeMs`, `firstPaintMs` | `90.67`, `212.34` |
+| Final state and reason | `DESCONECTADO`, `session_ended_or_unreachable` |
+| Final FPS | `0.0` after disconnection. The sample does not measure sustained frame rate. |
+
+**Decision `D42C_GATE3_FUNCTIONAL_PASS`.** The reported start, application display, authenticated observer, frame paint, control release, exact stop and empty final list satisfy this functional smoke. The older clone failure remains inconclusive. The smoke leaves sustained streaming performance, interactive agent control, broad host isolation and production qualification open. Replacement credential checks, unauthorized direct-resource and descriptor checks, and the remaining D5 matrix require their own evidence. The final report has no independent measurement of private namespace IDs or post-stop filesystem cleanup.
+
+### Evidence boundaries and retention
+
+- **Operator report.** The clone migration, readiness, start, displayed Calculator, viewer metrics, stop and post-stop state are reported by the operator. The evidence directory is the operator's `$S` in the clone. Expected files include `start.json`, `start.stderr`, `probe.json`, `view.json` and `stop.json`. These files and any screenshots were unavailable for direct inspection during consolidation.
+- **Local artifact verification.** The candidate manifest, archive and rendered unit were available locally. The manifest is tied to the committed diagnostic revision. The migration media hashes were rechecked. The original VM's manager PID `16793`, zero restarts and Sway PID `1617` were verified by read-only inspection during consolidation.
+- **Automated evidence.** The unprivileged fixture suite for the diagnostic candidate passed 289 tests before clone migration. Tests cover isolated spawn, startup diagnostics, incomplete readiness records and sanitized propagation. Fixture passes do not count as observations from the clone.
+- **Technical inference.** The implementation requires a valid start descriptor and checks the peer before observer authentication. The stop implementation validates the exact instance and retirement status. These explain the significance of the reported outcomes. They do not independently attest to clone files or explain why the first attempt reached EOF.
+
+Keep both attempts' evidence in the clone, including the failed attempt's persistent directory, registry and journals. Additional transfer is optional for final review. If needed, use the verified clone console to read the regular, non-symlink evidence files in `$S`, and record the window, file sizes and presence of the expected records. Copy only parsed, allowlisted values for exit status, diagnostic phase/reason, peer UID, observer role, event, numeric viewer metrics, public instance ID and stop/list outcomes. Report the size or absence of `start.stderr` unless a line passes the exact diagnostic parser. Leave descriptors, raw stderr, pixels and authentication material in protected storage. Verify that the sanitized excerpt contains only those fields before transfer.
 
 ## Readiness audit
 
@@ -27,11 +91,11 @@ The checkout's `main` and local `origin/main` reference matched the requested ba
 | `git fsck --no-dangling` and the installed launcher `verify-installed` | Passed |
 | `setpriv --no-new-privs bwrap --unshare-all … /usr/bin/id` | Started under UID 1000 with a transient namespace |
 
-The fixtures use real local Unix sockets, an actual synthetic ACL layout and the manager and broker RPC contracts. The new smoke fixture simulates the admitted UID and the Calculator operation. Existing fixtures verify rejection of an unlisted kernel peer, no transfer of ancillary FDs, real byte transport, stale verifiers, bounded relay shutdown and media revocation. A lost start reply leaves a session discoverable through protected listing and requires explicit stop. The namespace preflight ran without starting Sway, GTK or a private session. The result for the repository candidate is **READY_FOR_VM_TEST**.
+The fixtures use real local Unix sockets, an actual synthetic ACL layout and the manager and broker RPC contracts. The new smoke fixture simulates the admitted UID and the Calculator operation. Existing fixtures verify rejection of an unlisted kernel peer, no transfer of ancillary FDs, real byte transport, stale verifiers, bounded relay shutdown and media revocation. A lost start reply leaves a session discoverable through protected listing and requires explicit stop. The namespace preflight ran without starting Sway, GTK or a private session. The first repository candidate reached `READY_FOR_VM_TEST` at this stage.
 
 ## First cross-UID attempt
 
-The first Stop 2 attempt on November 21, 2026 returned the generic launcher error. The trusted root console reported these metadata in the VM's local time.
+The initial D4.2B-based attempt on November 21, 2026 returned the generic launcher error. The trusted root console reported these metadata in the original VM's local time. This predates both Gate 3 attempts in the diagnostic clone.
 
 | Evidence | Observed result |
 | --- | --- |
@@ -41,6 +105,7 @@ The first Stop 2 attempt on November 21, 2026 returned the generic launcher erro
 | `desktop.pending` and `desktop.resolved` | Both absent |
 | Private runtime, public route and active instance | Absent |
 | Manager and primary Sway | PIDs 16793 and 1617 preserved. Manager active with zero restarts. |
+| Root-filtered journal in the incident window | Operator reported `journal_lines=0`, `boundary_matches=0` and `desktop_matches=0`. |
 
 The time and instance directory place the request after manager authentication and verifier reservation. The hardened manager reserves the verifier set before constructing the instance. The missing public descriptor prevents any GTK or observer-event claim for this attempt.
 
@@ -63,6 +128,65 @@ TZ=America/Sao_Paulo /usr/bin/journalctl --unit=loopbridge.service \
     printf "journal_lines=%d boundary_matches=%d desktop_matches=%d\n", NR, boundary, desktop
   }'
 ```
+
+## Gate 3 attempt — broker adapter startup
+
+The operator reported the first Gate 3 start on `LoopEnvironment-D42C-Diagnostic` (`10a1d971-aba2-4d2b-b01e-74b7e85f7c26`), with manager PID `3116` (`980:980`), primary Sway PID `1567` (UID `1000`), and release `76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2`. The environment was offline and isolated. The start exited `1` with `loopbridge: phase=broker_adapter cleanup=confirmed reason=readiness_eof`. An authenticated follow-up returned `{"instances":[]}`. The Calculator did not start on that attempt. These are operator observations. The clone's filesystem and journal were unavailable for direct inspection during the investigation.
+
+### Boundary established by the record
+
+`serve()` opens the annotation database and initializes the journal before publishing `broker_adapter` and constructing `Adapter`. The next marker, `broker_listeners`, follows successful adapter construction. In the clone, the supervisor had found the private Wayland and Sway IPC sockets and forwarded the broker's `broker_adapter` marker before the readiness pipe reached EOF. That establishes progress through storage and up to adapter construction. Private listeners, relay publication, Calculator and GTK viewer operation are outside the observed boundary. The older incident on the original remains separate. [Broker order](../../loopbridge/service.py) · [Supervisor and readiness](../../loopbridge/private_session.py)
+
+In the earlier release, `Adapter` created a `spawn` child and waited for the worker's first `(True, source)` reply. A failure while importing or constructing the desktop adapter could close that channel before the reply. `worker()` suppressed startup exceptions and `receive()` turned EOF, IPC errors and its timeout into `Unavailable`. When that escaped `serve()`, the broker process closed the supervisor's readiness pipe. The outer Bubblewrap process also routed inherited stderr to `/dev/null`. `readiness_eof` was the supervisor's observation of the broker pipe, with no worker exception or exit code encoded in it. [Earlier worker and handshake](https://github.com/LoopGolem/loopenvironment/blob/76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2/loopbridge/adapter.py)
+
+### Local evidence and assessment
+
+On Python `3.13.5`, `-I -B` preserves interpreter isolation and disables bytecode writes. `isolated_python()` adds only the explicitly mounted `/app` package location. The spawn interpreter starts fresh with the inherited interpreter flags. CPython serializes the parent's `sys.path` in `get_preparation_data()` and applies it in `prepare()` before unpickling the process target. The `-I` startup defaults do not remove that restored entry.
+
+| Local check | Result |
+| --- | --- |
+| Actual `Adapter('fixture')` child under the isolated command prefix, with the package available only at an explicitly inserted temporary app path | Imported and answered a snapshot over the worker pipe. |
+| Same fixture, with only the app entry removed from the serialized spawn preparation data | Failed before worker entry with `ModuleNotFoundError: No module named 'loopbridge'`. |
+| Synthetic worker adapter import failure and separate constructor exception, each through a local `serve()` subprocess | Both produced `broker_adapter` and `readiness_eof`, with temporary SQLite present, no private listeners and no injected exception text on the broker's stderr. |
+| Imports from the manifest-verified local staged release under `-I -B` in a cleared environment | `Desktop`, PyAT-SPI, `setTimeout` and GLib imported. The check did not use an accessibility or graphical session. |
+
+An earlier unprivileged namespace fixture used a simulated Sway IPC peer and a temporary D-Bus session. It started no compositor or application. The fixture worker passed. Both an intentionally missing Sway socket and an intentionally invalid workspace mode yielded the same broad broker EOF. The non-fault-injected desktop fixture also reached that EOF without exposing the worker exception. Those runs give no direct evidence about the clone's dependency or IPC state. Subsequent reproduction was limited to independent local Python subprocess tests. [Regression tests](../../tests/test_adapter_spawn.py)
+
+The generic hypothesis that `spawn` loses the explicitly inserted app path under `-I -B` is contradicted by the control and CPython's preparation sequence. The unresolved boundary is startup before the adapter handshake. A worker-side import or exception in private Sway IPC, AT-SPI/D-Bus, or workspace/runtime initialization can explain the result. A process creation failure or early worker death can also reach it. The clone record does not distinguish these cases. **Result `INVESTIGATION_INCONCLUSIVE`.**
+
+### Adapter startup diagnostics
+
+The implementation reached `ADAPTER_DIAGNOSTICS_READY_FOR_REVIEW` before the final partial-record regression and candidate build.
+
+The change addresses the loss of detail at the adapter startup boundary. The existing worker pipe carries one bounded byte record for startup. Both ends check the finite set of success tags and failure codes. If the socket becomes readable with an incomplete startup record, the bounded nonblocking read fails closed. It restores blocking mode before ordinary operations. The hardened broker forwards one fixed `broker_adapter` reason to the existing supervisor and manager path. `spawn`, `-I -B` and the mount boundary remain in use. [Worker startup](../../loopbridge/adapter.py) · [Diagnostic allowlist](../../loopbridge/service_diagnostics.py)
+
+| `broker_adapter` reason | Condition |
+| --- | --- |
+| `adapter_spawn` | The parent could not construct or start the multiprocessing child. |
+| `adapter_worker_init` | The worker entered its startup code and failed in `setsid()`. |
+| `adapter_import` | An exception occurred while importing the desktop or Calculator adapter in the worker. This covers the import stage and its transitive dependencies. |
+| `adapter_construct` | The selected adapter constructor raised after import. Sway IPC, AT-SPI/D-Bus and workspace/runtime initialization are possible causes within this phase. |
+| `adapter_startup_channel` | The startup channel could not be created or read, or the readiness record or source was invalid. |
+| `adapter_startup_eof` | The worker channel closed before a valid startup record. A failure in the spawn bootstrap before worker entry, abrupt exit or failed diagnostic write can produce this outcome. |
+| `adapter_startup_timeout` | The adapter parent's existing worker wait expired. |
+
+The manager and supervisor can reach their earlier deadlines first. In that case the last observed phase and `readiness_timeout` still apply. If the broker cannot send its diagnostic, its supervisor falls back to the last phase with `readiness_eof` or `readiness_timeout`. The code reports observed boundaries and keeps exception strings, paths, tracebacks, environment values and credentials out of the readiness record and manager journal. The exact cause of the completed clone attempt remains inconclusive.
+
+The unprivileged suite (`/usr/bin/python3 -B -m unittest discover -s tests`) passed 288 tests before the partial-record correction and 289 after the open-pipe regression was added. The local subprocess and smoke fixtures cover successful isolated spawn, each startup reason, invalid records, failed diagnostic writes and the phase restriction through manager RPC and the administrative launcher. No installed manager was exercised by these tests. The later functional pass does not establish which, if any, of these changes explains the first Gate 3 failure.
+
+#### Controlled migration to the diagnostic release
+
+The operator reported success for `check`, `stage` and the separately approved `switch` on the existing diagnostic clone. This moved the clone from revision `76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2`, PID `3116`, to `38e36828d1aad62617de05315df1a20ab7849668`, PID `30622`. Both the manager and its private broker then used the diagnostic release. The staged unit differed from the old rendered unit only in the release and manifest pins in `ExecStart`. The migration plan kept both versioned directories and used the provisioned identities and registry. The original D4.2B VM was outside the migration.
+
+| Locally verified migration artifact | SHA-256 |
+| --- | --- |
+| `release.json` | `c10173b649841d860ca29b256af5497a96f9d2ff6b72baef7b3ec2b3b9367706` |
+| `candidate.tar` | `08f0f03f60c2ed8dc27d9ece42445470f37969d94cbac5cc984fbec1831ad9a8` |
+| `loopbridge.service` | `71226975df605e9a9353ef72ddf5280ee5f5034b96fa4a4a4eef6b55cc968513` |
+| `d42c-migrate.sh` | `1035cc7b77abf962689fdb1167ded1c9b2dbacfc5533cd80c369ff28bda07fd0` |
+| `audit-durable-state.py` | `9239fb8933004d0b60bcd7c6e90b7fcf6d01ea06ed2fe0f7790b6de4d7befca9` |
+
+The fresh verifier and the one offline graphical attempt were authorized separately after migration. The [functional result](#gate-3-functional-result) records that attempt. Any further session, migration or rollback requires a new decision.
 
 ## Diagnostic candidate and retest plan
 
@@ -135,6 +259,8 @@ Require `VMState="poweroff"`, every adapter set to `none`, and no shared folders
 
 ### Disposable VM — Gate 2, verify an empty manager
 
+This is the build and provisioning reference. The completed execution is recorded in the [lab handoff](#disposable-lab-handoff).
+
 Obtain separate authorization to boot and provision the verified clone. Stage the approved revision from the repository as UID 1000. Use the standard release builder and the existing systemd unit template.
 
 ```bash
@@ -174,7 +300,7 @@ ip -br link
 findmnt -t vboxsf,9p,virtiofs,nfs,nfs4,cifs
 ```
 
-On the trusted root console **inside the clone**, supply the approved clone `DIAG_UUID`, `REV` and `DIGEST`, and independently recorded `TAR_SHA`, `UNIT_SHA` and `CLIENT_SHA`. Set `DVD_DEVICE` to the clone's guest optical block device such as `/dev/sr0`. Run the guarded block in a dedicated Bash shell. Use fresh root-owned evidence paths. The archive's digest pins every byte before extraction and the installed launcher independently checks its root-controlled inventory before initialization.
+On the trusted root console **inside the clone**, supply the approved clone `DIAG_UUID` from the host record, along with `REV`, `DIGEST` and the independently recorded `TAR_SHA`, `UNIT_SHA` and `CLIENT_SHA`. Set `DVD_DEVICE` to the clone's guest optical block device such as `/dev/sr0`. Run the guarded block in a dedicated Bash shell. For the observed VirtualBox and Debian pairing, decode the first three DMI UUID fields in little-endian order before comparing with the approved host UUID. A malformed UUID or mismatch aborts before mounting the media. Use fresh root-owned evidence paths. The archive's digest pins every byte before extraction and the installed launcher independently checks its root-controlled inventory before initialization.
 
 ```bash
 set -e
@@ -182,7 +308,25 @@ set -o pipefail
 umask 022
 test "$(id -u):$(id -g)" = 0:0
 GUEST_UUID=$(cat /sys/class/dmi/id/product_uuid)
-[[ "$DIAG_UUID" =~ ^[a-fA-F0-9-]{36}$ && "${GUEST_UUID,,}" = "${DIAG_UUID,,}" ]]
+/usr/bin/python3 -I -B - "$DIAG_UUID" "$GUEST_UUID" <<'PY'
+import sys
+import uuid
+
+def parse_uuid(text):
+    value = uuid.UUID(text)
+    if str(value) != text.lower():
+        raise ValueError('expected a hyphenated UUID')
+    return value
+
+try:
+    expected, dmi_uuid = map(parse_uuid, sys.argv[1:])
+except ValueError:
+    sys.exit('Gate 2: invalid clone or DMI UUID')
+
+normalized = uuid.UUID(bytes_le=dmi_uuid.bytes)
+if normalized != expected:
+    sys.exit('Gate 2: DMI UUID does not identify the approved clone')
+PY
 test "$(ip -o link show | awk -F': ' '{print $2}')" = lo
 test "$(id -u vboxuser):$(id -g vboxuser)" = 1000:1000
 test "$(systemctl show loopbridge.service -p LoadState --value)" = not-found
@@ -257,26 +401,281 @@ Retain the fresh clone credentials with their existing protections. The working 
 
 ### Disposable VM — Gate 3, one diagnostic attempt
 
-Request authorization for one offline session in the verified clone. Set `CLIENT_ARCHIVE` to the root-published path above and `CLIENT_SHA` to the pinned digest in the clone's UID 1000 terminal. The published copy contains only the reviewed client code.
+**Historical procedure for the first clone attempt.** The literals below describe the earlier `76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2` release and PID `3116`, with an initially empty persistent session directory. For the completed second attempt see the [functional result](#gate-3-functional-result). Future use requires explicit GO and newly verified pins, process identities and preserved persistent state. The observer grants last 180 seconds. The published archive from Gate 2 supplies the client tools.
 
-```bash
-printf '%s  %s\n' "$CLIENT_SHA" "$CLIENT_ARCHIVE" | sha256sum --check --strict
-CLIENT_SRC=$(mktemp -d "$HOME/d42c-client.XXXXXX")
-tar -xf "$CLIENT_ARCHIVE" -C "$CLIENT_SRC"
-cd "$CLIENT_SRC/source"
+#### Read-only preflight
+
+On the Windows host, inspect the running clone by UUID in VirtualBox. Require all eight NICs disabled, clipboard, transfers and drag-and-drop disabled, and no shares. The original can remain running. A read-only listing is available in PowerShell.
+
+```powershell
+$VBox = Join-Path $env:ProgramFiles 'Oracle\VirtualBox\VBoxManage.exe'
+& $VBox showvminfo '10a1d971-aba2-4d2b-b01e-74b7e85f7c26' --machinereadable
+if ($LASTEXITCODE -ne 0) { throw 'Clone inspection failed' }
 ```
 
-Use the Stop 2 viewer, probe and recovery procedure. In its root preflight and snapshot comparisons, use the clone's manager PID, primary Sway PID and evidence directory. Replace the original Sway PID literal in `d42c_host_identity` and `d42c_namespaces`. Use the diagnostic release digest and fresh clone-local owner and observer material. Confirm an empty list and absence of public session routes. Keep the sole start's stderr separate from the public descriptor in a fresh root-owned directory.
+In a dedicated trusted root Bash shell, load the clone context. The same block can be used to re-establish identity and read evidence if a later command exits the shell.
 
 ```bash
-d42c_admin --action admin-smoke-start --observer-verifier "$D42C_VERIFIER_FIRST" \
-  > "$D42C_ROOT_EVIDENCE/diagnostic-start.json" \
-  2> "$D42C_ROOT_EVIDENCE/diagnostic-start.stderr"
+set -euo pipefail
+set +o history
+umask 077
+test "$(id -u):$(id -g)" = 0:0
+G3_RELEASE=/opt/loopbridge/releases/76e90edf3c61e5f3b996f9cdec9aa0eaf9f5a2e2
+G3_DIGEST=1be7c99bbd2ed91a7772fc7d369218bc9ac3d4d9b90b5387f45593d5d15a18e6
+G3_E=/var/tmp/loopbridge-d42c-gate3
+G3_PID=3116
+G3_UNIT=/etc/systemd/system/loopbridge.service
+G3_CGROUP=/sys/fs/cgroup/system.slice/loopbridge.service/cgroup.procs
+g3_admin() {
+  /usr/bin/python3 -I -B "$G3_RELEASE/launcher.py" --manifest-sha256 "$G3_DIGEST" "$@"
+}
+g3_unit() { systemctl show loopbridge.service -p "$1" --value; }
+g3_empty() {
+  local result entry
+  result=$(g3_admin --action admin-smoke-list) || return
+  test "$result" = '{"instances":[]}' || return
+  entry=$(find /run/loopbridge-ingress -mindepth 1 -maxdepth 1 -print -quit) || return
+  test -z "$entry" || return
+  entry=$(find /run/loopbridge-private -mindepth 1 -maxdepth 1 ! -name manager.sock -print -quit) || return
+  test -z "$entry"
+}
+g3_baseline() {
+  systemctl show loopbridge.service -p MainPID -p NRestarts -p ActiveState -p UnitFileState || return
+  ps -p "$G3_PID,$G3_PRIMARY" -o pid=,uid=,gid=,lstart=,comm=
+}
+g3_same_baseline() {
+  local current
+  current=$(g3_baseline) || return
+  test "$current" = "$G3_BASELINE"
+}
+G3_DMI=$(cat /sys/class/dmi/id/product_uuid)
+/usr/bin/python3 -I -B - "$G3_DMI" <<'PY'
+import sys
+import uuid
+
+text = sys.argv[1]
+observed = uuid.UUID(text)
+if (str(observed) != text.lower()
+        or uuid.UUID(bytes_le=observed.bytes) != uuid.UUID('10a1d971-aba2-4d2b-b01e-74b7e85f7c26')):
+    raise SystemExit('Gate 3 clone identity mismatch')
+PY
+test "$(ip -o link show | awk -F': ' '{print $2}')" = lo
+G3_MOUNTS=$(findmnt -rn -o FSTYPE)
+if grep -Eq '^(vboxsf|9p|virtiofs|nfs|nfs4|cifs|smb3)$' <<< "$G3_MOUNTS"; then exit 1; fi
+test "$(g3_unit MainPID)" = "$G3_PID"
 ```
 
-Collect only the reviewed phase and cleanup records and artifact metadata.
+Run the baseline checks before the experiment. These read the installed unit, release and protected readiness interfaces.
 
-A failed start should report a concrete phase and cleanup outcome, or a transport result that flags uncertainty. A generic failure without independent phase evidence leaves the attempt inconclusive. List before resolving ambiguity and use exact-ID shutdown only for a known active instance. Preserve the stored state and evidence. A successful start still requires the observed GTK frame, `control.released` and confirmed exact-ID stop. Either result closes the gate. Keep the clone for review and power off only that clone under separate approval.
+```bash
+test "$(g3_unit NRestarts)" = 0
+test "$(g3_unit ActiveState)" = active
+test "$(g3_unit UnitFileState)" = disabled
+test "$(g3_unit FragmentPath)" = "$G3_UNIT"
+G3_DROPINS=$(g3_unit DropInPaths)
+test -z "$G3_DROPINS"
+printf '%s  %s\n' bdb53f4f944f26f2d41bafca06e1dc33bb3605a84326db39ba8051498956a977 "$G3_UNIT" |
+  sha256sum --check --strict
+test "$(ps -p "$G3_PID" -o uid=,gid= | awk '{print $1 ":" $2}')" = 980:980
+test "$(cat "$G3_CGROUP")" = "$G3_PID"
+tr '\0' '\n' < "/proc/$G3_PID/cmdline" |
+  cmp -s - <(printf '%s\n' /usr/bin/python3 -I -B "$G3_RELEASE/launcher.py" --manifest-sha256 "$G3_DIGEST" --client-uid 1000)
+G3_CRED_OPTS=$(nsenter --target "$G3_PID" --mount -- findmnt -rn --target /run/credentials/loopbridge.service -o VFS-OPTIONS)
+[[ ",$G3_CRED_OPTS," == *,ro,* ]]
+G3_PRIMARY=$(ps -u 1000 -o pid=,comm= | awk '$2 == "sway" {print $1}')
+[[ "$G3_PRIMARY" =~ ^[1-9][0-9]*$ ]]
+g3_admin --action verify-installed
+g3_admin --action admin-ready
+g3_empty
+G3_DURABLE=$(find /var/lib/loopbridge/sessions -mindepth 1 -maxdepth 1 -print -quit)
+test -z "$G3_DURABLE"
+[[ ! -e "$G3_E" && ! -L "$G3_E" ]]
+G3_BASELINE=$(g3_baseline)
+printf '%s\n' "$G3_BASELINE"
+```
+
+Use the clone's existing graphical terminal as `vboxuser`. Confirm it belongs to the clone selected on the host. The archive must be root-published and match its independent pin. Import GTK without opening a window. Stop before start if the UID 1000 Wayland session, GTK import, or archive check is missing.
+
+```bash
+set -euo pipefail
+umask 077
+test "$(id -u):$(id -g)" = 1000:1000
+G3_DISPLAY=$WAYLAND_DISPLAY
+[[ "$G3_DISPLAY" == /* ]] || G3_DISPLAY=$XDG_RUNTIME_DIR/$G3_DISPLAY
+test -S "$G3_DISPLAY"
+test -S "$SWAYSOCK"
+/usr/bin/python3 -I -B -c 'import gi; gi.require_version("Gtk", "4.0"); from gi.repository import Gtk'
+G3_ARCHIVE=/var/tmp/d42c-client-media.AAavij/client.tar
+[[ -f "$G3_ARCHIVE" && ! -L "$G3_ARCHIVE" ]]
+test "$(stat -c '%u:%g:%a' "$G3_ARCHIVE")" = 0:0:644
+printf '%s  %s\n' 472fc62d1ce0915bb5d26ca880f9618144f79b9090c48d69093b22efea1387cc "$G3_ARCHIVE" |
+  sha256sum --check --strict
+```
+
+#### One start and a read-only viewer
+
+After both preflights pass, stage the client as UID 1000 and generate its fresh observer bearer and verifier with the existing probe. Transfer only the printed six-character directory suffix to root. The bearer remains in the UID 1000 directory. This uses a local file inside the clone and needs no host clipboard or file sharing.
+
+```bash
+G3_CLIENT=$(mktemp -d /var/tmp/d42c-g3-client.XXXXXX)
+tar -xf "$G3_ARCHIVE" -C "$G3_CLIENT"
+cd "$G3_CLIENT/source"
+/usr/bin/python3 -B -m tools.loopbridge_d42c_probe generate --token-file "$G3_CLIENT/observer.token" \
+  > "$G3_CLIENT/verifier.sha256"
+printf '%s\n' "${G3_CLIENT##*.}"
+```
+
+In the verified root shell, enter that suffix. Read only the verifier as UID 1000. Check the manager again and reserve the per-attempt evidence directory exclusively. Keep the start exit status, descriptor and stderr separate. Run this block once.
+
+```bash
+read -r G3_TAG
+[[ "$G3_TAG" =~ ^[A-Za-z0-9]{6}$ ]]
+G3_VERIFIER=$(timeout 3s /usr/sbin/runuser -u vboxuser -- head -c 65 -- \
+  "/var/tmp/d42c-g3-client.$G3_TAG/verifier.sha256")
+[[ "$G3_VERIFIER" =~ ^[0-9a-f]{64}$ ]]
+g3_same_baseline
+g3_empty
+mkdir -m 0700 -- "$G3_E"
+printf '%s\n' "$G3_BASELINE" > "$G3_E/baseline.txt"
+printf '%s\n' "$G3_PRIMARY" > "$G3_E/primary-sway.pid"
+date -u '+%F %T UTC' > "$G3_E/since"
+G3_RC=0
+g3_admin --action admin-smoke-start --observer-verifier "$G3_VERIFIER" \
+  > "$G3_E/start.json" 2> "$G3_E/start.stderr" || G3_RC=$?
+unset G3_VERIFIER
+printf '%s\n' "$G3_RC" | tee "$G3_E/start.exit"
+```
+
+The installed action authenticates with the protected clone manager credential and generates separate session owner and delegate credentials. It requests zero HTTPS hosts, launches Calculator through the private broker, grants observation and releases the setup lease. A nonzero exit or invalid descriptor goes to recovery even if no phase was reported. With exit zero, validate and transfer only the ID and epoch to the UID 1000 terminal.
+
+```bash
+test "$(cat "$G3_E/start.exit")" = 0
+G3_PIN=$(/usr/bin/python3 -I -B - "$G3_E/start.json" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding='ascii') as data:
+    pin = json.load(data)
+instance = pin['privateId']
+epoch = pin['epoch']
+if (not re.fullmatch('[a-f0-9]{16}', instance) or not re.fullmatch('[a-f0-9]{32}', epoch)
+        or pin['session'] != 'desktop' or pin['ingressSocket'] != f'/run/loopbridge-ingress/{instance}.sock'
+        or pin['grantTtlSeconds'] != 180):
+    raise SystemExit('Gate 3 descriptor mismatch')
+print(instance, epoch)
+PY
+)
+read -r G3_ID G3_EPOCH <<< "$G3_PIN"
+G3_PRIVATE=$(ps -p "$(paste -sd, "$G3_CGROUP")" -o pid=,uid=,comm= |
+  awk '$2 == 980 && $3 == "sway" {print $1}')
+[[ "$G3_PRIVATE" =~ ^[1-9][0-9]*$ && "$G3_PRIVATE" != "$G3_PRIMARY" ]]
+for ns in user pid mnt net ipc; do
+  manager_ns=$(readlink "/proc/$G3_PID/ns/$ns")
+  private_ns=$(readlink "/proc/$G3_PRIVATE/ns/$ns")
+  test "$manager_ns" != "$private_ns"
+  printf '%s %s %s\n' "$ns" "$manager_ns" "$private_ns"
+done > "$G3_E/namespaces.txt"
+printf '%s %s\n' "$G3_ID" "$G3_EPOCH"
+```
+
+In the UID 1000 graphical terminal enter the two fields. Run the probe before opening the viewer so a failed peer, observer authentication, pin or event check is distinguishable from a GTK failure. If the probe exits nonzero, proceed to cleanup on root. The viewer uses only the authorized ingress.
+
+```bash
+read -r G3_ID G3_EPOCH
+/usr/bin/python3 -B -m tools.loopbridge_d42c_probe live --token-file "$G3_CLIENT/observer.token" \
+  --private-id "$G3_ID" --epoch "$G3_EPOCH" > "$G3_CLIENT/probe.json" 2> "$G3_CLIENT/probe.stderr"
+GDK_BACKEND=wayland /usr/bin/python3 -B -m tools.loopbridge_live_view \
+  --socket "/run/loopbridge-ingress/$G3_ID.sock" --peer-uid 980 --token-file "$G3_CLIENT/observer.token" \
+  --private-id "$G3_ID" --epoch "$G3_EPOCH" --metrics-file "$G3_CLIENT/view.json" \
+  > "$G3_CLIENT/view.stdout" 2> "$G3_CLIENT/view.stderr" &
+```
+
+When Calculator is visible, record operator confirmation. Save proof of at least one painted frame before closing or stopping. Share only the probe's structured result and the selected numeric metrics.
+
+```bash
+cat "$G3_CLIENT/probe.json"
+/usr/bin/python3 -I -B -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    row = json.load(stream)
+if row["painted"] < 1 or (row["width"], row["height"]) != (800, 600) or row["reason"] is not None:
+    raise SystemExit("Gate 3 paint not confirmed")
+print(json.dumps({key: row[key] for key in ("width", "height", "painted")}))
+' "$G3_CLIENT/view.json" | tee "$G3_CLIENT/painted.json"
+```
+
+#### Diagnostics, exact-ID stop and review
+
+Collect the exact allowlisted records from the launcher and unit journal. Collect while the outcome is still known, or promptly after a failed start. The reviewed release's `Diagnostic.from_child` accepts only fixed phase, cleanup and optional reason. A generic launcher line or an empty filtered journal is reported as such.
+
+```bash
+g3_diag() {
+  /usr/bin/python3 -I -B -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from loopbridge.service_diagnostics import Diagnostic
+for line in sys.stdin.buffer:
+    if Diagnostic.from_child(line) is not None:
+        sys.stdout.buffer.write(line)
+' "$G3_RELEASE"
+}
+g3_diag < "$G3_E/start.stderr" | tee "$G3_E/admin-phases.txt"
+journalctl -u loopbridge.service "_PID=$G3_PID" --since "$(cat "$G3_E/since")" \
+  --until "$(date -u '+%F %T UTC')" --no-pager -o cat |
+  g3_diag | tee "$G3_E/manager-phases.txt"
+find /var/lib/loopbridge/sessions -mindepth 2 -maxdepth 2 \
+  \( -name workspace -o -name annotations.sqlite3 -o -name desktop.pending -o -name desktop.resolved \) \
+  -printf '%T@ %s %m %U:%G %P\n' > "$G3_E/state-metadata.txt"
+```
+
+| Observation | What it can establish |
+| --- | --- |
+| `admin_bootstrap`, `manager_preflight`, `start_rejected` | Failure before a confirmed private session. Check clone credential delivery, manager access and the fresh verifier. |
+| `admin_client_timeout`, `admin_client_failed`, `start_reply_lost` | Start transport or reply uncertainty. Determine actual state by authenticated listing before any cleanup. |
+| `state_prepare`, `desktop_startup`, `desktop_display`, `desktop_broker` | Durable preparation, supervisor start, private Wayland/Sway sockets, or broker launch. `desktop_display` is a private compositor/display boundary. |
+| `broker_bootstrap`, `broker_storage`, `broker_adapter` | Broker bootstrap, SQLite/journal preparation or adapter startup. The adapter marker follows storage initialization. Adapter failure can cover Sway IPC, AT-SPI or worker readiness. |
+| `broker_listeners`, `broker_ready`, `desktop_boundary`, `relay_publication`, `desktop_ready_exited` | Private listener setup, broker readiness, boundary validation, fixed public relay creation or exit before a ready instance could be returned. `readiness_timeout`, `readiness_eof` and `readiness_frame_limit` refine the last reported phase. |
+| `presentation`, `control_acquire`, `calculator`, `grants`, `control_release` | The manager returned an instance and setup failed afterward. `calculator` is the mediated application launch, distinct from the UID 1000 GTK viewer. |
+| Start descriptor valid, probe fails | Check the exact public route and its ACL metadata. Permission denied is distinct from a missing or refused socket. An unexpected kernel peer or observer denial is a boundary or authorization failure. A wrong pin or missing event is a protocol/authority observation failure. |
+| Probe passes, paint missing | Check UID 1000 Wayland/GTK initialization, then the viewer's frame counters. No mapped window, zero received frames, and frames received without a paint are distinct observations. Expired grants cannot establish a stream or rendering defect. |
+
+The supervisor's `stage:...` records travel on private readiness pipes. The two captures above report the manager/client failure boundary when available. A successful descriptor and separate client proof establish that the route was published and usable. A complete journal trace of each successful stage is unavailable in this revision.
+
+On success, keep the viewer connected for the stop and confirm disconnection before grant expiry. On a failed client check, stop the same verified ID promptly and record the observed state. If a guarded command exited the root shell, load only the clone context again and restore `G3_BASELINE` and `G3_PRIMARY` from the saved `baseline.txt` and `primary-sway.pid`. Revalidate the stored descriptor before using its ID. For a lost start response, run `g3_admin --action admin-smoke-list` first. Only when the sole new ready instance can be identified in the exclusive empty-to-start window, enter its exact ID with `read -r G3_ID`. If the list is empty or unexpected, preserve the evidence for review.
+
+```bash
+g3_admin --action admin-smoke-list | tee "$G3_E/before-stop.json"
+# Continue only with the exact validated ID of the sole ready instance.
+[[ "$G3_ID" =~ ^[a-f0-9]{16}$ ]]
+test "$(cat "$G3_E/before-stop.json")" = "{\"instances\":[{\"id\":\"$G3_ID\",\"phase\":\"ready\"}]}"
+g3_admin --action admin-smoke-stop --session-id "$G3_ID" > "$G3_E/stop.json" 2> "$G3_E/stop.stderr"
+test "$(cat "$G3_E/stop.json")" = "{\"id\":\"$G3_ID\",\"phase\":\"stopped\",\"retired\":true}"
+g3_empty
+test -d "/var/lib/loopbridge/sessions/$G3_ID/workspace"
+test "$(cat "$G3_CGROUP")" = "$G3_PID"
+g3_same_baseline
+```
+
+In the graphical terminal record the viewer disconnection and then close it. Run the existing route-absence probe for the known ID.
+
+```bash
+/usr/bin/python3 -I -B -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    row = json.load(stream)
+if not row["state"].startswith("DESCONECTADO") or row["reason"] != "session_ended_or_unreachable":
+    raise SystemExit("Gate 3 viewer disconnection not confirmed")
+print("session_ended_or_unreachable")
+' "$G3_CLIENT/view.json" | tee "$G3_CLIENT/disconnected.txt"
+/usr/bin/python3 -B -m tools.loopbridge_d42c_probe stopped --private-id "$G3_ID"
+```
+
+**Procedure checks** include the distinct UID 980 compositor and namespaces, a validated public descriptor, observer authentication to kernel peer UID 980 with `control.released`, visible Calculator and at least one pinned frame painted. The procedure checks exact-ID retirement, viewer disconnection, removal of transient resources, retained workspace, and the unchanged clone manager and primary Sway baseline. The [functional result](#gate-3-functional-result) states the evidence available from the completed run.
+
+**Diagnostic result** is a concrete phase or unresolved transport classification, with the cleanup outcome and relevant metadata. It closes the single approved attempt. A generic failure without corroboration is inconclusive. An identity, isolation, unexpected active target or unauthorized-access mismatch stops the gate.
+
+Preserve the original VM, the clone's registry, journals and all attempt evidence. After a lost or failed stop, list again for review before any further action. Keep local stderr private. Share only time bounds, exit status, allowlisted diagnostic records, nonsecret instance IDs, metadata, selected metrics and operator observations. Keep credentials, raw outputs, RPC bodies and pixels out of the handoff. A new attempt or recovery requiring a service or installation change needs another explicit decision.
 
 ## Administrative workflow
 
@@ -287,6 +686,8 @@ The ordinary client generates its own one-instance observer bearer. Only the ver
 The experiment requires a trusted administrator with exclusive use of the manager for its duration and explicit approval to install the additional versioned artifact, start and stop the two disposable offline sessions and issue the UID 65534 denial check. The unit, D4.2B release, boot state, ACL policy and credential source stay in place. The VM operator must confirm the `LoopEnvironment-Pre-D42B` snapshot and have a separate trusted administrative console and a terminal on the existing UID 1000 desktop. Use a reviewed commit, independently confirmed artifact digest, and keep the start, view, probes and stop within the observer grant window.
 
 ## Authorized VM procedure
+
+This is the historical authorization procedure for the D4.2B-based path and its replacement and negative checks. The completed diagnostic-clone smoke is recorded above. Future execution requires its own approvals.
 
 ### Before the first authorization
 
