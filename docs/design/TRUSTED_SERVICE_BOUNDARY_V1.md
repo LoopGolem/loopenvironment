@@ -1,6 +1,6 @@
 # Trusted Service Boundary V1 — Five Deliveries
 
-**Status:** Proposed / D1 under review. **Current gate:** PARTIAL (V0.7.1); no privileged VM changes are authorized by this document.
+**Status:** D1 accepted (PR #20); D2 unprivileged prototype under review. **Current host isolation gate:** PARTIAL (V0.7.1); no privileged VM changes are authorized by this document.
 
 ## Goal and precise acceptance claim
 
@@ -33,7 +33,7 @@ The word **GO** would qualify **only this host-client/private-session boundary**
 | Delivery | Scope | Acceptance for the delivery | Explicit exclusions |
 | --- | --- | --- | --- |
 | **D1 — Threat model + identity contract** | Proposed ADR 0012; runtime ownership/roles; negative and positive gate matrix; constraints and unresolved questions | Accurate, reviewable design linked from roadmap/security docs; no runtime changes; PR approved before merge | No unit installation, users, privileged commands or GO claim |
-| **D2 — Minimal authenticated ingress contract** | Define operator-facing socket, peer admissibility, principal authorization and separation of public/private path ownership; implement a narrowly scoped unprivileged prototype or mocks | Unit tests reject unauthorized operations and do not leak raw private handles; legacy behavior still explicit | No privileged setup or actual cross-UID deployment |
+| **D2 — Minimal authenticated ingress contract** | Define operator-facing socket, peer admissibility, principal authorization and separation of public/private path ownership; implement a narrowly scoped unprivileged prototype or mocks ([D2 contract](TRUSTED_SERVICE_INGRESS_D2.md)) | Unit tests reject unauthorized operations and do not leak raw private handles; legacy behavior still explicit | No privileged setup or actual cross-UID deployment |
 | **D3 — Launch/cleanup integration tests** | Add unprivileged fixtures for ownership/configuration, startup/shutdown, credential lifecycle, multiple instances and failure/recovery; prepare reviewable service configuration *templates* if justified | Repeatable tests and CI green; no insecure fallback in hardened profile; systemd vs alternative decision documented | No modifying host accounts, /etc, compositor, or package state |
 | **D4 — Authorized disposable-VM qualification setup** | With separate human authorization, provision least-privilege service identity and narrowly exposed ingress on a VM snapshot, then run ordinary authorized workflows | Reproducible install/rollback and confirmed normal Bridge/GTK/Sway function; no impact on primary desktop | No assumption that provisioning implies security GO; no production deployment |
 | **D5 — Scoped security qualification** | Re-run documented host boundary checks, retained sandboxed-client checks, UI/streaming/regression and credential/permission lifecycle on that profile | Required denials and positive checks all observed with reproducible evidence and independent review; otherwise PARTIAL or NO-GO | No universal security/agent-safety claims, no automatic merge |
@@ -64,11 +64,12 @@ The word **GO** would qualify **only this host-client/private-session boundary**
 - [x] Keep Bridge principal authorization independent from OS identity.
 - [x] Record legacy/scoped credential compatibility and owner-token-storage caveat.
 - [x] Define five independent acceptance gates and a reproducible D5 matrix.
-- [ ] Review the proposal and approve its design direction (PR merge); only then begin D2.
+- [x] Architectural direction approved and merged as PR #20; D2 work now proceeds separately.
 
 ## References
 
-- [ADR 0012 proposal](../DECISIONS/0012-trusted-service-identity-boundary.md)
+- [ADR 0012 accepted direction](../DECISIONS/0012-trusted-service-identity-boundary.md)
+- [D2 ingress contract](TRUSTED_SERVICE_INGRESS_D2.md)
 - [Current security model](../SECURITY_MODEL.md)
 - [V0.7.1 qualification](../LOOPBRIDGE_V0_7_1.md)
 - [ADR 0011](../DECISIONS/0011-session-presentation-and-operator-shell.md)
