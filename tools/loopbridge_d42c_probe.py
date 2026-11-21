@@ -11,7 +11,6 @@ import secrets
 import socket
 
 from loopbridge.__main__ import read_private, write_private
-from loopbridge.identity import VERIFIER
 from loopbridge.presentation import CAPABILITY
 from loopbridge.private_session import INSTANCE_ID
 from loopbridge.process_boundary import protect_process
@@ -48,27 +47,34 @@ def expect_fault(rpc, message, method, **params):
         raise ValueError(method + '_unexpected_success')
 
 
+def check_observer_denials(rpc, pin):
+    scope = dict(session=pin['session'])
+    expect_fault(rpc, 'method_not_found', 'private.list')
+    expect_fault(rpc, 'method_not_found', 'private.stop', id=pin['privateId'])
+    expect_fault(rpc, 'grant_denied', 'audit', **scope)
+    expect_fault(rpc, 'grant_denied', 'delegate', **scope, principal='delegate',
+                 capability=CAPABILITY, target='*', ttl=1)
+    expect_fault(rpc, 'grant_denied', 'acquire', **scope, ttl=1)
+    expect_fault(rpc, 'grant_denied', 'session.capture', **scope)
+    expect_fault(rpc, 'grant_denied', 'workspace.list', **scope, offset=0)
+    epoch = pin['epoch']
+    wrong_epoch = ('0' if epoch[0] != '0' else '1') + epoch[1:]
+    expect_fault(rpc, 'presentation_identity_mismatch', 'presentation.open',
+                 **{**pin, 'epoch': wrong_epoch})
+
+
 def check_ingress(endpoint, uid, token, instance_id, epoch, prior_token=None):
     scope = dict(session=DESKTOP_SESSION)
     pin = dict(**scope, privateId=instance_id, epoch=epoch)
     with ingress_rpc(endpoint, uid) as rpc:
-        expect_fault(rpc, 'denied', 'presentation.open', **pin)
-        expect_fault(rpc, 'denied', 'auth', credential='invalid', uid=uid, principal='owner')
-        expect_fault(rpc, 'denied', 'auth', credential='invalid')
         if prior_token is not None:
+            expect_fault(rpc, 'denied', 'presentation.open', **pin)
+            expect_fault(rpc, 'denied', 'auth', credential='invalid', uid=uid, principal='owner')
+            expect_fault(rpc, 'denied', 'auth', credential='invalid')
             expect_fault(rpc, 'denied', 'auth', credential=prior_token)
         verify(rpc.call('auth', credential=token)['principal'] == 'observer', 'unexpected_principal')
-        expect_fault(rpc, 'method_not_found', 'private.list')
-        expect_fault(rpc, 'method_not_found', 'private.stop', id=instance_id)
-        expect_fault(rpc, 'grant_denied', 'audit', **scope)
-        expect_fault(rpc, 'grant_denied', 'delegate', **scope, principal='delegate',
-                     capability=CAPABILITY, target='*', ttl=1)
-        expect_fault(rpc, 'grant_denied', 'acquire', **scope, ttl=1)
-        expect_fault(rpc, 'grant_denied', 'session.capture', **scope)
-        expect_fault(rpc, 'grant_denied', 'workspace.list', **scope, offset=0)
-        wrong_epoch = ('0' if epoch[0] != '0' else '1') + epoch[1:]
-        expect_fault(rpc, 'presentation_identity_mismatch', 'presentation.open',
-                     **{**pin, 'epoch': wrong_epoch})
+        if prior_token is not None:
+            check_observer_denials(rpc, pin)
         snapshot = rpc.call('snapshot', **scope)
         verify(snapshot['session'] == DESKTOP_SESSION and snapshot['epoch'] == epoch
                and snapshot['phase'] == 'idle'
@@ -81,10 +87,11 @@ def check_ingress(endpoint, uid, token, instance_id, epoch, prior_token=None):
                and len(events) == 1 and events[0]['kind'] == 'control.released'
                and events[0]['epoch'] == epoch and events[0]['seq'] == snapshot['cursor']
                and events[0]['state']['phase'] == 'idle', 'expected_authority_event_missing')
-    return dict(peerUid=uid, principal='observer', event='control.released',
-                cursor=event_page['cursor'], administrativeRpcDenied=True,
-                captureInputAndWorkspaceDenied=True, wrongPinDenied=True,
-                priorBearerDenied=prior_token is not None)
+    report = dict(peerUid=uid, principal='observer', event='control.released', cursor=event_page['cursor'])
+    if prior_token is not None:
+        report.update(unauthenticatedAndClaimedIdentityDenied=True, administrativeRpcDenied=True,
+                      captureInputAndWorkspaceDenied=True, wrongPinDenied=True, priorBearerDenied=True)
+    return report
 
 
 def connect(path):
@@ -137,14 +144,16 @@ def main():
     commands = parser.add_subparsers(dest='action', required=True)
     generate = commands.add_parser('generate')
     generate.add_argument('--token-file', required=True, type=Path)
-    live = commands.add_parser('live')
-    live.add_argument('--token-file', required=True, type=Path)
-    live.add_argument('--previous-token-file', type=Path)
-    live.add_argument('--epoch', required=True)
-    live.add_argument('--sway-pid', required=True, type=int)
-    live.add_argument('--sway-namespace-pid', required=True, type=int)
+    live = commands.add_parser('live', help='authorized first-session RPCs')
+    replacement = commands.add_parser('replacement', help='replacement and unauthorized-access probes')
+    replacement.add_argument('--previous-token-file', required=True, type=Path)
+    replacement.add_argument('--sway-pid', required=True, type=int)
+    replacement.add_argument('--sway-namespace-pid', required=True, type=int)
+    for command in (live, replacement):
+        command.add_argument('--token-file', required=True, type=Path)
+        command.add_argument('--epoch', required=True)
     stopped = commands.add_parser('stopped')
-    for command in (live, stopped):
+    for command in (live, replacement, stopped):
         command.add_argument('--private-id', required=True)
     args = parser.parse_args()
     try:
@@ -160,13 +169,16 @@ def main():
         if args.action == 'stopped':
             report = {'publicRouteAbsent': inaccessible(connect, endpoint, (errno.ENOENT,))}
         else:
-            verify(EPOCH.fullmatch(args.epoch) and args.sway_pid > 1 and args.sway_namespace_pid > 1,
-                   'invalid_epoch_or_pid')
-            previous = (owner_input(read_private(args.previous_token_file).encode())
-                        if args.previous_token_file else None)
+            verify(EPOCH.fullmatch(args.epoch), 'invalid_epoch')
+            previous = None
+            if args.action == 'replacement':
+                verify(args.sway_pid > 1 and args.sway_namespace_pid > 1, 'invalid_sway_pid')
+                previous = owner_input(read_private(args.previous_token_file).encode())
             token = owner_input(read_private(args.token_file).encode())
             report = check_ingress(endpoint, SERVICE_UID, token, args.private_id, args.epoch, previous)
-            report['directAccessDenied'] = check_private(args.private_id, args.sway_pid, args.sway_namespace_pid)
+            if args.action == 'replacement':
+                report['directAccessDenied'] = check_private(args.private_id, args.sway_pid,
+                                                             args.sway_namespace_pid)
         print(json.dumps(report, sort_keys=True))
     except (AssertionError, EOFError, Fault, KeyError, OSError, ValueError) as error:
         parser.exit(1, f'D4.2C probe failed ({type(error).__name__}): {error}\n')

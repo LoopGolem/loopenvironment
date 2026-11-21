@@ -93,8 +93,9 @@ class SmokeFixture(ServiceFixture):
                          self.session_manifests[0]['verifiers'].values())
         self.assertEqual(self.admin('list'), {'instances': [{'id': first_id, 'phase': 'ready'}]})
         endpoint = Path(first['ingressSocket'])
-        self.assertEqual(check_ingress(endpoint, os.getuid(), token, first_id, first['epoch'])['event'],
-                         'control.released')
+        first_report = check_ingress(endpoint, os.getuid(), token, first_id, first['epoch'])
+        self.assertEqual(first_report['event'], 'control.released')
+        self.assertNotIn('administrativeRpcDenied', first_report)
         self.assertEqual(self.admin('stop', session_id=first_id),
                          {'id': first_id, 'phase': 'stopped', 'retired': True})
         self.assertFalse(endpoint.exists())
@@ -111,6 +112,8 @@ class SmokeFixture(ServiceFixture):
         report = check_ingress(second['ingressSocket'], os.getuid(), new_token, second['privateId'],
                                second['epoch'], prior_token=token)
         self.assertTrue(report['priorBearerDenied'])
+        self.assertTrue(report['administrativeRpcDenied'])
+        self.assertTrue(report['wrongPinDenied'])
         self.admin('stop', session_id=second['privateId'])
 
     def test_failure_after_start_stops_only_that_instance_and_retires_verifier(self):
