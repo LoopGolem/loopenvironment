@@ -1,0 +1,28 @@
+[Unit]
+Description=LoopBridge dedicated private-session manager
+
+[Service]
+Type=exec
+User=loopbridge-svc
+Group=loopbridge-svc
+UMask=0077
+WorkingDirectory=/
+RuntimeDirectory=loopbridge-private
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=no
+StateDirectory=loopbridge
+StateDirectoryMode=0700
+ReadWritePaths=/run/loopbridge-ingress
+LoadCredential=manager-verifiers.json:/etc/loopbridge/credentials/manager-verifiers.json
+ExecStart=/usr/bin/python3 -I -B /opt/loopbridge/releases/@REVISION@/launcher.py --manifest-sha256 @MANIFEST_SHA256@ --client-uid @CLIENT_UID@
+StandardInput=null
+ProtectHome=yes
+ProtectSystem=strict
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+KillMode=mixed
+TimeoutStopSec=90s
+Restart=no
+
+[Install]
+WantedBy=multi-user.target
