@@ -16,7 +16,8 @@ SHA256 = re.compile('[0-9a-f]{64}')
 MANIFEST = 'release.json'
 HELPERS = ('helpers/effects', 'helpers/stream')
 REQUIRED = {'launcher.py', 'LICENSE', 'loopbridge/__init__.py',
-            'loopbridge/private_session.py', 'loopbridge/private_dbus.conf', *HELPERS}
+            'loopbridge/private_session.py', 'loopbridge/private_dbus.conf',
+            'loopbridge/service_admin.py', *HELPERS}
 
 
 class ReleaseError(ValueError):
@@ -90,15 +91,23 @@ def require_root_directories(paths):
             raise ReleaseError('root-controlled directory required')
 
 
-def start_service(release, client_uid):
+def service_account():
     import grp
     import pwd
 
     account = pwd.getpwnam('loopbridge-svc')
     group = grp.getgrnam('loopbridge-svc')
+    if not account.pw_uid or not account.pw_gid or group.gr_gid != account.pw_gid:
+        raise ReleaseError('dedicated service account and group required')
+    return account
+
+
+def start_service(release, client_uid):
+    import pwd
+
+    account = service_account()
     if (not account.pw_uid or os.getuid() != os.geteuid() or os.geteuid() != account.pw_uid
-            or os.getgid() != os.getegid() or os.getegid() != account.pw_gid
-            or group.gr_gid != account.pw_gid):
+            or os.getgid() != os.getegid() or os.getegid() != account.pw_gid):
         raise ReleaseError('dedicated service user and group required')
     if not 0 < client_uid < 0xffffffff or pwd.getpwuid(client_uid).pw_uid != client_uid:
         raise ReleaseError('invalid configured client UID')
@@ -117,10 +126,35 @@ def start_service(release, client_uid):
     manage(runtime, hardened=profile)
 
 
+def administrative_action(release, digest, action):
+    # Only the approved installed release reaches this dispatch.
+    sys.path.insert(0, str(release))
+    from loopbridge import service_admin
+    account = service_account()
+    if action == 'ready-client':
+        service_admin.ready_client(account.pw_uid, account.pw_gid)
+        return
+    service_admin.require_root()
+    require_root_directories(set(service_admin.ADMIN.parents)
+                             | set(service_admin.CREDENTIALS.parents)
+                             | set(service_admin.STATE.parents)
+                             | set(service_admin.RUNTIME.parents))
+    if action == 'admin-init':
+        service_admin.admin_initialize(account.pw_uid, account.pw_gid)
+        print('administrative bootstrap initialized')
+    elif action == 'admin-ready':
+        service_admin.admin_ready(release, digest, account.pw_uid, account.pw_gid)
+        print('authenticated empty manager ready')
+    else:
+        raise ReleaseError('unsupported administrative action')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest-sha256', required=True)
-    parser.add_argument('--client-uid', type=int, required=True)
+    parser.add_argument('--client-uid', type=int)
+    parser.add_argument('--action', choices=('serve', 'admin-init', 'admin-ready', 'ready-client'),
+                        default='serve')
     args = parser.parse_args()
     try:
         script = Path(__file__).absolute()
@@ -129,7 +163,14 @@ def main():
             raise ReleaseError('isolated Python and a versioned installed release required')
         require_root_directories(release.parents)
         verify_release(release, args.manifest_sha256)
-        start_service(release, args.client_uid)
+        if args.action == 'serve':
+            if args.client_uid is None:
+                raise ReleaseError('configured client UID required')
+            start_service(release, args.client_uid)
+        else:
+            if args.client_uid is not None:
+                raise ReleaseError('client UID is only valid in service mode')
+            administrative_action(release, args.manifest_sha256, args.action)
     except ReleaseError as error:
         print(f'loopbridge: {error}', file=sys.stderr)
         return 1
