@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Local LoopBridge service lifecycle and durable dispatch fence."""
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import fcntl
 import os
 from pathlib import Path
@@ -10,19 +10,30 @@ import tempfile
 
 from .adapter import Adapter
 from .broker import Broker, Server
-from .service_ingress import IngressLayout, PeerAdmission, managed_ingress_listener
+from .service_ingress import IngressLayout, PeerAdmission, bound_listener, managed_ingress_listener
 
 SESSION = 'calculator'
 DESKTOP_SESSION = 'desktop'
 
 
-def private_directory(path):
-    path.mkdir(mode=0o700, exist_ok=True)
+def private_directory(path, *, create=True):
+    if create:
+        path.mkdir(mode=0o700, exist_ok=True)
     info = path.lstat()
     if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid()
             or stat.S_IMODE(info.st_mode) != 0o700):
         raise RuntimeError('unsafe_runtime_directory')
     return path
+
+
+@contextmanager
+def directory_lock(root):
+    fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+    finally:
+        os.close(fd)
 
 
 class Journal:
@@ -98,13 +109,13 @@ class Journal:
 
 
 @contextmanager
-def legacy_listener(endpoint):
+def legacy_listener(endpoint, *, backlog=8):
     """Existing V0.7 Unix socket lifecycle, unchanged by D3 opt-in ingress."""
     with socket.socket(socket.AF_UNIX) as listener:
         listener.bind(str(endpoint))
         try:
             endpoint.chmod(0o600)
-            listener.listen(8)
+            listener.listen(backlog)
             yield listener
         finally:
             endpoint.unlink(missing_ok=True)
@@ -112,7 +123,7 @@ def legacy_listener(endpoint):
 
 @contextmanager
 def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presentation=None,
-          ingress_layout=None, ingress_policy=None):
+          ingress_layout=None, ingress_policy=None, session_state=None):
     if (ingress_layout is None) != (ingress_policy is None):
         raise ValueError('incomplete_ingress_configuration')
     if ingress_layout is not None:
@@ -121,6 +132,10 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
                 or ingress_policy.service_uid != os.getuid()
                 or ingress_layout.private_root != Path(root)):
             raise ValueError('invalid_ingress_configuration')
+    if session_state is not None:
+        if mode != 'desktop' or ingress_layout is not None:
+            raise ValueError('invalid_private_session_configuration')
+        session_state = private_directory(Path(session_state), create=False)
     root = private_directory(Path(root))
     # Persist the runtime directory entry before accepting a journal intent.
     parent_fd = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -130,13 +145,11 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
         os.close(parent_fd)
     # Lock the directory inode for this lifecycle. Start competitors without
     # touching the existing endpoint or pending marker.
-    lock = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    with directory_lock(root):
         if ingress_layout is None:
             sockets = private_directory(root / 'socket')
             endpoint = sockets / 'control.sock'
-            if endpoint.is_socket():
+            if session_state is None and endpoint.is_socket():
                 endpoint.unlink()
         else:
             # In hardened-profile experiments, never start the legacy listener
@@ -150,11 +163,11 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
             from .desktop_broker import DesktopBroker
             from .teaching import AnnotationStore
             broker_class, session, catalog = DesktopBroker, DESKTOP_SESSION, CATALOG
-            broker_options['annotation_store'] = AnnotationStore(root / 'annotations.sqlite3')
+            broker_options['annotation_store'] = AnnotationStore((session_state or root) / 'annotations.sqlite3')
             broker_options['presentation'] = presentation
         else:
             broker_class, session, catalog = Broker, SESSION, ()
-        journal = Journal(root)
+        journal = Journal(session_state or root)
         # Switching modes must not hide an unresolved operation on this runtime.
         legacy = SESSION if session == DESKTOP_SESSION else DESKTOP_SESSION
         if journal.blocked(legacy):
@@ -164,12 +177,16 @@ def serve(root, identities, mode, workspace=None, *, watch_adapter=False, presen
             broker = broker_class(identities, {session: adapter}, os.getuid(), journal,
                                   catalog=catalog, workspace=bool(workspace),
                                   ingress_policy=ingress_policy, **broker_options)
-            lifecycle = (legacy_listener(endpoint) if ingress_layout is None
-                         else managed_ingress_listener(ingress_layout))
-            with lifecycle as listener:
-                with Server(broker, listener):
-                    yield (endpoint, adapter) if watch_adapter else endpoint
+            with ExitStack() as stack:
+                if session_state is not None:
+                    listener = stack.enter_context(bound_listener(endpoint))
+                    relay = stack.enter_context(bound_listener(sockets / 'relay.sock'))
+                    stack.enter_context(Server(broker, relay, allow_owner=False))
+                else:
+                    lifecycle = (legacy_listener(endpoint) if ingress_layout is None
+                                 else managed_ingress_listener(ingress_layout))
+                    listener = stack.enter_context(lifecycle)
+                stack.enter_context(Server(broker, listener))
+                yield (endpoint, adapter) if watch_adapter else endpoint
         finally:
             adapter.close()
-    finally:
-        os.close(lock)

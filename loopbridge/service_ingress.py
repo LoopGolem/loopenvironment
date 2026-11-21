@@ -1,11 +1,46 @@
 # SPDX-License-Identifier: Apache-2.0
-"""D2 local ingress contract; does not configure a cross-UID service or filesystem."""
+"""Linux peer admission and Unix listener ownership for local ingress."""
 from contextlib import contextmanager
 from dataclasses import dataclass
+import errno
 import os
 from pathlib import Path
 import socket
 import stat
+import struct
+
+ACCESS_ACL = 'system.posix_acl_access'
+DEFAULT_ACL = 'system.posix_acl_default'
+UNIX_PATH_LIMIT = 108
+
+
+def peer_uid(sock):
+    credentials = struct.Struct('iII')  # Linux ucred: pid_t, uid_t, gid_t.
+    return credentials.unpack(sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED,
+                                               credentials.size))[1]
+
+
+def named_user_acl(uid, owner, user):
+    """Linux ACL xattr with exactly one named user and no group/other access."""
+    undefined = 0xffffffff
+    entries = ((0x01, owner, undefined), (0x02, user, uid), (0x04, 0, undefined),
+               (0x10, user, undefined), (0x20, 0, undefined))
+    return struct.pack('<I', 2) + b''.join(struct.pack('<HHI', *entry) for entry in entries)
+
+
+def read_acl(path, name=ACCESS_ACL):
+    try:
+        if isinstance(path, int):
+            return os.getxattr(path, name)
+        return os.getxattr(path, name, follow_symlinks=False)
+    except OSError as error:
+        if error.errno != errno.ENODATA:
+            raise
+        return None
+
+
+def path_inode(info):
+    return info.st_dev, info.st_ino
 
 
 @dataclass(frozen=True)
@@ -63,30 +98,80 @@ def managed_ingress_listener(layout):
     if (parent.resolve(strict=True) == layout.private_root.resolve(strict=True)
             or layout.private_root.resolve(strict=True) in parent.resolve(strict=True).parents):
         raise ValueError('invalid_ingress_layout')
-    if len(os.fsencode(layout.public_socket)) >= 108:
+    with bound_listener(layout.public_socket) as listener:
+        yield listener
+
+
+@contextmanager
+def bound_listener(endpoint, prepare=None, *, backlog=8):
+    """Apply policy before listen; preserve occupied or replaced paths."""
+    if len(os.fsencode(endpoint)) >= UNIX_PATH_LIMIT:
         raise ValueError('ingress_socket_path_too_long')
     with socket.socket(socket.AF_UNIX) as listener:
-        created = False
-        inode = None
+        listener.bind(str(endpoint))
+        inode = path_inode(endpoint.lstat())
         try:
-            # bind() fails if an old file, symlink or active socket exists.
-            # Never unlink the existing endpoint to "recover" automatically.
-            listener.bind(str(layout.public_socket))
-            created = True
-            current = layout.public_socket.lstat()
-            inode = (current.st_dev, current.st_ino)
-            layout.public_socket.chmod(0o600)
-            listener.listen(8)
+            endpoint.chmod(0o600)
+            if prepare is not None:
+                prepare(endpoint)
+            listener.listen(backlog)
             yield listener
         finally:
-            if created:
-                try:
-                    current = layout.public_socket.lstat()
-                except FileNotFoundError:
-                    pass
-                else:
-                    # Protect a path replaced during the lifetime of the listener.
-                    if (stat.S_ISSOCK(current.st_mode)
-                            and inode is not None
-                            and (current.st_dev, current.st_ino) == inode):
-                        layout.public_socket.unlink()
+            listener.close()
+            try:
+                current = endpoint.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if stat.S_ISSOCK(current.st_mode) and path_inode(current) == inode:
+                    endpoint.unlink()
+
+
+@dataclass(frozen=True)
+class CrossUIDIngress:
+    directory: Path
+    private_root: Path
+    policy: PeerAdmission
+
+    def __post_init__(self):
+        IngressLayout(self.directory / 'session.sock', self.private_root)
+        if (not isinstance(self.policy, PeerAdmission) or self.policy.service_uid != os.geteuid()
+                or not 0 < self.policy.service_uid < 0xffffffff
+                or len(self.policy.allowed_uids) != 1
+                or not 0 < self.client_uid < 0xffffffff
+                or self.client_uid == self.policy.service_uid
+                or self.directory in (self.private_root, *self.private_root.parents)):
+            raise ValueError('invalid_cross_uid_ingress')
+
+    @property
+    def client_uid(self):
+        return next(iter(self.policy.allowed_uids))
+
+    def validate(self):
+        info = self.directory.lstat()
+        if (not stat.S_ISDIR(info.st_mode) or info.st_uid != self.policy.service_uid
+                or info.st_gid != os.getegid() or stat.S_IMODE(info.st_mode) != 0o710
+                or self.directory.resolve(strict=True) != self.directory
+                or self.private_root.resolve(strict=True) != self.private_root
+                or read_acl(self.directory) != named_user_acl(self.client_uid, 7, 1)
+                or read_acl(self.directory, DEFAULT_ACL) is not None):
+            raise ValueError('unsafe_cross_uid_ingress_directory')
+        return path_inode(info)
+
+    @contextmanager
+    def listen(self, endpoint):
+        if endpoint.parent != self.directory:
+            raise ValueError('invalid_cross_uid_endpoint')
+        directory_inode = self.validate()
+
+        def prepare(path):
+            expected = named_user_acl(self.client_uid, 6, 2)
+            os.setxattr(path, ACCESS_ACL, expected, follow_symlinks=False)
+            info = path.lstat()
+            if (not stat.S_ISSOCK(info.st_mode) or info.st_uid != self.policy.service_uid
+                    or info.st_gid != os.getegid() or stat.S_IMODE(info.st_mode) != 0o620
+                    or read_acl(path) != expected or self.validate() != directory_inode):
+                raise ValueError('unsafe_cross_uid_ingress_socket')
+
+        with bound_listener(endpoint, prepare) as listener:
+            yield listener
