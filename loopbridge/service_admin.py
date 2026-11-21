@@ -169,17 +169,23 @@ def admin_ready(release, digest, uid, gid):
         raw = read_protected(credential_fd, MANIFEST_FILE, 0, 0, 4096)
     identities = Identities()
     identities.load_manifest(json.loads(raw, object_pairs_hook=unique_object))
-    if identities.authenticate(owner_input(data)) != 'owner':
-        raise ValueError('admin_manifest_mismatch')
+    try:
+        if identities.authenticate(owner_input(data)) != 'owner':
+            raise ValueError('admin_manifest_mismatch')
+    except Fault:
+        raise ValueError('admin_manifest_mismatch') from None
     # The installed launcher revalidates the exact release in the child.
     # No shell, no inherited supplementary groups, no bearer in argv or env.
-    result = subprocess.run(
-        ['/usr/bin/python3', '-I', '-B', str(release / 'launcher.py'),
-         '--manifest-sha256', digest, '--action', 'ready-client'],
-        input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        user=uid, group=gid, extra_groups=[], cwd='/',
-        env={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'},
-        start_new_session=True, close_fds=True, timeout=15, check=False)
+    try:
+        result = subprocess.run(
+            ['/usr/bin/python3', '-I', '-B', str(release / 'launcher.py'),
+             '--manifest-sha256', digest, '--action', 'ready-client'],
+            input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            user=uid, group=gid, extra_groups=[], cwd='/',
+            env={'PATH': '/usr/bin', 'LANG': 'C.UTF-8'},
+            start_new_session=True, close_fds=True, timeout=15, check=False)
+    except subprocess.SubprocessError:
+        raise ValueError('manager_readiness_failed') from None
     if result.returncode != 0:
         raise ValueError('manager_readiness_failed')
 
