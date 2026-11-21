@@ -92,6 +92,14 @@ The [experimental local service](LOOPBRIDGE_CORE_V0_1.md) implements the bounded
 
 [V0.7](LOOPBRIDGE_V0_7.md) implements ADR 0011 Alternative A for the Debian lab. It adds a pinned, separately authorized private Sway stream and a read-only GTK4 viewer. The report includes graphical performance, idle behavior and isolation evidence. Unrestricted same-UID host isolation remains PARTIAL. Shell supervision, handoff, compositor development and Alternative B belong to later or open work.
 
+### V0.7.1 — Scoped Credentials and Process Hardening
+
+[V0.7.1](LOOPBRIDGE_V0_7_1.md) consolidates per-instance credential verifiers (opt-in scoped private mode), reduces bearer-token exposure during trusted process bootstrap and adds process-local inspection hardening. The complete Debian VM demonstration reported GO for live streaming, performance, authorization, scoped credential checks and human observation. **Unrestricted same-UID host isolation remains PARTIAL:** direct private Wayland/Sway IPC/D-Bus access was still observed. Do not claim production-grade mediation or unrestricted-host safety.
+
+### Separate hardening track — Trusted service identity boundary
+
+Qualify a stronger OS trust boundary before lifting the V0.7.1 same-UID gate. Split the work into separately reviewable stages: (1) explicit threat model and trusted/untrusted Linux identity contract; (2) least-privilege service provisioning and authenticated IPC design; (3) small unprivileged integration and compatibility tests; (4) separately authorized disposable-VM provisioning experiment; (5) documented negative/functional verification and independent review. No stage grants permission to change privileged host settings automatically. Only demonstrated denial of unauthorized direct display/IPC and preservation of authorized Bridge operation can support a GO decision. Owner/root and other expressly trusted actors remain outside this limited adversary claim.
+
 ### V0.8 — Session Supervisor
 
 Deliver the first functional LoopEnvironment Shell as an ordinary Linux graphical application. List and select authorized desktops, show a fluid enlarged view, and display permitted session and authority indicators. Report failures and handle reconnect clearly. Demonstrate supervision of multiple sessions within measured resource limits.

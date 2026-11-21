@@ -9,6 +9,7 @@ import re
 import signal
 import socket
 from statistics import median
+import sys
 import threading
 import time
 
@@ -21,6 +22,7 @@ from loopbridge.__main__ import read_private
 from loopbridge.presentation import STRIDE
 from loopbridge.presentation_client import LiveConnection
 from loopbridge.private_effects import OUTPUT
+from loopbridge.process_boundary import close_bootstrap_stdin, protect_process
 from loopbridge.protocol import Fault
 
 
@@ -273,7 +275,9 @@ class Viewer(Gtk.Application):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--socket', required=True, type=Path)
-    parser.add_argument('--token-file', required=True, type=Path)
+    credential = parser.add_mutually_exclusive_group(required=True)
+    credential.add_argument('--token-file', type=Path)
+    credential.add_argument('--token-stdin', action='store_true')
     parser.add_argument('--session', default='desktop')
     parser.add_argument('--private-id', required=True)
     parser.add_argument('--epoch', required=True)
@@ -282,7 +286,12 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch('[a-f0-9]{16}', args.private_id) or not re.fullmatch('[a-f0-9]{32}', args.epoch):
         parser.error('invalid private instance or epoch')
-    token = read_private(args.token_file).strip()
+    protect_process()
+    if args.token_stdin:
+        token = sys.stdin.readline(129).strip()
+        close_bootstrap_stdin()
+    else:
+        token = read_private(args.token_file).strip()
     return Viewer(args, LiveConnection(args.socket, token, args.session, args.private_id, args.epoch)).run([])
 
 

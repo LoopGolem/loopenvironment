@@ -83,7 +83,9 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.7 — live session presentation (PARTIAL overall).** A GTK4 window on the main Debian desktop displays a pinned private Sway session through an authenticated local stream. The [V0.7 experiment](docs/LOOPBRIDGE_V0_7.md) records performance and authorization results, including the limits of unrestricted same-UID isolation.
 
-**Planned next milestones.** [V0.8–V0.9](docs/ROADMAP.md#loopbridge-release-track) cover the first Session Supervisor and configurable actuation. Verified operator handoff remains a separate future milestone.
+**LoopBridge V0.7.1 — scoped credentials and process hardening (PARTIAL overall).** The experimental private manager can use independent credential verifiers per session, and selected processes apply additional inspection protections. The [V0.7.1 report](docs/LOOPBRIDGE_V0_7_1.md) records the lab gates and the unresolved direct-display exposure to unrestricted same-UID host processes. The strongest scoped-credential mode is opt-in; production host isolation is not qualified.
+
+**Planned next milestones.** [V0.8–V0.9](docs/ROADMAP.md#loopbridge-release-track) cover the first Session Supervisor and configurable actuation. A separate Linux service-identity hardening track must qualify unrestricted-host isolation before its gate becomes GO. Verified operator handoff remains a distinct future milestone.
 
 ## Documentation
 

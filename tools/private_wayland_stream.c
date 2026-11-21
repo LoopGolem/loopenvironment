@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/prctl.h>
 #include <time.h>
 #include <unistd.h>
 #include <wayland-client.h>
@@ -229,6 +230,8 @@ static int stream(struct wl_display *display, struct capture *s) {
 }
 
 int main(void) {
+    if (prctl(PR_SET_DUMPABLE, 0L, 0L, 0L, 0L) < 0)
+        return 1;
     const char *dir = getenv("XDG_RUNTIME_DIR");
     const char *name = getenv("WAYLAND_DISPLAY");
     if (!dir || strcmp(dir, "/private/run") || !name || strncmp(name, "wayland-", 8)

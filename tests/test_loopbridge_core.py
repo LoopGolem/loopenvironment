@@ -39,7 +39,8 @@ class CoreIntegration(unittest.TestCase):
             provision(folder / 'credentials')
             credential_file = folder / 'credentials/service.json'
             self.assertEqual(stat.S_IMODE(credential_file.stat().st_mode), 0o600)
-            credentials = json.loads(read_private(credential_file))
+            credentials = {name: read_private(credential_file.with_name(name + '.token')).strip()
+                           for name in ('owner', 'delegate', 'observer')}
             identities = Identities()
             identities.load(credentials)
             runtime = folder / 'runtime'

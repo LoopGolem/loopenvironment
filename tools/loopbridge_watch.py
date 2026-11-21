@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import sys
 import threading
 import time
 
@@ -13,6 +14,7 @@ gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, Gio, GLib, Gtk
 
 from loopbridge.__main__ import read_private
+from loopbridge.process_boundary import close_bootstrap_stdin, protect_process
 from loopbridge.protocol import Fault
 from .loopbridge_view import capture_frame
 
@@ -141,8 +143,9 @@ class WatchApp(Gtk.Application):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--socket', required=True, type=Path)
-    parser.add_argument('--token-file', required=True, type=Path,
-                        help='observer credential with desktop.capture')
+    credential = parser.add_mutually_exclusive_group(required=True)
+    credential.add_argument('--token-file', type=Path, help='observer credential with desktop.capture')
+    credential.add_argument('--token-stdin', action='store_true')
     parser.add_argument('--session', default='desktop')
     parser.add_argument('--expected-private-id', required=True)
     parser.add_argument('--interval', type=float, default=1.0)
@@ -152,7 +155,12 @@ def main():
         parser.error('invalid private instance ID')
     if not 0.5 <= args.interval <= 5:
         parser.error('--interval must be 0.5–5 seconds')
-    token = read_private(args.token_file).rstrip('\n')
+    protect_process()
+    if args.token_stdin:
+        token = sys.stdin.readline(129).rstrip('\n')
+        close_bootstrap_stdin()
+    else:
+        token = read_private(args.token_file).rstrip('\n')
     return WatchApp(args, token).run([])
 
 

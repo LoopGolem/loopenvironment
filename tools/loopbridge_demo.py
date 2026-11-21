@@ -89,10 +89,14 @@ def launch(stack, folder, paths, token, broker_pid, private_paths=(), version=No
         '--ro-bind', str(ROOT / 'tools/loopbridge_isolated_client.py'), '/app/client.py',
         '--ro-bind', historical + '/probe.py', '/app/probe.py',
     ]
-    # Deliberately open an inheritable compositor FD. close_fds must exclude it.
-    with socket.socket(socket.AF_UNIX) as sentinel:
+    # Deliberately leave a compositor connection and anonymous file inheritable.
+    with socket.socket(socket.AF_UNIX) as sentinel, \
+            os.fdopen(os.memfd_create('loopbridge-probe-canary'), 'wb') as file:
         sentinel.connect(paths['sway'])
         sentinel.set_inheritable(True)
+        file.write(b'disposable descriptor canary')
+        file.flush()
+        os.set_inheritable(file.fileno(), True)
         client = Process(stack, args, env={'PATH': '/usr/bin'})
     client.send(dict(credential=token, endpoints=paths, host_ns=namespaces(),
                      broker_pid=broker_pid, private_paths=private_paths, version=version, devices=sorted(set(

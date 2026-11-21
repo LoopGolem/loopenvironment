@@ -19,7 +19,8 @@ import time
 from .__main__ import read_private
 from .identity import Identities
 from .https_egress import Egress, UNIX_PROXY, destinations
-from .protocol import DeadlineChannel, Fault, request
+from .process_boundary import close_bootstrap_stdin, protect_process
+from .protocol import DeadlineChannel, Fault, request, unique_object
 from .service import DESKTOP_SESSION, Journal, private_directory, serve
 
 NS = ('user', 'pid', 'mnt', 'net', 'ipc')
@@ -57,7 +58,7 @@ def wait_ready(process, deadline):
 
 
 class Instance:
-    def __init__(self, root, credentials, hosts=()):
+    def __init__(self, root, manifest, hosts=()):
         self.id = secrets.token_hex(8)
         self.root = root / self.id
         self.root.mkdir(mode=0o700)
@@ -136,8 +137,9 @@ class Instance:
                     '--', '/usr/bin/python3', '-B', '-m', 'loopbridge.private_session', '--inside']
         try:
             self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                            stderr=subprocess.DEVNULL, start_new_session=True)
-            self.process.stdin.write(credentials)
+                                            stderr=subprocess.DEVNULL, start_new_session=True,
+                                            close_fds=True)
+            self.process.stdin.write((json.dumps(manifest) + '\n').encode())
             self.process.stdin.flush()
             wait_ready(self.process, time.monotonic() + STARTUP)
             checks = json.loads((self.root / 'display/boundary.json').read_text())
@@ -212,23 +214,24 @@ def inherited_display(compositor):
 
 
 def inside():
-    credentials = sys.stdin.buffer.readline(4097)
-    if not credentials.endswith(b'\n'):
+    protect_process()
+    manifest = sys.stdin.buffer.readline(4097)
+    if not manifest.endswith(b'\n'):
         return 1
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
     compositor = subprocess.Popen(['/usr/bin/sway', '-c', '/private/sway.conf'],
-                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, close_fds=True)
     bridge = None
     try:
         env = {**os.environ, **inherited_display(compositor)}
         bridge = subprocess.Popen([sys.executable, '-B', '-m', 'loopbridge.private_session',
                                    '--inside-service'], env=env, stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE)
-        bridge.stdin.write(credentials)
+                                  stdout=subprocess.PIPE, close_fds=True)
+        bridge.stdin.write(manifest)
         bridge.stdin.close()
-        del credentials
+        del manifest
         wait_ready(bridge, time.monotonic() + STARTUP - 2)
         bridge.stdout.close()
         (PRIVATE / 'metadata/boundary.json').write_text(json.dumps(namespaces()))
@@ -265,13 +268,16 @@ def manager_socket(root, endpoint):
         os.close(lock)
 
 
-def manage(root, credentials):
+def manage(root, credentials, *, scoped=False):
+    protect_process()
     if not root.is_absolute():
         raise ValueError('absolute_private_root_required')
     root = private_directory(root)
-    credentials = (read_private(credentials).rstrip('\n') + '\n').encode()
     identities = Identities()
-    identities.load(json.loads(credentials))
+    identities.load_manifest(json.loads(read_private(credentials), object_pairs_hook=unique_object),
+                             allow_legacy=not scoped)
+    manifest = identities.manifest()
+    used_verifiers = set(manifest['verifiers'].values())
     endpoint = root / 'manager.sock'
     stop = threading.Event()
     instances = {}
@@ -289,13 +295,13 @@ def manage(root, credentials):
                 except TimeoutError:
                     continue
                 with client:
-                    handle(client, root, credentials, identities, instances)
+                    handle(client, root, identities, instances, manifest, scoped, used_verifiers)
         finally:
             for instance in instances.values():
                 instance.stop()
 
 
-def handle(client, root, credentials, identities, instances):
+def handle(client, root, identities, instances, manifest, scoped, used_verifiers):
     channel = DeadlineChannel(client)
     uid = struct.unpack('3i', client.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))[1]
     if uid != os.getuid():
@@ -322,14 +328,29 @@ def handle(client, root, credentials, identities, instances):
                 raise Fault(-32001, 'denied')
             elif method == 'private.list' and not params:
                 result = {'instances': [instance.status() for instance in instances.values()]}
-            elif method == 'private.start' and set(params) <= {'httpsHosts'}:
+            elif method == 'private.start' and set(params) <= {'httpsHosts', 'credentialVerifiers'}:
                 if len(instances) >= MAX_SESSIONS:
                     raise Fault(-32006, 'private_session_limit')
                 try:
                     hosts = destinations(params.get('httpsHosts', []))
                 except ValueError:
                     raise Fault(-32602, 'invalid_https_hosts') from None
-                instance = Instance(root, credentials, hosts)
+                session_manifest = manifest
+                if scoped:
+                    session_identities = Identities()
+                    try:
+                        session_identities.load_verifiers(params.get('credentialVerifiers'))
+                    except ValueError:
+                        raise Fault(-32602, 'invalid_session_verifiers') from None
+                    session_manifest = session_identities.manifest()
+                    verifiers = set(session_manifest['verifiers'].values())
+                    if used_verifiers & verifiers:
+                        raise Fault(-32602, 'reused_session_verifier')
+                elif 'credentialVerifiers' in params:
+                    raise Fault(-32602, 'scoped_credentials_disabled')
+                instance = Instance(root, session_manifest, hosts)
+                if scoped:
+                    used_verifiers.update(verifiers)
                 instances[instance.id] = instance
                 result = instance.status()
             elif method in ('private.status', 'private.stop', 'private.network') and set(params) == {'id'} and isinstance(params['id'], str):
@@ -356,9 +377,10 @@ def inside_service():
     from .presentation import Presentation
     from .private_effects import private_id
 
+    protect_process()
     identities = Identities()
-    identities.load(json.loads(sys.stdin.buffer.readline(4097)))
-    sys.stdin.close()
+    identities.load_manifest(json.loads(sys.stdin.buffer.readline(4097), object_pairs_hook=unique_object))
+    close_bootstrap_stdin()
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
