@@ -6,20 +6,27 @@ import socket
 from .presentation import CAPABILITY, FORMAT, FRAME, FRAME_BYTES, HEADER, HEARTBEAT, STRIDE
 from .private_effects import OUTPUT
 from .protocol import Fault, RPC
+from .service_ingress import peer_uid
 
 
 class LiveConnection:
-    def __init__(self, endpoint, token, session, private_id, epoch):
+    def __init__(self, endpoint, token, session, private_id, epoch, *, expected_peer_uid=None):
         self.endpoint, self.token = str(endpoint), token
+        self.expected_peer_uid = expected_peer_uid
         self.identity = dict(session=session, privateId=private_id, epoch=epoch)
         self.peer = socket.socket(socket.AF_UNIX)
         self.metadata = None
         self.channel = None
 
+    def _connect_rpc(self, peer, connect_timeout):
+        peer.settimeout(connect_timeout)
+        peer.connect(self.endpoint)
+        if self.expected_peer_uid is not None and peer_uid(peer) != self.expected_peer_uid:
+            raise ValueError('unexpected_presentation_peer')
+        return RPC(peer)
+
     def connect(self):
-        self.peer.settimeout(5)
-        self.peer.connect(self.endpoint)
-        rpc = RPC(self.peer)
+        rpc = self._connect_rpc(self.peer, 5)
         principal = rpc.call('auth', credential=self.token)['principal']
         self.metadata = rpc.call('presentation.open', **self.identity)
         expected = dict(**self.identity, principal=principal, width=OUTPUT[0], height=OUTPUT[1],
@@ -61,9 +68,7 @@ class LiveConnection:
             return 'presentation_unavailable'
         with closing(socket.socket(socket.AF_UNIX)) as peer:
             try:
-                peer.settimeout(1)
-                peer.connect(self.endpoint)
-                rpc = RPC(peer)
+                rpc = self._connect_rpc(peer, 1)
                 rpc.call('auth', credential=self.token)
                 row = rpc.call('presentation.status', **self.identity, stream=self.metadata['stream'])
                 return row['reason'] or 'connection_lost'

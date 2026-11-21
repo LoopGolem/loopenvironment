@@ -15,6 +15,9 @@ REVISION = re.compile('[0-9a-f]{40}')
 SHA256 = re.compile('[0-9a-f]{64}')
 MANIFEST = 'release.json'
 HELPERS = ('helpers/effects', 'helpers/stream')
+SMOKE_OPERATIONS = ('start', 'list', 'stop')
+SMOKE_ADMIN_ACTIONS = tuple('admin-smoke-' + operation for operation in SMOKE_OPERATIONS)
+SMOKE_CLIENT_ACTIONS = tuple('smoke-' + operation + '-client' for operation in SMOKE_OPERATIONS)
 REQUIRED = {'launcher.py', 'LICENSE', 'loopbridge/__init__.py',
             'loopbridge/private_session.py', 'loopbridge/private_dbus.conf',
             'loopbridge/service_admin.py', *HELPERS}
@@ -126,13 +129,18 @@ def start_service(release, client_uid):
     manage(runtime, hardened=profile)
 
 
-def administrative_action(release, digest, action):
+def administrative_action(release, digest, action, observer_verifier=None, session_id=None):
     # Only the approved installed release reaches this dispatch.
     sys.path.insert(0, str(release))
     from loopbridge import service_admin
     account = service_account()
     if action == 'ready-client':
         service_admin.ready_client(account.pw_uid, account.pw_gid)
+        return
+    if action in SMOKE_CLIENT_ACTIONS:
+        from loopbridge.service_smoke import smoke_client
+        smoke_client(account.pw_uid, account.pw_gid, action.removeprefix('smoke-').removesuffix('-client'),
+                     observer_verifier, session_id)
         return
     service_admin.require_root()
     require_root_directories(set(service_admin.ADMIN.parents)
@@ -145,6 +153,10 @@ def administrative_action(release, digest, action):
     elif action == 'admin-ready':
         service_admin.admin_ready(release, digest, account.pw_uid, account.pw_gid)
         print('authenticated empty manager ready')
+    elif action in SMOKE_ADMIN_ACTIONS:
+        from loopbridge.service_smoke import admin_smoke
+        admin_smoke(release, digest, account.pw_uid, account.pw_gid, action.removeprefix('admin-smoke-'),
+                    observer_verifier, session_id)
     else:
         raise ReleaseError('unsupported administrative action')
 
@@ -153,7 +165,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest-sha256', required=True)
     parser.add_argument('--client-uid', type=int)
-    parser.add_argument('--action', choices=('serve', 'verify-installed', 'admin-init', 'admin-ready', 'ready-client'),
+    parser.add_argument('--observer-verifier')
+    parser.add_argument('--session-id')
+    parser.add_argument('--action', choices=('serve', 'verify-installed', 'admin-init', 'admin-ready', 'ready-client',
+                                             *SMOKE_ADMIN_ACTIONS, *SMOKE_CLIENT_ACTIONS),
                         default='serve')
     args = parser.parse_args()
     try:
@@ -163,6 +178,9 @@ def main():
             raise ReleaseError('isolated Python and a versioned installed release required')
         require_root_directories(release.parents)
         verify_release(release, args.manifest_sha256)
+        if (args.action not in (*SMOKE_ADMIN_ACTIONS, *SMOKE_CLIENT_ACTIONS)
+                and (args.observer_verifier is not None or args.session_id is not None)):
+            raise ReleaseError('smoke arguments require a smoke action')
         if args.action == 'serve':
             if args.client_uid is None:
                 raise ReleaseError('configured client UID required')
@@ -173,7 +191,8 @@ def main():
             if args.action == 'verify-installed':
                 print('installed release verified')
             else:
-                administrative_action(release, args.manifest_sha256, args.action)
+                administrative_action(release, args.manifest_sha256, args.action,
+                                      args.observer_verifier, args.session_id)
     except ReleaseError as error:
         print(f'loopbridge: {error}', file=sys.stderr)
         return 1

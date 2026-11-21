@@ -275,6 +275,7 @@ class Viewer(Gtk.Application):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--socket', required=True, type=Path)
+    parser.add_argument('--peer-uid', type=int, help='expected Unix peer UID before authentication')
     credential = parser.add_mutually_exclusive_group(required=True)
     credential.add_argument('--token-file', type=Path)
     credential.add_argument('--token-stdin', action='store_true')
@@ -286,13 +287,17 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch('[a-f0-9]{16}', args.private_id) or not re.fullmatch('[a-f0-9]{32}', args.epoch):
         parser.error('invalid private instance or epoch')
+    if args.peer_uid is not None and not 0 < args.peer_uid < 0xffffffff:
+        parser.error('invalid peer UID')
     protect_process()
     if args.token_stdin:
         token = sys.stdin.readline(129).strip()
         close_bootstrap_stdin()
     else:
         token = read_private(args.token_file).strip()
-    return Viewer(args, LiveConnection(args.socket, token, args.session, args.private_id, args.epoch)).run([])
+    connection = LiveConnection(args.socket, token, args.session, args.private_id, args.epoch,
+                                expected_peer_uid=args.peer_uid)
+    return Viewer(args, connection).run([])
 
 
 if __name__ == '__main__':
