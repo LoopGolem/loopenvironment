@@ -186,7 +186,8 @@ class Presentation:
             # Give the capture client only the environment needed to connect to private Wayland.
             env = {key: os.environ[key] for key in ('XDG_RUNTIME_DIR', 'WAYLAND_DISPLAY')}
             process = subprocess.Popen([self.helper], stdin=subprocess.DEVNULL,
-                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
+                                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env,
+                                       close_fds=True)
             with process.stdout:
                 pipe = process.stdout.fileno()
                 os.set_blocking(pipe, False)

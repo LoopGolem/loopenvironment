@@ -11,7 +11,8 @@ import sys
 import threading
 
 from .identity import Identities, PRINCIPALS
-from .protocol import Fault, RPC, VERSION
+from .process_boundary import protect_process
+from .protocol import Fault, RPC, VERSION, unique_object
 
 
 def write_private(path, data):
@@ -21,9 +22,11 @@ def write_private(path, data):
 
 
 def provision(folder):
+    protect_process()
     folder.mkdir(mode=0o700)
-    credentials = Identities().provision()
-    write_private(folder / 'service.json', json.dumps(credentials))
+    identities = Identities()
+    credentials = identities.provision()
+    write_private(folder / 'service.json', json.dumps(identities.manifest()))
     for principal in PRINCIPALS:
         write_private(folder / (principal + '.token'), credentials[principal])
 
@@ -40,8 +43,10 @@ def read_private(path):
 
 def service(args):
     from .service import serve
+    protect_process()
     identities = Identities()
-    identities.load(json.loads(read_private(args.credentials)))
+    identities.load_manifest(json.loads(read_private(args.credentials), object_pairs_hook=unique_object),
+                             allow_legacy=True)
     stop = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: stop.set())
@@ -86,6 +91,8 @@ def main():
     manager = subparsers.add_parser('private')
     manager.add_argument('--root', type=Path, required=True)
     manager.add_argument('--credentials', type=Path, required=True)
+    manager.add_argument('--scoped-credentials', action='store_true',
+                         help='require distinct per-instance credential verifiers')
     client = subparsers.add_parser('client')
     client.add_argument('--socket', required=True)
     client.add_argument('--token-file', type=Path)
@@ -106,7 +113,7 @@ def main():
             service(args)
         elif args.command == 'private':
             from .private_session import manage
-            manage(args.root, args.credentials)
+            manage(args.root, args.credentials, scoped=args.scoped_credentials)
         elif args.command == 'teach-gui':
             from .teach_gui import run
             return run(args.socket, read_private(args.token_file).rstrip('\n'), args.demo, args.demo_review)
@@ -119,6 +126,7 @@ def main():
                 rpc.call('auth', credential=read_private(args.token_file).rstrip('\n'))
                 return teach(rpc, input, sys.stdout)
         else:
+            protect_process()
             credential = (read_private(args.token_file) if args.token_file
                           else sys.stdin.readline(129)).rstrip('\n')
             return rpc_stream(args.socket, credential, sys.stdin, sys.stdout)

@@ -17,7 +17,7 @@ import tempfile
 import time
 
 from loopbridge.__main__ import provision, read_private
-from loopbridge.browser import process_tree
+from loopbridge.browser import task_children
 from loopbridge.protocol import Fault, RPC
 from loopbridge.service import DESKTOP_SESSION, Journal
 
@@ -45,12 +45,29 @@ def denied(code, function, *args, **kwargs):
         raise AssertionError('expected_bridge_denial')
 
 
+def descendants(pid):
+    """Lab process discovery uses public PID metadata across guarded processes."""
+    pending = [pid]
+    visited = set()
+    while pending:
+        candidate = pending.pop()
+        if candidate in visited:
+            continue
+        visited.add(candidate)
+        pending.extend(task_children(candidate))
+        yield Path(f'/proc/{candidate}')
+
+
 def namespaced_process(manager, instance, executable):
     ns = json.loads((instance / 'display/boundary.json').read_text())['pid']
     result = []
-    for pid, row in process_tree(manager).items():
-        if Path(row[3]).name == executable and os.readlink(f'/proc/{pid}/ns/pid') == ns:
-            result.append(pid)
+    for process in descendants(manager):
+        try:
+            if ((process / 'comm').read_text().strip() == executable
+                    and os.readlink(process / 'ns/pid') == ns):
+                result.append(int(process.name))
+        except FileNotFoundError:
+            continue
     check(len(result) == 1)
     return result[0]
 
@@ -267,13 +284,14 @@ def qualify_failures(stack, admin, pid, a, b, first, second, owner, other,
 
     evidence['stage'] = 'worker_exit'
     workers = []
-    for candidate, row in process_tree(pid).items():
-        if not Path(row[3]).name.startswith('python'):
+    for process in descendants(pid):
+        try:
+            argv = (process / 'cmdline').read_bytes().split(b'\0')
+            if (b'--multiprocessing-fork' in argv
+                    and os.readlink(process / 'ns/pid') == first_namespace):
+                workers.append(int(process.name))
+        except FileNotFoundError:
             continue
-        argv = Path(f'/proc/{candidate}/cmdline').read_bytes().split(b'\0')
-        if (b'--multiprocessing-fork' in argv
-                and os.readlink(f'/proc/{candidate}/ns/pid') == first_namespace):
-            workers.append(candidate)
     check(len(workers) == 1)
     os.kill(workers[0], signal.SIGKILL)
     status = await_phase(admin, a['id'], 'failed')
