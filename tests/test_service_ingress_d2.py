@@ -135,7 +135,8 @@ class IngressContractTests(unittest.TestCase):
         # policy deliberately admits a different synthetic UID only.
         policy = PeerAdmission(self.service_uid, frozenset({self.operator_uid}))
         broker = self.make_broker(policy)
-        with socket.socketpair() as (client, server):
+        client, server = socket.socketpair()
+        with client, server:
             worker = threading.Thread(target=broker.serve_connection, args=(server,))
             worker.start()
             with self.assertRaisesRegex(Fault, '^denied$'):
