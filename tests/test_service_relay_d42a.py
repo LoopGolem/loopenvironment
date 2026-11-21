@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 import os
 from pathlib import Path
+import select
 import socket
 import stat
 from tempfile import TemporaryDirectory
@@ -219,6 +220,20 @@ class SessionRelayTests(RelayFixture):
                 private.settimeout(1)
                 self.assertTrue(self.closed(client))
                 self.assertTrue(self.closed(private))
+
+    def test_bridge_close_drains_final_reply_and_closes_transport(self):
+        backend, relay = self.relay()
+        with relay.serve():
+            client = self.client()
+            private, _ = backend.accept()
+            with private:
+                private.sendall(b'final reply')
+            self.assertEqual(self.receive_all(client), b'final reply')
+            poll = select.poll()
+            poll.register(client, select.POLLHUP)
+            self.assertTrue(poll.poll(1000))
+            with self.assertRaises(BrokenPipeError):
+                client.sendall(b'next request')
 
     def test_replaced_private_socket_is_never_dialed(self):
         backend, relay = self.relay()

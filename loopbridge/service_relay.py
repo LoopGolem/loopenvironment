@@ -55,7 +55,7 @@ def pump(client, private, stop):
                 masks[direction.source] = masks.get(direction.source, 0) | select.POLLIN
             if direction.buffer:
                 masks[direction.destination] = masks.get(direction.destination, 0) | select.POLLOUT
-        if private not in masks and all(d.eof and not d.buffer for d in directions):
+        if all(direction.eof and not direction.buffer for direction in directions):
             return
         poll = select.poll()
         for sock, mask in masks.items():
@@ -65,6 +65,11 @@ def pump(client, private, stop):
             return
         if any(mask & (select.POLLERR | select.POLLNVAL) for mask in events.values()):
             return
+        if events.get(private.fileno(), 0) & select.POLLHUP:
+            # A fully closed Bridge can still have a final reply queued.
+            requests = directions[0]
+            requests.eof = True
+            requests.buffer.clear()
         for direction in directions:
             incoming = events.get(direction.source.fileno(), 0)
             outgoing = events.get(direction.destination.fileno(), 0)
