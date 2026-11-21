@@ -153,7 +153,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--manifest-sha256', required=True)
     parser.add_argument('--client-uid', type=int)
-    parser.add_argument('--action', choices=('serve', 'admin-init', 'admin-ready', 'ready-client'),
+    parser.add_argument('--action', choices=('serve', 'verify-installed', 'admin-init', 'admin-ready', 'ready-client'),
                         default='serve')
     args = parser.parse_args()
     try:
@@ -170,7 +170,10 @@ def main():
         else:
             if args.client_uid is not None:
                 raise ReleaseError('client UID is only valid in service mode')
-            administrative_action(release, args.manifest_sha256, args.action)
+            if args.action == 'verify-installed':
+                print('installed release verified')
+            else:
+                administrative_action(release, args.manifest_sha256, args.action)
     except ReleaseError as error:
         print(f'loopbridge: {error}', file=sys.stderr)
         return 1
