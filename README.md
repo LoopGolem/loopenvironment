@@ -43,7 +43,7 @@ Read [LoopBridge](docs/LOOPBRIDGE.md), [operator model](docs/OPERATOR_MODEL.md),
 
 ## Conceptual architecture
 
-Independent private sessions run real Linux applications in the execution plane. LoopBridge governs identity, grants, leases and operations in the control plane. The presentation plane delivers authorized session output. The planned **LoopEnvironment Shell** is an ordinary Linux application for finding, selecting and observing sessions. Viewing, controlling and choosing how to act are separate capabilities.
+Independent private sessions run real Linux applications in the execution plane. LoopBridge governs identity, grants, leases and operations in the control plane. The presentation plane delivers authorized session output. The planned **LoopShell** is an unprivileged client of LoopBridge, not LoopBridge itself. Its [V0.8 design](docs/design/LOOPSHELL_V0_8.md) combines an anchored navigation rail, a constrained Bridge command console and independently authorized live/activity session views. Missions, sessions, viewers and controllers have separate lifecycles; an operator may be a person, AI or other software without changing the authority model. Viewing, controlling and choosing how to act remain separate capabilities.
 
 Low-latency streaming is the initial presentation direction. Nested Wayland presentation remains a future hypothesis for local use. See [ADR 0011](docs/DECISIONS/0011-session-presentation-and-operator-shell.md) and [environment architecture](docs/ARCHITECTURE.md).
 
@@ -85,7 +85,7 @@ The [roadmap](docs/ROADMAP.md) defines acceptance criteria and stop conditions. 
 
 **LoopBridge V0.7.1 — scoped credentials and process hardening (PARTIAL overall).** The experimental private manager can use independent credential verifiers per session, and selected processes apply additional inspection protections. The [V0.7.1 report](docs/LOOPBRIDGE_V0_7_1.md) records the lab gates and the unresolved direct-display exposure to unrestricted same-UID host processes. The strongest scoped-credential mode is opt-in; production host isolation is not qualified.
 
-**Planned next milestones.** [V0.8–V0.9](docs/ROADMAP.md#loopbridge-release-track) cover the first Session Supervisor and configurable actuation. A separate Linux service-identity hardening track must qualify unrestricted-host isolation before its gate becomes GO. Verified operator handoff remains a distinct future milestone.
+**Planned next milestones.** [V0.8–V0.9](docs/ROADMAP.md#loopbridge-release-track) cover [LoopShell V0.8-A–D](docs/design/LOOPSHELL_V0_8.md), the first Session Supervisor and configurable actuation. A separate Linux service-identity hardening track must qualify unrestricted-host isolation before its gate becomes GO. Verified operator handoff remains a distinct future milestone.
 
 ## Documentation
 

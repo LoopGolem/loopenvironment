@@ -8,6 +8,8 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 
 [ADR 0012](0012-trusted-service-identity-boundary.md) accepts the **architectural direction** of a distinct Linux service identity for the private-session runtime (D1). Implementation and qualification are pending; the host security gate remains PARTIAL.
 
+[ADR 0013](0013-loopshell-layout-and-mission-boundaries.md) refines the graphical Shell under ADRs 0008 and 0011: fixed-region layout, mediated commands, mission/session/view distinctions and staged V0.8 implementation.
+
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-os-product-boundaries.md) | Independent agent-oriented operating system | Superseded by 0010 (historical) |
@@ -22,6 +24,7 @@ ADRs preserve **why** a decision was made, its status, and what remains undecide
 | [0010](0010-linux-environment-not-os.md) | Agent-oriented Linux environment, central LoopBridge, optional image | Accepted; supersedes 0001 |
 | [0011](0011-session-presentation-and-operator-shell.md) | Independent session presentation and operator supervision | Accepted — architectural direction |
 | [0012](0012-trusted-service-identity-boundary.md) | Dedicated private-session Linux service identity | Accepted — design only; not deployed |
+| [0013](0013-loopshell-layout-and-mission-boundaries.md) | LoopShell layout and mediated mission/session interface | Accepted direction; unimplemented |
 
 ## ADR workflow
 
