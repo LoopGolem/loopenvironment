@@ -104,9 +104,16 @@ The [D4.2A implementation and deployment contract](design/TRUSTED_SERVICE_BOUNDA
 
 The next hardening milestone is the [D5 qualification matrix](design/TRUSTED_SERVICE_BOUNDARY_V1.md#acceptance-matrix-for-eventual-d5), after review of D4.2C and separate approval. It requires reproducible evidence of direct private-resource and descriptor denial, scoped authorization and credential replacement, sustained media and lifecycle checks. The scope is the bounded Linux profile. Takeover and preemption retain their own gates. V0.8 remains the next release-track milestone.
 
-### V0.8 — Session Supervisor
+### V0.8 — LoopShell and Session Supervisor
 
-Deliver the first functional LoopEnvironment Shell as an ordinary Linux graphical application. List and select authorized desktops, show a fluid enlarged view, and display permitted session and authority indicators. Report failures and handle reconnect clearly. Demonstrate supervision of multiple sessions within measured resource limits.
+**Status: architectural specification accepted; implementation not yet qualified.** [ADR 0013](DECISIONS/0013-loopshell-layout-and-mission-boundaries.md) refines ADR 0011. See the [V0.8 design](design/LOOPSHELL_V0_8.md) for layout invariants, operator-neutral interfaces, safety boundaries and a bounded lab matrix. LoopShell is a separate unprivileged client of LoopBridge, not a general-purpose shell or enforcement service.
+
+- **V0.8-A — LoopShell Layout:** prototype a full-height, width-adjustable left/right rail; a top/bottom Bridge console over the remaining width; and unobstructed Sway-managed workspace. Evaluate layer-shell reserved zones and bounded fallback; test focus, resize, crash/restart and screen changes.
+- **V0.8-B — LoopBridge Shell:** authenticated, allowlisted typed commands and sanitized events with truthful denied/unknown states. No Bash passthrough.
+- **V0.8-C — Session Views:** independently authorized real live/structured/combined observation, session lifecycle/reconnect, multiple viewers and measured resource budgets.
+- **V0.8-D — Agent/Mission Foundation:** provider-neutral agent registration, free-text objective delegation, bounded optional external orchestrator, validated structured requests. No built-in model or multi-agent reasoning engine.
+
+Mission, session, controller lease, observation surface and event stream have distinct lifecycles. An operator's biological nature grants no authority; API or physical input is not proof of a human. Handoff remains a **separate future qualification**; D5 host security and M1.3B trusted input/semantic barriers are unchanged.
 
 ### V0.9 — Observable Actuation
 
