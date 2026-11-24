@@ -61,15 +61,16 @@ class History:
 
 
 class RPC:
-    def __init__(self, sock, version=VERSION):
+    def __init__(self, sock, version=VERSION, *, timeout=45):
         self.channel, self.seq = DeadlineChannel(sock), 0
         self.version = version
-        sock.settimeout(30)
+        self.timeout = timeout
+        sock.settimeout(min(30, timeout))
 
     def call(self, method, **params):
         self.seq += 1
         self.channel.send(dict(jsonrpc='2.0', version=self.version, id=self.seq, method=method, params=params))
-        reply = self.channel.receive(45)
+        reply = self.channel.receive(self.timeout)
         if reply.get('version') != self.version or reply.get('id') != self.seq or reply.get('jsonrpc') != '2.0':
             raise AssertionError('invalid_reply')
         if 'error' in reply:

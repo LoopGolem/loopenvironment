@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Client-side transport for the two allowed LoopBridge reads."""
+"""Client-side transport for the allowed LoopBridge console reads."""
+from dataclasses import dataclass
 import os
 import re
 import socket
@@ -12,6 +13,7 @@ from .errors import Error, ShellError
 
 TOKEN_LENGTH = 43
 TOKEN = re.compile(r'[A-Za-z0-9_-]{43}')
+EPOCH = re.compile(r'[a-f0-9]{32}')
 PHASES = ('idle', 'controlled', 'handoff_pending', 'blocked')
 SCOPED_PRINCIPALS = ('observer', 'delegate')
 REPLY_FIELDS = {'jsonrpc', 'version', 'id'}
@@ -24,6 +26,13 @@ REMOTE_ERRORS = {
 }
 CLOSE_ON_ERROR = frozenset((Error.DISCONNECTED, Error.AUTHENTICATION,
                             Error.TIMEOUT, Error.INVALID_RESPONSE))
+
+
+@dataclass(frozen=True)
+class SessionSelection:
+    session: str
+    epoch: str
+    principal: str
 
 
 class BridgeClient:
@@ -78,14 +87,25 @@ class BridgeClient:
             self._invalid_response()
         return {'sessions': sessions}
 
-    def session_status(self, session):
+    def _snapshot(self, session):
         if not isinstance(session, str) or not SESSION_ID.fullmatch(session):
             raise ShellError(Error.INVALID_COMMAND)
         result = self._read('snapshot', session=session)
         phase, revision = result.get('phase'), result.get('revision')
         if result.get('session') != session or phase not in PHASES or type(revision) is not int or revision < 0:
             self._invalid_response()
-        return {'session': session, 'phase': phase, 'revision': revision}
+        return result
+
+    def session_status(self, session):
+        result = self._snapshot(session)
+        return {key: result[key] for key in ('session', 'phase', 'revision')}
+
+    def select_session(self, session):
+        result = self._snapshot(session)
+        epoch = result.get('epoch')
+        if not isinstance(epoch, str) or not EPOCH.fullmatch(epoch):
+            self._invalid_response()
+        return SessionSelection(session, epoch, self.principal)
 
     def _invalid_response(self):
         self.close()

@@ -13,8 +13,9 @@ HELP = (
     'exit   Fecha a LoopShell\n'
     'sessions list         Lista sessões autorizadas\n'
     'session status <id>   Consulta fase e revisão\n'
+    'session observe <id> Abre a visualização autorizada\n'
     'Use Conectar para autenticar com uma credencial delegada.\n'
-    'Diagnóstico do sistema, sessões visuais, agentes e missões estão indisponíveis.'
+    'Diagnóstico do sistema, agentes e missões estão indisponíveis.'
 )
 ERROR_TEXT = {
     Error.INVALID_COMMAND: 'Sintaxe inválida. Digite help.',

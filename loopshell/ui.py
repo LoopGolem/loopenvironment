@@ -9,11 +9,14 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, Gio, GLib, Gtk
 
-from .bridge import BridgeClient, TOKEN_LENGTH
+from loopbridge.presentation_client import LiveConnection
+from loopbridge.visual_view import ViewOptions, Watch
+
+from .bridge import BridgeClient, TOKEN, TOKEN_LENGTH
 from .commands import Action, MAX_INPUT, parse
 from .compositor import apply_layout, setup_surfaces, show_surfaces
 from .console import ERROR_TEXT, PROMPT, dispatch, history_entry
-from .errors import ShellError
+from .errors import Error, ShellError
 from .layout import CONSOLE_EDGES, HEIGHT_LIMITS, RAIL_SIDES, WIDTH_LIMITS
 from .layout import Layout, load_layout, save_layout
 
@@ -40,10 +43,12 @@ def label(text, style=None):
 
 
 class CommandConsole(Gtk.Box):
-    def __init__(self, client, quit_shell):
+    def __init__(self, client, quit_shell, open_view=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         self.client = client
         self.quit_shell = quit_shell
+        self.open_view = open_view
+        self.view_selection = None
         self.busy = False
         self.add_css_class('console')
         self.status = label('', 'shell-muted')
@@ -83,6 +88,8 @@ class CommandConsole(Gtk.Box):
         credential_entry = self.input_stack.get_visible_child() == self.password
         if self.busy:
             status = 'Consultando…' if self.client.principal else 'Autenticando…'
+        elif self.view_selection is not None:
+            status = 'Credencial de observação'
         elif self.client.principal:
             status = f'Conectado · {self.client.principal}'
         elif self.client.endpoint:
@@ -98,6 +105,7 @@ class CommandConsole(Gtk.Box):
 
     def connection_action(self, _button):
         if self.input_stack.get_visible_child() == self.password:
+            self.view_selection = None
             self.password.set_text('')
             self.input_stack.set_visible_child_name('command')
         elif self.client.principal:
@@ -114,6 +122,15 @@ class CommandConsole(Gtk.Box):
         entry.set_text('')
         self.connection_button.grab_focus()
         self.input_stack.set_visible_child_name('command')
+        selection, self.view_selection = self.view_selection, None
+        if selection is not None:
+            self.refresh()
+            if not TOKEN.fullmatch(credential):
+                self.record(None, ERROR_TEXT[Error.AUTHENTICATION])
+                self.entry.grab_focus()
+            else:
+                self.open_view(selection, credential)
+            return
 
         def connect():
             self.client.connect(credential)
@@ -138,12 +155,24 @@ class CommandConsole(Gtk.Box):
             self.paint_history()
         elif command.action is Action.EXIT:
             self.quit_shell()
+        elif command.action is Action.OBSERVE:
+            if self.open_view is None:
+                self.record(command, ERROR_TEXT[Error.UNAVAILABLE])
+            else:
+                self.start_io(lambda: self.client.select_session(command.session),
+                              command, on_success=self.prompt_view)
         elif command.action.remote:
             self.start_io(lambda: dispatch(command, self.client), command)
         else:
             self.record(command, dispatch(command, self.client))
 
-    def start_io(self, task, command=None):
+    def prompt_view(self, selection):
+        self.view_selection = selection
+        self.input_stack.set_visible_child_name('credential')
+        self.refresh()
+        self.password.grab_focus()
+
+    def start_io(self, task, command=None, *, on_success=None):
         self.busy = True
         self.refresh()
 
@@ -151,16 +180,20 @@ class CommandConsole(Gtk.Box):
             try:
                 text = task()
             except ShellError as error:
-                text = ERROR_TEXT[error.error]
-            GLib.idle_add(self.finished, command, text)
+                GLib.idle_add(self.finished, command, ERROR_TEXT[error.error], None)
+            else:
+                GLib.idle_add(self.finished, command, text, on_success)
 
         Thread(target=work, daemon=True).start()
 
-    def finished(self, command, text):
+    def finished(self, command, result, on_success):
         self.busy = False
         self.refresh()
-        self.record(command, text)
-        self.entry.grab_focus()
+        if on_success is None:
+            self.record(command, result)
+            self.entry.grab_focus()
+        else:
+            on_success(result)
 
     def record(self, command, text):
         self.history.append(history_entry(command, text))
@@ -183,7 +216,7 @@ class Shell:
         self.monitor = None
         self.geometry_watch = None
         self.anchored_monitor = None
-        self.console = CommandConsole(client, app.quit)
+        self.console = CommandConsole(client, app.quit, self.open_view)
         self.rail = self.build_rail()
         self.display = Gdk.Display.get_default()
         css = Gtk.CssProvider()
@@ -193,6 +226,17 @@ class Shell:
         self.monitors = self.display.get_monitors()
         self.monitors.connect('items-changed', self.update_monitor)
         self.update_monitor()
+
+    def open_view(self, selection, credential):
+        client = self.console.client
+        try:
+            stream = LiveConnection(client.endpoint, credential, selection.session, None, selection.epoch,
+                                    expected_peer_uid=client.expected_uid, expected_principal=selection.principal)
+        except OSError:
+            self.console.record(None, ERROR_TEXT[Error.DISCONNECTED])
+            return
+        options = ViewOptions(selection.session, show_reconnect=True)
+        Watch(self.app, options, stream).present()
 
     def build_rail(self):
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -332,7 +376,13 @@ def run(path, layer_shell, endpoint=None, expected_uid=None):
                      and layer_shell.get_protocol_version() >= 4)
         Shell(application, path, layer_shell if supported else None, client)
 
+    def shutdown(application):
+        for window in application.get_windows():
+            if isinstance(window, Watch):
+                window.stop_stream()
+
     app.connect('activate', activate)
+    app.connect('shutdown', shutdown)
     try:
         return app.run([])
     finally:
