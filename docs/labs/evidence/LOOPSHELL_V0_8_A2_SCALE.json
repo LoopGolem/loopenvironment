@@ -1,0 +1,270 @@
+{
+  "date": "2026-11-24",
+  "baseline": "270b44f",
+  "status": "PARTIAL",
+  "environment": {
+    "gtk": "4.18.6",
+    "sway": "1.10.1",
+    "wlroots": "0.18.2",
+    "gtk4LayerShellDebian": "1.0.4-2",
+    "waylandLayerShellProtocol": 4,
+    "headlessOutput": "HEADLESS-1",
+    "renderer": "GTK Cairo / wlroots Pixman"
+  },
+  "rectangleOrder": [
+    "x",
+    "y",
+    "width",
+    "height"
+  ],
+  "matrix": [
+    {"layout": {"side": "left", "edge": "bottom", "width": 260, "height": 180}, "surfaces": [{"size": [260, 768], "scale": 1.0, "zone": 260}, {"size": [764, 180], "scale": 1.0, "zone": 180}], "workspace": [260, 0, 764, 588], "foot": {"loopshell-lab-foot-b": [260, 0, 382, 588], "loopshell-lab-foot-a": [642, 0, 382, 588]}},
+    {"layout": {"side": "left", "edge": "bottom", "width": 200, "height": 120}, "surfaces": [{"size": [200, 768], "scale": 1.0, "zone": 200}, {"size": [824, 120], "scale": 1.0, "zone": 120}], "workspace": [200, 0, 824, 648], "foot": {"loopshell-lab-foot-b": [200, 0, 412, 648], "loopshell-lab-foot-a": [612, 0, 412, 648]}},
+    {"layout": {"side": "left", "edge": "top", "width": 290, "height": 200}, "surfaces": [{"size": [290, 768], "scale": 1.0, "zone": 290}, {"size": [734, 200], "scale": 1.0, "zone": 200}], "workspace": [290, 200, 734, 568], "foot": {"loopshell-lab-foot-b": [290, 200, 367, 568], "loopshell-lab-foot-a": [657, 200, 367, 568]}},
+    {"layout": {"side": "left", "edge": "top", "width": 370, "height": 220}, "surfaces": [{"size": [370, 768], "scale": 1.0, "zone": 370}, {"size": [654, 220], "scale": 1.0, "zone": 220}], "workspace": [370, 220, 654, 548], "foot": {"loopshell-lab-foot-b": [370, 220, 327, 548], "loopshell-lab-foot-a": [697, 220, 327, 548]}},
+    {"layout": {"side": "right", "edge": "bottom", "width": 280, "height": 170}, "surfaces": [{"size": [280, 768], "scale": 1.0, "zone": 280}, {"size": [744, 170], "scale": 1.0, "zone": 170}], "workspace": [0, 0, 744, 598], "foot": {"loopshell-lab-foot-b": [0, 0, 372, 598], "loopshell-lab-foot-a": [372, 0, 372, 598]}},
+    {"layout": {"side": "right", "edge": "bottom", "width": 410, "height": 240}, "surfaces": [{"size": [410, 768], "scale": 1.0, "zone": 410}, {"size": [614, 240], "scale": 1.0, "zone": 240}], "workspace": [0, 0, 614, 528], "foot": {"loopshell-lab-foot-b": [0, 0, 307, 528], "loopshell-lab-foot-a": [307, 0, 307, 528]}},
+    {"layout": {"side": "right", "edge": "top", "width": 240, "height": 150}, "surfaces": [{"size": [240, 768], "scale": 1.0, "zone": 240}, {"size": [784, 150], "scale": 1.0, "zone": 150}], "workspace": [0, 150, 784, 618], "foot": {"loopshell-lab-foot-b": [0, 150, 392, 618], "loopshell-lab-foot-a": [392, 150, 392, 618]}},
+    {"layout": {"side": "right", "edge": "top", "width": 480, "height": 400}, "surfaces": [{"size": [480, 768], "scale": 1.0, "zone": 480}, {"size": [544, 400], "scale": 1.0, "zone": 400}], "workspace": [0, 400, 544, 368], "foot": {"loopshell-lab-foot-b": [0, 400, 272, 368], "loopshell-lab-foot-a": [272, 400, 272, 368]}}
+  ],
+  "cycle": [
+    {
+      "stage": "resolution_1280x720",
+      "command": "mode 1280x720",
+      "output": [0, 0, 1280, 720],
+      "workspace": [0, 400, 800, 320],
+      "foot": {
+        "loopshell-lab-foot-b": [0, 400, 400, 320],
+        "loopshell-lab-foot-a": [400, 400, 400, 320]
+      },
+      "monitor": {
+        "size": [1280, 720],
+        "scale": 1.0,
+        "scaleFactor": 1
+      },
+      "plainGtkControl": {
+        "size": [1280, 720],
+        "scale": 1.0,
+        "scaleFactor": 1,
+        "notifications": [
+          "manufacturer",
+          "model",
+          "manufacturer",
+          "model",
+          "geometry",
+          "connector",
+          "description"
+        ]
+      },
+      "surfaces": [
+        {
+          "size": [480, 720],
+          "scale": 1.0,
+          "zone": 480
+        },
+        {
+          "size": [800, 400],
+          "scale": 1.0,
+          "zone": 400
+        }
+      ],
+      "monitorNotifications": [
+        "manufacturer",
+        "model",
+        "manufacturer",
+        "model",
+        "geometry",
+        "connector",
+        "description"
+      ],
+      "monitorListChanges": [],
+      "surfaceNotifications": {
+        "rail": {
+          "height": 2,
+          "width": 1
+        },
+        "console": {
+          "width": 2,
+          "height": 1
+        }
+      },
+      "waylandEvents": [
+        "zxdg_output_v1#27.logical_size(1280, 720)",
+        "wl_output#26.scale(1)",
+        "wl_output#26.done()"
+      ]
+    },
+    {
+      "stage": "scale_2",
+      "command": "scale 2",
+      "output": [0, 0, 640, 360],
+      "workspace": [0, 160, 320, 200],
+      "foot": {
+        "loopshell-lab-foot-b": [0, 160, 160, 200],
+        "loopshell-lab-foot-a": [160, 160, 160, 200]
+      },
+      "monitor": {
+        "size": [640, 360],
+        "scale": 2.0,
+        "scaleFactor": 2
+      },
+      "plainGtkControl": {
+        "size": [640, 360],
+        "scale": 2.0,
+        "scaleFactor": 2,
+        "notifications": [
+          "manufacturer",
+          "model",
+          "geometry",
+          "connector",
+          "description",
+          "scale",
+          "scale-factor"
+        ]
+      },
+      "surfaces": [
+        {
+          "size": [320, 360],
+          "scale": 2.0,
+          "zone": 320
+        },
+        {
+          "size": [320, 160],
+          "scale": 2.0,
+          "zone": 160
+        }
+      ],
+      "monitorNotifications": [
+        "manufacturer",
+        "model",
+        "geometry",
+        "connector",
+        "description",
+        "scale",
+        "scale-factor"
+      ],
+      "monitorListChanges": [],
+      "surfaceNotifications": {
+        "rail": {
+          "scale": 1,
+          "scale-factor": 1,
+          "width": 3,
+          "height": 3
+        },
+        "console": {
+          "scale": 1,
+          "scale-factor": 1,
+          "width": 5,
+          "height": 4
+        }
+      },
+      "waylandEvents": [
+        "wl_output#26.scale(2)",
+        "wp_fractional_scale_v1#47.preferred_scale(240)",
+        "zxdg_output_v1#27.logical_size(640, 360)",
+        "wl_output#26.scale(2)",
+        "wp_fractional_scale_v1#38.preferred_scale(240)",
+        "wl_output#26.done()",
+        "wl_surface#46.preferred_buffer_scale(2)",
+        "wl_surface#9.preferred_buffer_scale(2)"
+      ]
+    },
+    {
+      "stage": "scale_1_return",
+      "command": "scale 1",
+      "output": [0, 0, 1280, 720],
+      "workspace": [0, 160, 960, 560],
+      "foot": {
+        "loopshell-lab-foot-b": [0, 160, 480, 560],
+        "loopshell-lab-foot-a": [480, 160, 480, 560]
+      },
+      "monitor": {
+        "size": [640, 360],
+        "scale": 2.0,
+        "scaleFactor": 2
+      },
+      "plainGtkControl": {
+        "size": [640, 360],
+        "scale": 2.0,
+        "scaleFactor": 2,
+        "notifications": [
+          "manufacturer",
+          "model",
+          "connector",
+          "description"
+        ]
+      },
+      "surfaces": [
+        {
+          "size": [320, 720],
+          "scale": 1.0,
+          "zone": 320
+        },
+        {
+          "size": [960, 160],
+          "scale": 1.0,
+          "zone": 160
+        }
+      ],
+      "monitorNotifications": [
+        "manufacturer",
+        "model",
+        "connector",
+        "description"
+      ],
+      "monitorListChanges": [],
+      "surfaceNotifications": {
+        "rail": {
+          "scale": 1,
+          "scale-factor": 1,
+          "width": 2,
+          "height": 3
+        },
+        "console": {
+          "scale": 1,
+          "scale-factor": 1,
+          "width": 3,
+          "height": 2
+        }
+      },
+      "manualRenderAndRoundtripKeptGeometry": true,
+      "waylandEvents": [
+        "wl_output#26.scale(1)",
+        "wp_fractional_scale_v1#47.preferred_scale(120)",
+        "wp_fractional_scale_v1#38.preferred_scale(120)",
+        "zxdg_output_v1#27.logical_size(1280, 720)",
+        "wl_output#26.scale(1)",
+        "wl_output#26.done()",
+        "wl_surface#46.preferred_buffer_scale(1)",
+        "wl_surface#9.preferred_buffer_scale(1)"
+      ]
+    }
+  ],
+  "restart": {
+    "output": [0, 0, 1280, 720],
+    "workspace": [0, 400, 800, 320],
+    "foot": {
+      "loopshell-lab-foot-b": [0, 400, 400, 320],
+      "loopshell-lab-foot-a": [400, 400, 400, 320]
+    },
+    "processAlive": true,
+    "preferences": true,
+    "requestedExclusiveZones": [480, 400],
+    "firstConfiguredSizes": [
+      [480, 720],
+      [800, 400]
+    ]
+  },
+  "parentUnchanged": {
+    "version": true,
+    "outputs": true,
+    "workspaces": true,
+    "process": true,
+    "config": true
+  },
+  "fullUnittest": {
+    "command": "/usr/bin/python3 -B -m unittest discover -s tests",
+    "passed": 301,
+    "exitCode": 0
+  }
+}
