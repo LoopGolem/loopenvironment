@@ -6,6 +6,7 @@ import os
 import re
 import socket
 
+from loopbridge.presentation_client import EPOCH, presentation_pin
 from loopbridge.protocol import DeadlineChannel, Fault, VERSION
 from loopbridge.service_ingress import peer_uid
 
@@ -14,7 +15,6 @@ from .errors import Error, ShellError
 
 TOKEN_LENGTH = 43
 TOKEN = re.compile(r'[A-Za-z0-9_-]{43}')
-EPOCH = re.compile(r'[a-f0-9]{32}')
 PHASES = ('idle', 'controlled', 'handoff_pending', 'blocked')
 SCOPED_PRINCIPALS = ('observer', 'delegate')
 REPLY_FIELDS = {'jsonrpc', 'version', 'id'}
@@ -38,6 +38,7 @@ class SessionSelection:
     session: str
     epoch: str
     principal: str
+    private_id: str | None = None
 
 
 class BridgeClient:
@@ -117,6 +118,22 @@ class BridgeClient:
         if not isinstance(epoch, str) or not EPOCH.fullmatch(epoch):
             self._invalid_response()
         return SessionSelection(session, epoch, self.principal)
+
+    def select_combined(self, session):
+        try:
+            return self.select_session(session)
+        except ShellError as error:
+            if error.error is not Error.PERMISSION:
+                raise
+        # A principal with only desktop.stream may still open the media pane.
+        row = self._read('presentation.describe', session=session)
+        try:
+            epoch, private_id = presentation_pin(row, session, self.principal)
+        except ValueError:
+            self._invalid_response()
+        if row.get('state') not in ('available', 'unavailable'):
+            self._invalid_response()
+        return SessionSelection(session, epoch, self.principal, private_id)
 
     def _invalid_response(self):
         self.close()

@@ -93,20 +93,73 @@ class PresentationClientTests(unittest.TestCase):
                 self.assertEqual(methods, [('auth', {})])
 
     def test_replacement_does_not_auto_open(self):
-        with self.server([{'result': {'principal': 'observer'}},
-                          {'result': dict(META, epoch='d' * 32)}]) as (live, methods):
-            with self.assertRaisesRegex(Fault, 'presentation_identity_mismatch'):
-                live.connect()
-            self.assertEqual([m for m, _ in methods], ['auth', 'presentation.describe'])
+        for state in ('available', 'unavailable'):
+            with self.subTest(state=state), self.server(
+                    [{'result': {'principal': 'observer'}},
+                     {'result': dict(META, epoch='d' * 32, state=state)}]) as (live, methods):
+                with self.assertRaisesRegex(Fault, 'presentation_identity_mismatch'):
+                    live.connect()
+                self.assertEqual([m for m, _ in methods], ['auth', 'presentation.describe'])
 
     def test_open_rechecks_identity_and_no_input(self):
-        for extra in (dict(privateId='d' * 16), dict(input=0), dict(epoch='e' * 32)):
+        for extra in (dict(privateId='d' * 16), dict(epoch='e' * 32), dict(input=0), dict(epoch='malformed')):
             with self.subTest(extra=extra), self.server(
                     [{'result': {'principal': 'observer'}}, {'result': META},
                      {'result': dict(META, state='opening', stream='c' * 32) | extra}]) as (live, _):
-                with self.assertRaisesRegex(ValueError, 'presentation_identity_or_format_mismatch'):
-                    live.connect()
+                if extra.get('input') == 0 or extra.get('epoch') == 'malformed':
+                    with self.assertRaisesRegex(ValueError, 'invalid_presentation_response'):
+                        live.connect()
+                else:
+                    with self.assertRaisesRegex(Fault, 'presentation_identity_mismatch'):
+                        live.connect()
                 self.assertIsNone(live.channel)
+
+    def test_status_requires_the_exact_stream_and_closed_state(self):
+        stream = 'c' * 32
+        for extra, expected in (
+            ({'state': 'closed'}, 'session_ended'),
+            ({'state': 'live'}, 'session_ended_or_unreachable'),
+            ({'stream': 'd' * 32, 'state': 'closed'}, 'session_ended_or_unreachable'),
+            ({'state': 'closed', 'reason': TOKEN}, 'connection_lost'),
+        ):
+            result = dict(**PIN, stream=stream, principal='observer', reason='session_ended') | extra
+            with self.subTest(extra=tuple(extra)), self.server(
+                    [{'result': {'principal': 'observer'}}, {'result': result}]) as (live, methods):
+                live.metadata = {'stream': stream, 'principal': 'observer'}
+                live.identity.update(PIN)
+                self.assertEqual(live.reason(), expected)
+                self.assertEqual(methods[-1], ('presentation.status', dict(**PIN, stream=stream)))
+
+    def test_cancel_interrupts_an_in_flight_status_request_and_clears_token(self):
+        with TemporaryDirectory() as root, socket.socket(socket.AF_UNIX) as listener:
+            endpoint = Path(root) / 'status.sock'
+            listener.bind(str(endpoint))
+            listener.listen()
+            live = LiveConnection(endpoint, TOKEN, PIN['session'], PIN['privateId'], PIN['epoch'])
+            live.metadata = {'principal': 'observer', 'stream': 'c' * 32}
+            self.addCleanup(live.release)
+            results = []
+
+            def diagnostic():
+                results.append(live.reason())
+
+            worker = Thread(target=diagnostic, daemon=True)
+            listener.settimeout(2)
+            worker.start()
+            with listener.accept()[0] as peer:
+                channel = DeadlineChannel(peer)
+                auth = channel.receive(1)
+                channel.send(dict(jsonrpc='2.0', version=auth['version'], id=auth['id'],
+                                  result={'principal': 'observer'}))
+                self.assertEqual(channel.receive(1)['method'], 'presentation.status')
+                live.cancel()
+                peer.settimeout(.5)
+                self.assertEqual(peer.recv(1), b'')
+                worker.join(.5)
+            self.assertFalse(worker.is_alive())
+            self.assertIsNone(live.token)
+            self.assertIsNone(live.diagnostic_peer)
+            self.assertEqual(results, ['session_ended_or_unreachable'])
 
 
 class ViewerStateTests(unittest.TestCase):

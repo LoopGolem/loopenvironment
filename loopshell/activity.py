@@ -44,7 +44,9 @@ def project_batch(reply, epoch, previous):
     if (not isinstance(reply, dict) or set(reply) != {'epoch', 'cursor', 'events'}
             or not valid_counter(previous)):
         raise ShellError(Error.INVALID_RESPONSE)
-    require_epoch(reply.get('epoch'), epoch)
+    batch_epoch = reply.get('epoch')
+    if not isinstance(batch_epoch, str) or not EPOCH.fullmatch(batch_epoch):
+        raise ShellError(Error.INVALID_RESPONSE)
     cursor, events = reply.get('cursor'), reply.get('events')
     if not valid_counter(cursor) or not isinstance(events, list) or len(events) > MAX_EVENTS:
         raise ShellError(Error.INVALID_RESPONSE)
@@ -56,7 +58,8 @@ def project_batch(reply, epoch, previous):
         if (not isinstance(row, dict) or row.get('source') != 'authority'
                 or not valid_counter(row.get('seq')) or row['seq'] != sequence):
             raise ShellError(Error.INVALID_RESPONSE)
-        require_epoch(row.get('epoch'), epoch)
+        if row.get('epoch') != batch_epoch:
+            raise ShellError(Error.INVALID_RESPONSE)
         kind, state = row.get('kind'), row.get('state')
         if not isinstance(kind, str) or kind not in EVENT_KINDS or not isinstance(state, dict):
             raise ShellError(Error.INVALID_RESPONSE)
@@ -64,6 +67,7 @@ def project_batch(reply, epoch, previous):
         if phase not in PHASES or not valid_counter(revision):
             raise ShellError(Error.INVALID_RESPONSE)
         projected.append(ActivityEvent(sequence, kind, phase, revision))
+    require_epoch(batch_epoch, epoch)
     return cursor, tuple(projected)
 
 
@@ -84,10 +88,10 @@ class ActivityClient(BridgeClient):
             if self.principal != self.selection.principal:
                 raise ShellError(Error.AUTHENTICATION)
             snapshot = self._snapshot(self.selection.session)
-            require_epoch(snapshot.get('epoch'), self.selection.epoch)
             cursor = snapshot.get('cursor')
             if not valid_counter(cursor):
                 self._invalid_response()
+            require_epoch(snapshot.get('epoch'), self.selection.epoch)
             self.cursor = cursor
         except ShellError:
             self.close()
