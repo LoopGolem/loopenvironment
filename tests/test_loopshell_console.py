@@ -35,7 +35,8 @@ class CommandTests(ShellTests):
             ('help', Command(Action.HELP)), ('clear', Command(Action.CLEAR)),
             ('exit', Command(Action.EXIT)), (' sessions\tlist ', Command(Action.LIST)),
             ('session status desktop', Command(Action.STATUS, 'desktop')),
-            ('session observe desktop', Command(Action.OBSERVE, 'desktop')), ('\t ', None),
+            ('session observe desktop', Command(Action.OBSERVE, 'desktop')),
+            ('session activity desktop', Command(Action.ACTIVITY, 'desktop')), ('\t ', None),
         ):
             with self.subTest(line=line):
                 self.assertEqual(parse(line), expected)
@@ -48,7 +49,8 @@ class CommandTests(ShellTests):
             ('sessions list\nexit', Error.INVALID_COMMAND), ('help\x00', Error.INVALID_COMMAND),
             ('unexpected', Error.UNKNOWN_COMMAND), ('system status', Error.UNAVAILABLE),
             ('agent list', Error.UNAVAILABLE), ('mission create foo', Error.UNAVAILABLE),
-            ('session observe', Error.INVALID_COMMAND), ('acquire desktop', Error.UNAVAILABLE),
+            ('session observe', Error.INVALID_COMMAND), ('session activity desktop extra', Error.INVALID_COMMAND),
+            ('session activity ../desktop', Error.INVALID_COMMAND), ('acquire desktop', Error.UNAVAILABLE),
         ):
             with self.subTest(line=line):
                 self.assert_error(reason, parse, line)
