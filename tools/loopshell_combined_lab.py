@@ -109,16 +109,17 @@ class Lab:
                       and not view.activity.displayed_rows, 'activity ' + activity)
 
     def closed(self, view):
-        panes = (view.video, view.activity) if hasattr(view, 'activity') else (view.video,)
+        panes = [pane for name in ('video', 'activity') if (pane := getattr(view, name, None)) is not None]
         for pane in panes:
             worker = getattr(pane, 'worker', None)
             if worker:
                 self.wait(lambda: not worker.is_alive(), 'worker survived close')
-        video = view.video
-        assert not any((video.status_source, video.draw_source, video.draw_tick, video.frame_handler))
-        assert video.connection.peer.fileno() == -1 and video.connection.token is None
-        assert video.connection.channel is None and not self.media(view)
-        assert video.latest is None and video.pending_paint is None
+        if hasattr(view, 'video'):
+            video = view.video
+            assert not any((video.status_source, video.draw_source, video.draw_tick, video.frame_handler))
+            assert video.connection.peer.fileno() == -1 and video.connection.token is None
+            assert video.connection.channel is None and not self.media(view)
+            assert video.latest is None and video.pending_paint is None
         if hasattr(view, 'activity'):
             activity = view.activity
             assert not any((activity.render_source, activity.adjustment_handler, activity.rows, activity.displayed_rows))
@@ -179,6 +180,13 @@ class Lab:
         self.close(view)
         self.revoke(media)
         activity = self.grant('session.discover')
+        activity_window = self.open(Action.ACTIVITY)
+        self.wait(lambda: self.events(activity_window), 'standalone Activity authorization')
+        self.cycle()
+        self.wait(lambda: 'control.released' in text(activity_window.activity.event_view),
+                  'standalone Activity received no real event')
+        self.close(activity_window)
+        self.private_ready()
         view = self.open()
         self.wait(lambda: self.events(view), 'activity-only authorization')
         self.fault(view, video='grant_denied')
@@ -303,7 +311,7 @@ class Lab:
         self.final_views.extend((view, visual))
         self.private_ready()
         self.result['integration'] = dict(
-            passed=['video_only', 'activity_only', 'both_authorized', 'media_revoke', 'activity_revoke',
+            passed=['video_only', 'activity_only', 'standalone_activity', 'both_authorized', 'media_revoke', 'activity_revoke',
                     'both_revoked', 'media_disconnect_unconfirmed', 'activity_disconnect', 'no_heartbeat',
                     'retention_gap', 'stale_epoch', 'explicit_resync', 'two_distinct_combined', 'combined_and_visual',
                     'third_media_denied', 'console_disconnect', 'observer_control_and_workspace_denied',
