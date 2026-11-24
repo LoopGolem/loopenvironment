@@ -1,6 +1,6 @@
 # LoopShell V0.8-A — validação do layout ancorado
 
-**Data** 2026-11-23. **Resultado geral** PARTIAL.
+**Fechamento A.2** 2026-11-24. **Resultado geral** PARTIAL.
 
 | Dimensão | Resultado | Evidência |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ O cálculo considera as duas zonas da LoopShell. Outros painéis também podem
 reservar espaço. [Sway 1.10.1](https://github.com/swaywm/sway/blob/1.10.1/sway/desktop/layer_shell.c)
 · [API gtk4-layer-shell 1.0.4](https://github.com/wmww/gtk4-layer-shell/blob/v1.0.4/include/gtk4-layer-shell.h).
 
-## Medições das quatro combinações
+## Medições das quatro combinações (A.1)
 
 Em 1024×768, a prova alterou os controles GTK e acionou **Aplicar layout**
 sem reiniciar o cliente. O protocolo Wayland registrou as zonas solicitadas
@@ -76,7 +76,7 @@ Uma verificação adicional, com o renderizador GTK padrão, também recebeu
 764×180 no primeiro `configure` para as zonas 260/180.
 [Retângulos, zonas, origem do ponteiro e resultados brutos normalizados](evidence/LOOPSHELL_V0_8_A1_ANCHORED.json).
 
-## Resolução, escala e sessão privada
+## Resolução, escala e sessão privada (A.1)
 
 - Em 1280×720 na escala 1, a área útil foi 800×320 com zonas 480/400.
   Ao subir para escala 2, a saída lógica passou a 640×360, as zonas se
@@ -104,6 +104,57 @@ Uma verificação adicional, com o renderizador GTK padrão, também recebeu
   preferências persistidas e terminou por `SIGTERM`. Após cada saída,
   as zonas foram liberadas. O fixture encerrou apenas sua própria instância
   no fim do teste.
+
+## Fechamento A.2 — escala 1→2→1
+
+Em outro Sway headless isolado, a LoopShell repetiu os oito ajustes da tabela
+por **Aplicar layout**. As zonas, as dimensões das duas superfícies GDK, a área
+útil consultada por IPC e o encaixe exato das duas janelas Foot voltaram a
+coincidir com os valores de A.1. Este ensaio repetiu a geometria. O foco e o
+ciclo da sessão privada mantêm a evidência de A.1.
+
+O teste manteve a preferência direita + superior em 480/400 e as duas
+superfícies ancoradas durante a mudança de modo e o ciclo de escala. Um
+segundo processo GTK4 observou o monitor no mesmo Sway, sem criar janela,
+carregar layer-shell ou importar a LoopShell. Após cada etapa, a coleta
+aguardou a atualização das duas superfícies e amostrou o estado estabilizado.
+
+| Etapa | Saída lógica no Sway | Monitor GDK | Escala das superfícies | Zonas | Área útil |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Modo 1280×720 na escala 1 | 1280×720 | 1280×720, escala 1 | 1 | 480/400 | 800×320 em (0, 400) |
+| Escala 2 | 640×360 | 640×360, escala 2 | 2 | 320/160 | 320×200 em (0, 160) |
+| Retorno à escala 1 | 1280×720 | 640×360, escala 2 | 1 | 320/160 | 960×560 em (0, 160) |
+| Reinício da LoopShell no mesmo modo e escala | 1280×720 | Nova conexão | 1 | 480/400 | 800×320 em (0, 400) |
+
+Ao retornar à escala 1, o rastreio registrou `wl_output.scale(1)`,
+`zxdg_output_v1.logical_size(1280, 720)`, `wl_output.done()` e
+`preferred_scale(120)` nas duas superfícies. As superfícies GDK publicaram
+notificações de escala. O objeto de monitor permaneceu em 640×360, escala 2,
+sem `notify::geometry`, `notify::scale`, `notify::scale-factor` ou troca na
+lista de monitores. O controle GTK puro reproduziu o mesmo estado.
+Forçar dois round trips no display GDK e reaplicar o layout continuou a ler
+o valor antigo. Reiniciar a LoopShell com a saída em 1280×720 restaurou as
+zonas 480/400 e o tiling esperado. O observador GTK que permaneceu aberto
+continuava com a geometria antiga.
+[Medições, notificações e eventos Wayland de A.2](evidence/LOOPSHELL_V0_8_A2_SCALE.json).
+
+O comportamento é compatível com o código do GDK Wayland 4.18.6. Depois de
+definir uma escala lógica, o GDK pode ignorar atualizações posteriores do
+fator inteiro. Quando o tamanho lógico anunciado volta a coincidir com o
+modo físico em escala 1, o backend pode dividir o tamanho lógico pelo fator
+anterior. A observação extra de eventos de superfície não resolve a leitura
+do monitor. Usar o tamanho de uma das superfícies como geometria da saída
+também dependeria de suposições sobre outros painéis e o modo compacto. A
+implementação continua usando a geometria pública do monitor e o reinício
+permanece a recuperação conhecida.
+[Monitor GDK](https://github.com/GNOME/gtk/blob/4.18.6/gdk/gdkmonitor.c#L588-L621)
+· [Backend Wayland do GDK](https://github.com/GNOME/gtk/blob/4.18.6/gdk/wayland/gdkdisplay-wayland.c#L2253-L2298).
+
+**Parecer.** O protótipo pode ser incorporado como V0.8-A PARTIAL com a
+limitação e a recuperação documentadas. A falha se restringe à geometria
+local na transição ensaiada. A V0.8-B pode avançar com seu contrato separado
+de comandos tipados e autorização. A qualificação do retorno dinâmico à
+escala 1 permanece aberta.
 
 ## Reprodução
 
@@ -158,14 +209,42 @@ shell=$!
 
 Após as superfícies mapearem, confira `set_exclusive_zone` e `configure`
 em `"$lab/wayland.log"`. O comando `swaymsg -r -t get_workspaces` mostra
-a área útil e `swaymsg -r -t get_tree` mostra os retângulos Foot. Aplique
-`swaymsg output HEADLESS-1 mode 1280x720` e
-`swaymsg output HEADLESS-1 scale 2` no compositor descartável para repetir a
-sequência de modos e escala. Para o teste de foco, use um seat de teste
+a área útil e `swaymsg -r -t get_tree` mostra os retângulos Foot. Para repetir A.2 com as duas janelas Foot, use a preferência
+`{"side":"right","edge":"top","width":480,"height":400}` e execute
+`swaymsg output HEADLESS-1 mode 1280x720`,
+`swaymsg output HEADLESS-1 scale 2` e `swaymsg output HEADLESS-1 scale 1`
+no compositor descartável, conferindo a área útil depois de cada etapa.
+Para a recuperação, feche e reabra a LoopShell com o mesmo JSON, mantendo
+1280×720 na escala 1. Para o teste de foco, use um seat de teste
 com dispositivos Wayland virtuais conectados somente ao socket descartável,
 clique em cada janela e confira `focused` no IPC, os eventos
 `wl_keyboard.enter` no protocolo e a resposta do console a `help`.
 Feche a LoopShell e confira a liberação das zonas antes de repetir com outro JSON.
+
+Para repetir o controle GDK, inicie este observador no mesmo barramento e
+runtime descartáveis **antes** de mudar a escala. Encerre-o ao concluir o ciclo.
+
+```bash
+env -u LD_LIBRARY_PATH -u GI_TYPELIB_PATH GDK_BACKEND=wayland /usr/bin/python3 -B - <<'PYGTK'
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Gdk', '4.0')
+from gi.repository import Gdk, GLib, Gtk
+
+Gtk.init()
+monitor = Gdk.Display.get_default().get_monitors().get_item(0)
+
+def sample(event):
+    geometry = monitor.get_geometry()
+    print(event, geometry.width, geometry.height, monitor.get_scale(),
+          monitor.get_scale_factor(), flush=True)
+    return True
+
+monitor.connect('notify', lambda _monitor, prop: sample(prop.name))
+GLib.timeout_add_seconds(1, lambda: sample('estado'))
+GLib.MainLoop().run()
+PYGTK
+```
 
 ## Critérios A–H
 
@@ -173,7 +252,7 @@ Feche a LoopShell e confira a liberação das zonas antes de repetir com outro J
 | --- | --- |
 | A | GO. Painel esquerdo e direito com altura integral nos oito ajustes. |
 | B | GO. Console superior e inferior ocupou a largura restante nos oito ajustes. |
-| C | GO para ajustes em execução nas quatro combinações. O retorno da escala 2→1 ficou parcial por causa da geometria do GDK. |
+| C | GO para ajustes em execução nas quatro combinações. A.2 confirmou que o retorno da escala 2→1 continua parcial por causa da geometria do GDK. |
 | D | GO para duas janelas Foot em tiling e foco de ida e volta. Janelas flutuantes, múltiplos outputs e docks concorrentes ficam fora desta medição. |
 | E | GO no fixture local. A mesma sessão privada permaneceu `ready` após fechamento e reinício da LoopShell. |
 | F | GO para a separação funcional. O cliente se manteve na sessão gráfica em que foi iniciado e não usou credenciais, grants ou APIs de controle. A prova não mede isolamento de clientes com o mesmo UID. |
@@ -182,7 +261,10 @@ Feche a LoopShell e confira a liberação das zonas antes de repetir com outro J
 
 `/usr/bin/python3 -B -m unittest discover -s tests -p test_loopshell_layout.py -v`
 passou 12 testes, incluindo a espera pelo primeiro frame do painel.
-`/usr/bin/python3 -B -m unittest discover -s tests` passou 301 testes.
+A suíte completa `/usr/bin/python3 -B -m unittest discover -s tests`
+passou 301 testes novamente em A.2. O Sway principal conservou PID 1638,
+versão, configuração, saída e workspaces. A.2 reusou apenas os dois pacotes
+com versão fixada em A.1 por extração temporária, com os mesmos SHA-256.
 A evidência gráfica é geométrica e protocolar, sem avaliação de desempenho,
 monitores múltiplos ou escalas fracionárias.
 
