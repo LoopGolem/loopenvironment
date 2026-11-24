@@ -84,6 +84,23 @@ class PresentationClientTests(unittest.TestCase):
             self.assertEqual([m for m, _ in methods], ['auth', 'presentation.describe'])
             self.assertIsNone(live.channel)
 
+    def test_packet_probe_receives_only_capture_and_read_metadata(self):
+        open_row = dict(META, state='opening', stream='c' * 32)
+        frames = bytes(FRAME_BYTES)
+        with self.server([{'result': {'principal': 'observer'}}, {'result': META},
+                          {'result': open_row}, HEADER.pack(HEARTBEAT, 0, 100),
+                          HEADER.pack(FRAME, 1, 101) + frames]) as (live, _):
+            samples = []
+            live.packet_probe = lambda *sample: samples.append(sample)
+            live.connect()
+            packets = live.packets()
+            self.assertIsNone(next(packets)[2])
+            self.assertEqual(samples, [])
+            self.assertEqual(next(packets)[2], frames)
+            (stage, sequence, captured, header, payload), = samples
+            self.assertEqual((stage, sequence, captured), ('wire', 1, 101))
+            self.assertGreaterEqual(payload, header)
+
     def test_separate_credential_must_authenticate_the_console_principal(self):
         for principal in ('owner', 'delegate'):
             with self.subTest(principal=principal), self.server(

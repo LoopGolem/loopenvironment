@@ -62,6 +62,7 @@ class VisualPane(Gtk.Box):
     def __init__(self, args, connection, *, on_invalidated=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.args, self.connection = args, connection
+        self.probe = None
         self.on_invalidated = on_invalidated
         for side in ('top', 'bottom', 'start', 'end'):
             getattr(self, 'set_margin_' + side)(10)
@@ -151,9 +152,11 @@ class VisualPane(Gtk.Box):
                 if self.stop.is_set():
                     return
                 self.connected = time.monotonic_ns()
-            for _, captured, data in self.connection.packets():
+            for sequence, captured, data in self.connection.packets():
                 now = time.monotonic_ns()
                 marker = motion_marker(data) if data and self.args.measure_motion else None
+                if self.probe is not None and data is not None:
+                    self.probe('decode', sequence, now, time.monotonic_ns(), marker)
                 with self.lock:
                     if self.stop.is_set() or self.failure:
                         return
@@ -172,9 +175,13 @@ class VisualPane(Gtk.Box):
                     self.last_change = now
                     if self.latest:
                         self.overwritten += 1
+                        if self.probe is not None:
+                            self.probe('overwrite', self.latest[2], time.monotonic_ns())
                     else:
                         self.queue_draw_update()
-                    self.latest = (data, marker)
+                    self.latest = (data, marker, sequence)
+                    if self.probe is not None:
+                        self.probe('mailbox', sequence, time.monotonic_ns())
         except Fault as error:
             reason = error.message
             if reason == 'session_ended' or (reason == 'presentation_identity_mismatch' and error.code != -32002):
@@ -201,6 +208,8 @@ class VisualPane(Gtk.Box):
         with self.lock:
             self.draw_source = 0
             failed = self.failure is not None
+            if self.probe is not None and self.latest is not None:
+                self.probe('idle', self.latest[2], time.monotonic_ns())
         if self.stop.is_set():
             return GLib.SOURCE_REMOVE
         if failed:
@@ -216,25 +225,31 @@ class VisualPane(Gtk.Box):
             latest, self.latest = self.latest, None
             can_draw = not self.failure and not self.stop.is_set()
         if latest is not None and can_draw:
-            data, marker = latest
+            data, marker, sequence = latest
+            start = time.monotonic_ns() if self.probe is not None else 0
             texture = Gdk.MemoryTexture.new(*OUTPUT, Gdk.MemoryFormat.B8G8R8X8,
                                             GLib.Bytes.new(data), STRIDE)
+            built = time.monotonic_ns() if self.probe is not None else 0
             self.picture.set_paintable(texture)
-            self.pending_paint = (clock.get_frame_counter(), marker)
+            if self.probe is not None:
+                self.probe('draw', sequence, start, built, time.monotonic_ns())
+            self.pending_paint = (clock.get_frame_counter(), marker, sequence)
         return GLib.SOURCE_REMOVE
 
     def after_paint(self, _clock):
         if self.pending_paint is None:
             return
-        counter, marker = self.pending_paint
+        counter, marker, sequence = self.pending_paint
         self.pending_paint = None
         now = time.monotonic_ns()
         if self.first_paint is None:
             self.first_paint = now
         self.painted += 1
+        if self.probe is not None:
+            self.probe('paint', sequence, now)
         self.recent.append(now)
         wall_minus_monotonic_ms = (time.time_ns() - now) / 1e6
-        self.timings.append((counter, marker, wall_minus_monotonic_ms))
+        self.timings.append((counter, marker, wall_minus_monotonic_ms, sequence))
         if marker and (not self.fixture_last or marker[0] > self.fixture_last[0]):
             self.fixture_first = self.fixture_first or marker
             self.fixture_last = marker
@@ -248,7 +263,7 @@ class VisualPane(Gtk.Box):
         if clock is None:
             return
         while self.timings:
-            counter, marker, offset = self.timings[0]
+            counter, marker, offset, sequence = self.timings[0]
             timing = clock.get_timings(counter)
             if timing is not None and not timing.get_complete():
                 if clock.get_frame_counter() - counter < 12:
@@ -257,6 +272,8 @@ class VisualPane(Gtk.Box):
             presented = timing.get_presentation_time() if timing is not None else 0
             if presented > 0 and timing.get_complete():
                 self.presented += 1
+                if self.probe is not None:
+                    self.probe('feedback', sequence, presented * 1000)
                 if marker and marker[0] > self.fixture_last_feedback:
                     self.fixture_last_feedback = marker[0]
                     latency = presented / 1000 + offset - marker[1]
@@ -287,6 +304,7 @@ class VisualPane(Gtk.Box):
     def status(self):
         if self.stop.is_set():
             return GLib.SOURCE_REMOVE
+        started = time.monotonic_ns() if self.probe is not None else 0
         self.feedback()
         now = time.monotonic_ns()
         with self.lock:
@@ -324,6 +342,8 @@ class VisualPane(Gtk.Box):
                 tmp.replace(mark)
             except OSError:
                 pass
+        if self.probe is not None:
+            self.probe('status', 0, started, time.monotonic_ns())
         return GLib.SOURCE_CONTINUE
 
 

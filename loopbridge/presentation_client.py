@@ -4,6 +4,7 @@ from contextlib import closing, suppress
 import re
 import socket
 from threading import Event, Lock
+from time import monotonic_ns
 
 from .presentation import CAPABILITY, FORMAT, FRAME, FRAME_BYTES, HEADER, HEARTBEAT, STRIDE
 from .private_effects import OUTPUT
@@ -48,6 +49,7 @@ class LiveConnection:
         self.cancelled = Event()
         self.diagnostic_lock = Lock()
         self.diagnostic_peer = None
+        self.packet_probe = None
 
     def _connect_rpc(self, peer, timeout):
         peer.settimeout(timeout)
@@ -140,7 +142,12 @@ class LiveConnection:
                 yield sequence, timestamp, None
             elif kind == FRAME and sequence == latest + 1:
                 latest = sequence
-                yield sequence, timestamp, self.read(FRAME_BYTES)
+                probe = self.packet_probe
+                header = monotonic_ns() if probe is not None else 0
+                data = self.read(FRAME_BYTES)
+                if probe is not None:
+                    probe('wire', sequence, timestamp, header, monotonic_ns())
+                yield sequence, timestamp, data
             else:
                 raise ValueError('invalid_media_header')
 

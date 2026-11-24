@@ -1,0 +1,2949 @@
+{
+  "milestone": "V0.8-C.4",
+  "base_main": "b4e9fef877365864c1734d9f038a22ba630b9d78",
+  "environment": {
+    "os": "Debian 13.7 amd64",
+    "logical_cpus": 2,
+    "gtk": "4.18.6",
+    "sway": "1.10.1",
+    "wlroots": "0.18.2",
+    "firefox_esr": "153.7.0esr",
+    "renderer": "GTK Cairo / wlroots Pixman",
+    "bridge_profile": "disposable local same-UID",
+    "scale": 1
+  },
+  "pilot_calculator": {
+    "source_display_verified": true,
+    "received": 11,
+    "unique": 11,
+    "painted": 11
+  },
+  "legacy_replay": {
+    "result": "PARTIAL",
+    "stage": "complete",
+    "motion": {
+      "sourceFrames": 386,
+      "painted": 125,
+      "missed": 261,
+      "seconds": 9.089,
+      "fps": 13.64,
+      "receivedSourceFrames": 182
+    },
+    "trace": {
+      "status_samples": 6,
+      "last": {
+        "state": "AO VIVO",
+        "reason": null,
+        "received": 215,
+        "unique": 201,
+        "painted": 144,
+        "motion_painted": 125
+      }
+    }
+  },
+  "paired": {
+    "complete": true,
+    "renderer": "cairo",
+    "logical_cpus": 2,
+    "output": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 800
+    },
+    "rounds": [
+      {
+        "round": 1,
+        "mode": "standalone",
+        "windows": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 800
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.019,
+            "frames": {
+              "received": 443,
+              "unique": 443,
+              "overwritten": 49,
+              "submitted": 394,
+              "painted": 394,
+              "feedback": 394,
+              "decoded": 443,
+              "markers_painted": 394
+            },
+            "fps": {
+              "received": 29.49,
+              "painted": 26.23
+            },
+            "source": {
+              "source_deltas": 842,
+              "source_fps": 56.26,
+              "absent_at_client_between_markers": 400
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 443,
+                "median": 34.128,
+                "p95": 60.859
+              },
+              "capture_to_header": {
+                "n": 443,
+                "median": 0.96,
+                "p95": 8.717
+              },
+              "header_to_payload": {
+                "n": 443,
+                "median": 9.153,
+                "p95": 49.179
+              },
+              "capture_to_payload": {
+                "n": 443,
+                "median": 11.291,
+                "p95": 53.875
+              },
+              "decode": {
+                "n": 443,
+                "median": 0.451,
+                "p95": 4.834
+              },
+              "payload_to_mailbox": {
+                "n": 443,
+                "median": 0.98,
+                "p95": 7.688
+              },
+              "mailbox_to_idle": {
+                "n": 388,
+                "median": 1.6,
+                "p95": 20.097
+              },
+              "idle_to_tick": {
+                "n": 388,
+                "median": 0.155,
+                "p95": 5.376
+              },
+              "mailbox_to_tick": {
+                "n": 394,
+                "median": 2.112,
+                "p95": 23.641
+              },
+              "texture": {
+                "n": 394,
+                "median": 0.537,
+                "p95": 3.919
+              },
+              "assign_picture": {
+                "n": 394,
+                "median": 0.03,
+                "p95": 0.096
+              },
+              "assign_to_paint": {
+                "n": 394,
+                "median": 18.933,
+                "p95": 43.5
+              },
+              "paint_to_feedback": {
+                "n": 394,
+                "median": 0.809,
+                "p95": 8.13
+              },
+              "origin_to_paint": {
+                "n": 394,
+                "median": 78.91,
+                "p95": 144.048
+              },
+              "origin_to_feedback": {
+                "n": 394,
+                "median": 80.093,
+                "p95": 145.246
+              },
+              "status_callback": {
+                "n": 58,
+                "median": 0.305,
+                "p95": 2.899
+              },
+              "tick_interval": {
+                "n": 393,
+                "median": 32.901,
+                "p95": 78.67
+              },
+              "paint_interval": {
+                "n": 393,
+                "median": 33.751,
+                "p95": 80.613
+              }
+            },
+            "mailbox_overwrite_pct": 11.06,
+            "video_region": [
+              1260,
+              754
+            ],
+            "activity_queries": 0,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 84.81,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 27.2,
+            "rss_end_mib": 27.2
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.99,
+            "rss_start_mib": 20.85,
+            "rss_end_mib": 20.85
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.77,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 7.96,
+            "rss_start_mib": 24.58,
+            "rss_end_mib": 24.59
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 40.0,
+            "rss_start_mib": 965.43,
+            "rss_end_mib": 959.43
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 61.29,
+            "rss_start_mib": 84.6,
+            "rss_end_mib": 85.23
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.91,
+            "rss_start_mib": 3.54,
+            "rss_end_mib": 3.54
+          }
+        },
+        "idle_after_viewer_exit_ms": 62.87
+      },
+      {
+        "round": 1,
+        "mode": "visual",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.017,
+            "frames": {
+              "received": 400,
+              "unique": 400,
+              "overwritten": 37,
+              "submitted": 362,
+              "painted": 362,
+              "feedback": 362,
+              "decoded": 400,
+              "markers_painted": 362
+            },
+            "fps": {
+              "received": 26.64,
+              "painted": 24.11
+            },
+            "source": {
+              "source_deltas": 831,
+              "source_fps": 55.15,
+              "absent_at_client_between_markers": 432
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0005
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 400,
+                "median": 35.292,
+                "p95": 60.19
+              },
+              "capture_to_header": {
+                "n": 400,
+                "median": 1.438,
+                "p95": 9.391
+              },
+              "header_to_payload": {
+                "n": 400,
+                "median": 11.766,
+                "p95": 53.791
+              },
+              "capture_to_payload": {
+                "n": 400,
+                "median": 14.33,
+                "p95": 58.945
+              },
+              "decode": {
+                "n": 400,
+                "median": 0.965,
+                "p95": 5.266
+              },
+              "payload_to_mailbox": {
+                "n": 400,
+                "median": 1.339,
+                "p95": 8.716
+              },
+              "mailbox_to_idle": {
+                "n": 354,
+                "median": 1.666,
+                "p95": 22.886
+              },
+              "idle_to_tick": {
+                "n": 354,
+                "median": 0.236,
+                "p95": 7.157
+              },
+              "mailbox_to_tick": {
+                "n": 362,
+                "median": 2.814,
+                "p95": 25.956
+              },
+              "texture": {
+                "n": 362,
+                "median": 0.626,
+                "p95": 5.04
+              },
+              "assign_picture": {
+                "n": 362,
+                "median": 0.033,
+                "p95": 0.124
+              },
+              "assign_to_paint": {
+                "n": 362,
+                "median": 17.21,
+                "p95": 44.924
+              },
+              "paint_to_feedback": {
+                "n": 362,
+                "median": 2.379,
+                "p95": 11.593
+              },
+              "origin_to_paint": {
+                "n": 362,
+                "median": 79.514,
+                "p95": 149.085
+              },
+              "origin_to_feedback": {
+                "n": 362,
+                "median": 83.377,
+                "p95": 152.264
+              },
+              "status_callback": {
+                "n": 58,
+                "median": 0.497,
+                "p95": 4.752
+              },
+              "tick_interval": {
+                "n": 361,
+                "median": 36.718,
+                "p95": 80.463
+              },
+              "paint_interval": {
+                "n": 361,
+                "median": 36.692,
+                "p95": 88.891
+              }
+            },
+            "mailbox_overwrite_pct": 9.25,
+            "video_region": [
+              1000,
+              574
+            ],
+            "activity_queries": 0,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 84.41,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 27.26,
+            "rss_end_mib": 28.02
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.46,
+            "rss_start_mib": 31.1,
+            "rss_end_mib": 31.1
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.73,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.73,
+            "rss_start_mib": 24.59,
+            "rss_end_mib": 24.59
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 39.63,
+            "rss_start_mib": 960.02,
+            "rss_end_mib": 960.09
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 57.49,
+            "rss_start_mib": 98.88,
+            "rss_end_mib": 99.23
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 5.13,
+            "rss_start_mib": 3.52,
+            "rss_end_mib": 3.52
+          }
+        },
+        "idle_after_viewer_exit_ms": 14.8
+      },
+      {
+        "round": 1,
+        "mode": "combined",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.004,
+            "frames": {
+              "received": 387,
+              "unique": 388,
+              "overwritten": 139,
+              "submitted": 250,
+              "painted": 250,
+              "feedback": 250,
+              "decoded": 387,
+              "markers_painted": 250
+            },
+            "fps": {
+              "received": 25.79,
+              "painted": 16.66
+            },
+            "source": {
+              "source_deltas": 768,
+              "source_fps": 51.54,
+              "absent_at_client_between_markers": 382
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0266
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 387,
+                "median": 37.54,
+                "p95": 71.649
+              },
+              "capture_to_header": {
+                "n": 387,
+                "median": 1.597,
+                "p95": 10.226
+              },
+              "header_to_payload": {
+                "n": 387,
+                "median": 11.033,
+                "p95": 53.704
+              },
+              "capture_to_payload": {
+                "n": 387,
+                "median": 15.103,
+                "p95": 57.764
+              },
+              "decode": {
+                "n": 387,
+                "median": 0.886,
+                "p95": 4.533
+              },
+              "payload_to_mailbox": {
+                "n": 388,
+                "median": 1.193,
+                "p95": 8.268
+              },
+              "mailbox_to_idle": {
+                "n": 238,
+                "median": 7.747,
+                "p95": 39.67
+              },
+              "idle_to_tick": {
+                "n": 238,
+                "median": 0.239,
+                "p95": 6.817
+              },
+              "mailbox_to_tick": {
+                "n": 250,
+                "median": 8.267,
+                "p95": 40.546
+              },
+              "texture": {
+                "n": 250,
+                "median": 0.577,
+                "p95": 3.873
+              },
+              "assign_picture": {
+                "n": 250,
+                "median": 0.034,
+                "p95": 0.125
+              },
+              "assign_to_paint": {
+                "n": 250,
+                "median": 40.198,
+                "p95": 78.979
+              },
+              "paint_to_feedback": {
+                "n": 250,
+                "median": 1.701,
+                "p95": 10.429
+              },
+              "origin_to_paint": {
+                "n": 250,
+                "median": 112.553,
+                "p95": 188.273
+              },
+              "origin_to_feedback": {
+                "n": 250,
+                "median": 116.148,
+                "p95": 194.105
+              },
+              "status_callback": {
+                "n": 55,
+                "median": 0.367,
+                "p95": 3.95
+              },
+              "tick_interval": {
+                "n": 249,
+                "median": 51.272,
+                "p95": 118.683
+              },
+              "paint_interval": {
+                "n": 249,
+                "median": 50.412,
+                "p95": 130.735
+              }
+            },
+            "mailbox_overwrite_pct": 35.82,
+            "video_region": [
+              1000,
+              385
+            ],
+            "activity_queries": 7,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 86.68,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 28.43,
+            "rss_end_mib": 28.43
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 2.19,
+            "rss_start_mib": 28.68,
+            "rss_end_mib": 28.68
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 5.91,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 7.77,
+            "rss_start_mib": 25.02,
+            "rss_end_mib": 25.04
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 35.02,
+            "rss_start_mib": 960.1,
+            "rss_end_mib": 960.97
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 70.9,
+            "rss_start_mib": 95.86,
+            "rss_end_mib": 96.25
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.25,
+            "rss_start_mib": 3.39,
+            "rss_end_mib": 3.39
+          }
+        },
+        "idle_after_viewer_exit_ms": 18.5
+      },
+      {
+        "round": 1,
+        "mode": "dual",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 510,
+            "height": 620
+          },
+          {
+            "x": 770,
+            "y": 0,
+            "width": 510,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.018,
+            "frames": {
+              "received": 217,
+              "unique": 217,
+              "overwritten": 137,
+              "submitted": 80,
+              "painted": 80,
+              "feedback": 80,
+              "decoded": 217,
+              "markers_painted": 80
+            },
+            "fps": {
+              "received": 14.45,
+              "painted": 5.33
+            },
+            "source": {
+              "source_deltas": 710,
+              "source_fps": 47.68,
+              "absent_at_client_between_markers": 494
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 217,
+                "median": 45.408,
+                "p95": 94.54
+              },
+              "capture_to_header": {
+                "n": 217,
+                "median": 2.051,
+                "p95": 12.952
+              },
+              "header_to_payload": {
+                "n": 217,
+                "median": 24.176,
+                "p95": 131.657
+              },
+              "capture_to_payload": {
+                "n": 217,
+                "median": 28.597,
+                "p95": 136.204
+              },
+              "decode": {
+                "n": 217,
+                "median": 1.039,
+                "p95": 8.175
+              },
+              "payload_to_mailbox": {
+                "n": 217,
+                "median": 1.297,
+                "p95": 10.321
+              },
+              "mailbox_to_idle": {
+                "n": 42,
+                "median": 20.752,
+                "p95": 85.706
+              },
+              "idle_to_tick": {
+                "n": 42,
+                "median": 0.204,
+                "p95": 78.106
+              },
+              "mailbox_to_tick": {
+                "n": 80,
+                "median": 28.767,
+                "p95": 107.985
+              },
+              "texture": {
+                "n": 80,
+                "median": 0.631,
+                "p95": 13.488
+              },
+              "assign_picture": {
+                "n": 80,
+                "median": 0.033,
+                "p95": 0.2
+              },
+              "assign_to_paint": {
+                "n": 80,
+                "median": 53.395,
+                "p95": 132.827
+              },
+              "paint_to_feedback": {
+                "n": 80,
+                "median": 3.255,
+                "p95": 79.784
+              },
+              "origin_to_paint": {
+                "n": 80,
+                "median": 182.531,
+                "p95": 374.393
+              },
+              "origin_to_feedback": {
+                "n": 80,
+                "median": 192.796,
+                "p95": 396.129
+              },
+              "status_callback": {
+                "n": 49,
+                "median": 0.305,
+                "p95": 4.979
+              },
+              "tick_interval": {
+                "n": 79,
+                "median": 169.525,
+                "p95": 373.473
+              },
+              "paint_interval": {
+                "n": 79,
+                "median": 176.227,
+                "p95": 347.22
+              }
+            },
+            "mailbox_overwrite_pct": 63.13,
+            "video_region": [
+              490,
+              385
+            ],
+            "activity_queries": 8,
+            "failure": null
+          },
+          {
+            "seconds": 15.018,
+            "frames": {
+              "received": 251,
+              "unique": 251,
+              "overwritten": 160,
+              "submitted": 91,
+              "painted": 91,
+              "feedback": 91,
+              "decoded": 251,
+              "markers_painted": 91
+            },
+            "fps": {
+              "received": 16.71,
+              "painted": 6.06
+            },
+            "source": {
+              "source_deltas": 715,
+              "source_fps": 47.73,
+              "absent_at_client_between_markers": 465
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 251,
+                "median": 45.089,
+                "p95": 90.013
+              },
+              "capture_to_header": {
+                "n": 251,
+                "median": 3.02,
+                "p95": 15.21
+              },
+              "header_to_payload": {
+                "n": 251,
+                "median": 22.758,
+                "p95": 98.421
+              },
+              "capture_to_payload": {
+                "n": 251,
+                "median": 27.366,
+                "p95": 106.744
+              },
+              "decode": {
+                "n": 251,
+                "median": 1.043,
+                "p95": 9.221
+              },
+              "payload_to_mailbox": {
+                "n": 251,
+                "median": 1.286,
+                "p95": 14.106
+              },
+              "mailbox_to_idle": {
+                "n": 71,
+                "median": 19.727,
+                "p95": 86.613
+              },
+              "idle_to_tick": {
+                "n": 71,
+                "median": 2.867,
+                "p95": 34.334
+              },
+              "mailbox_to_tick": {
+                "n": 91,
+                "median": 21.215,
+                "p95": 89.4
+              },
+              "texture": {
+                "n": 91,
+                "median": 0.692,
+                "p95": 9.067
+              },
+              "assign_picture": {
+                "n": 91,
+                "median": 0.035,
+                "p95": 0.166
+              },
+              "assign_to_paint": {
+                "n": 91,
+                "median": 62.003,
+                "p95": 138.576
+              },
+              "paint_to_feedback": {
+                "n": 91,
+                "median": 32.535,
+                "p95": 135.547
+              },
+              "origin_to_paint": {
+                "n": 91,
+                "median": 183.956,
+                "p95": 324.633
+              },
+              "origin_to_feedback": {
+                "n": 91,
+                "median": 219.94,
+                "p95": 405.784
+              },
+              "status_callback": {
+                "n": 49,
+                "median": 0.206,
+                "p95": 0.87
+              },
+              "tick_interval": {
+                "n": 90,
+                "median": 141.393,
+                "p95": 321.881
+              },
+              "paint_interval": {
+                "n": 90,
+                "median": 139.798,
+                "p95": 332.322
+              }
+            },
+            "mailbox_overwrite_pct": 63.75,
+            "video_region": [
+              490,
+              385
+            ],
+            "activity_queries": 8,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 90.83,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 28.95,
+            "rss_end_mib": 28.95
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 1.13,
+            "rss_start_mib": 31.11,
+            "rss_end_mib": 31.11
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.64,
+            "rss_start_mib": 31.18,
+            "rss_end_mib": 31.18
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 13.75,
+            "rss_start_mib": 25.17,
+            "rss_end_mib": 25.19
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 36.07,
+            "rss_start_mib": 961.77,
+            "rss_end_mib": 961.96
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 66.29,
+            "rss_start_mib": 110.62,
+            "rss_end_mib": 111.07
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.85,
+            "rss_start_mib": 3.41,
+            "rss_end_mib": 3.41
+          },
+          "capture_2": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.65,
+            "rss_start_mib": 3.4,
+            "rss_end_mib": 3.4
+          }
+        },
+        "idle_after_viewer_exit_ms": 41.89
+      },
+      {
+        "round": 2,
+        "mode": "dual",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 510,
+            "height": 620
+          },
+          {
+            "x": 770,
+            "y": 0,
+            "width": 510,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.155,
+            "frames": {
+              "received": 221,
+              "unique": 222,
+              "overwritten": 150,
+              "submitted": 71,
+              "painted": 71,
+              "feedback": 71,
+              "decoded": 221,
+              "markers_painted": 71
+            },
+            "fps": {
+              "received": 14.58,
+              "painted": 4.68
+            },
+            "source": {
+              "source_deltas": 729,
+              "source_fps": 48.24,
+              "absent_at_client_between_markers": 509
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0001
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 221,
+                "median": 45.148,
+                "p95": 93.084
+              },
+              "capture_to_header": {
+                "n": 221,
+                "median": 2.976,
+                "p95": 14.767
+              },
+              "header_to_payload": {
+                "n": 221,
+                "median": 30.616,
+                "p95": 131.621
+              },
+              "capture_to_payload": {
+                "n": 221,
+                "median": 36.69,
+                "p95": 139.713
+              },
+              "decode": {
+                "n": 221,
+                "median": 1.049,
+                "p95": 12.217
+              },
+              "payload_to_mailbox": {
+                "n": 222,
+                "median": 1.344,
+                "p95": 17.256
+              },
+              "mailbox_to_idle": {
+                "n": 31,
+                "median": 17.965,
+                "p95": 99.842
+              },
+              "idle_to_tick": {
+                "n": 31,
+                "median": 0.284,
+                "p95": 81.984
+              },
+              "mailbox_to_tick": {
+                "n": 71,
+                "median": 24.805,
+                "p95": 104.52
+              },
+              "texture": {
+                "n": 71,
+                "median": 0.699,
+                "p95": 7.638
+              },
+              "assign_picture": {
+                "n": 71,
+                "median": 0.038,
+                "p95": 0.842
+              },
+              "assign_to_paint": {
+                "n": 71,
+                "median": 61.6,
+                "p95": 141.835
+              },
+              "paint_to_feedback": {
+                "n": 71,
+                "median": 4.117,
+                "p95": 36.171
+              },
+              "origin_to_paint": {
+                "n": 71,
+                "median": 197.868,
+                "p95": 336.275
+              },
+              "origin_to_feedback": {
+                "n": 71,
+                "median": 206.947,
+                "p95": 376.086
+              },
+              "status_callback": {
+                "n": 47,
+                "median": 0.308,
+                "p95": 1.527
+              },
+              "tick_interval": {
+                "n": 70,
+                "median": 191.216,
+                "p95": 431.274
+              },
+              "paint_interval": {
+                "n": 70,
+                "median": 186.343,
+                "p95": 424.738
+              }
+            },
+            "mailbox_overwrite_pct": 67.57,
+            "video_region": [
+              490,
+              385
+            ],
+            "activity_queries": 8,
+            "failure": null
+          },
+          {
+            "seconds": 15.155,
+            "frames": {
+              "received": 237,
+              "unique": 237,
+              "overwritten": 157,
+              "submitted": 80,
+              "painted": 80,
+              "feedback": 80,
+              "decoded": 237,
+              "markers_painted": 80
+            },
+            "fps": {
+              "received": 15.64,
+              "painted": 5.28
+            },
+            "source": {
+              "source_deltas": 723,
+              "source_fps": 48.36,
+              "absent_at_client_between_markers": 487
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0001
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 237,
+                "median": 46.545,
+                "p95": 95.324
+              },
+              "capture_to_header": {
+                "n": 237,
+                "median": 3.669,
+                "p95": 15.663
+              },
+              "header_to_payload": {
+                "n": 237,
+                "median": 31.173,
+                "p95": 105.513
+              },
+              "capture_to_payload": {
+                "n": 237,
+                "median": 35.111,
+                "p95": 110.644
+              },
+              "decode": {
+                "n": 237,
+                "median": 1.076,
+                "p95": 17.286
+              },
+              "payload_to_mailbox": {
+                "n": 237,
+                "median": 1.433,
+                "p95": 22.602
+              },
+              "mailbox_to_idle": {
+                "n": 60,
+                "median": 26.162,
+                "p95": 79.113
+              },
+              "idle_to_tick": {
+                "n": 60,
+                "median": 2.929,
+                "p95": 21.589
+              },
+              "mailbox_to_tick": {
+                "n": 80,
+                "median": 29.778,
+                "p95": 84.362
+              },
+              "texture": {
+                "n": 80,
+                "median": 0.805,
+                "p95": 12.866
+              },
+              "assign_picture": {
+                "n": 80,
+                "median": 0.034,
+                "p95": 0.109
+              },
+              "assign_to_paint": {
+                "n": 80,
+                "median": 64.369,
+                "p95": 127.794
+              },
+              "paint_to_feedback": {
+                "n": 80,
+                "median": 45.899,
+                "p95": 142.943
+              },
+              "origin_to_paint": {
+                "n": 80,
+                "median": 190.345,
+                "p95": 326.471
+              },
+              "origin_to_feedback": {
+                "n": 80,
+                "median": 249.76,
+                "p95": 399.716
+              },
+              "status_callback": {
+                "n": 47,
+                "median": 0.178,
+                "p95": 8.561
+              },
+              "tick_interval": {
+                "n": 79,
+                "median": 175.085,
+                "p95": 432.352
+              },
+              "paint_interval": {
+                "n": 79,
+                "median": 175.584,
+                "p95": 450.665
+              }
+            },
+            "mailbox_overwrite_pct": 66.24,
+            "video_region": [
+              490,
+              385
+            ],
+            "activity_queries": 8,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 90.81,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.0,
+            "rss_start_mib": 28.95,
+            "rss_end_mib": 28.95
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 1.12,
+            "rss_start_mib": 33.09,
+            "rss_end_mib": 33.09
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 7.23,
+            "rss_start_mib": 31.18,
+            "rss_end_mib": 31.18
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 14.39,
+            "rss_start_mib": 25.21,
+            "rss_end_mib": 25.22
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 35.94,
+            "rss_start_mib": 961.96,
+            "rss_end_mib": 961.95
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 65.18,
+            "rss_start_mib": 109.94,
+            "rss_end_mib": 110.41
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.94,
+            "rss_start_mib": 3.52,
+            "rss_end_mib": 3.52
+          },
+          "capture_2": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.94,
+            "rss_start_mib": 3.4,
+            "rss_end_mib": 3.4
+          }
+        },
+        "idle_after_viewer_exit_ms": 62.22
+      },
+      {
+        "round": 2,
+        "mode": "combined",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.023,
+            "frames": {
+              "received": 363,
+              "unique": 363,
+              "overwritten": 148,
+              "submitted": 215,
+              "painted": 215,
+              "feedback": 215,
+              "decoded": 363,
+              "markers_painted": 215
+            },
+            "fps": {
+              "received": 24.16,
+              "painted": 14.31
+            },
+            "source": {
+              "source_deltas": 771,
+              "source_fps": 51.52,
+              "absent_at_client_between_markers": 409
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0004
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 363,
+                "median": 37.237,
+                "p95": 72.489
+              },
+              "capture_to_header": {
+                "n": 363,
+                "median": 1.732,
+                "p95": 8.777
+              },
+              "header_to_payload": {
+                "n": 363,
+                "median": 13.719,
+                "p95": 63.196
+              },
+              "capture_to_payload": {
+                "n": 363,
+                "median": 17.313,
+                "p95": 65.298
+              },
+              "decode": {
+                "n": 363,
+                "median": 1.025,
+                "p95": 7.652
+              },
+              "payload_to_mailbox": {
+                "n": 363,
+                "median": 1.295,
+                "p95": 9.77
+              },
+              "mailbox_to_idle": {
+                "n": 208,
+                "median": 11.465,
+                "p95": 38.677
+              },
+              "idle_to_tick": {
+                "n": 208,
+                "median": 0.335,
+                "p95": 8.147
+              },
+              "mailbox_to_tick": {
+                "n": 215,
+                "median": 12.775,
+                "p95": 40.318
+              },
+              "texture": {
+                "n": 215,
+                "median": 0.671,
+                "p95": 5.265
+              },
+              "assign_picture": {
+                "n": 215,
+                "median": 0.035,
+                "p95": 0.336
+              },
+              "assign_to_paint": {
+                "n": 215,
+                "median": 47.236,
+                "p95": 97.68
+              },
+              "paint_to_feedback": {
+                "n": 215,
+                "median": 1.963,
+                "p95": 9.874
+              },
+              "origin_to_paint": {
+                "n": 215,
+                "median": 130.242,
+                "p95": 245.383
+              },
+              "origin_to_feedback": {
+                "n": 215,
+                "median": 133.703,
+                "p95": 248.009
+              },
+              "status_callback": {
+                "n": 53,
+                "median": 0.401,
+                "p95": 2.43
+              },
+              "tick_interval": {
+                "n": 214,
+                "median": 60.859,
+                "p95": 138.828
+              },
+              "paint_interval": {
+                "n": 214,
+                "median": 60.439,
+                "p95": 150.244
+              }
+            },
+            "mailbox_overwrite_pct": 40.77,
+            "video_region": [
+              1000,
+              385
+            ],
+            "activity_queries": 8,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 88.44,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 28.95,
+            "rss_end_mib": 28.95
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 2.2,
+            "rss_start_mib": 28.68,
+            "rss_end_mib": 28.68
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.39,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.06,
+            "rss_start_mib": 25.18,
+            "rss_end_mib": 25.18
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 34.23,
+            "rss_start_mib": 961.96,
+            "rss_end_mib": 962.03
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 69.25,
+            "rss_start_mib": 95.84,
+            "rss_end_mib": 96.23
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.73,
+            "rss_start_mib": 3.39,
+            "rss_end_mib": 3.39
+          }
+        },
+        "idle_after_viewer_exit_ms": 79.01
+      },
+      {
+        "round": 2,
+        "mode": "visual",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.003,
+            "frames": {
+              "received": 336,
+              "unique": 336,
+              "overwritten": 35,
+              "submitted": 302,
+              "painted": 302,
+              "feedback": 302,
+              "decoded": 336,
+              "markers_painted": 302
+            },
+            "fps": {
+              "received": 22.39,
+              "painted": 20.13
+            },
+            "source": {
+              "source_deltas": 781,
+              "source_fps": 52.25,
+              "absent_at_client_between_markers": 446
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0004
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 336,
+                "median": 37.142,
+                "p95": 68.9
+              },
+              "capture_to_header": {
+                "n": 336,
+                "median": 1.395,
+                "p95": 9.077
+              },
+              "header_to_payload": {
+                "n": 336,
+                "median": 18.808,
+                "p95": 56.677
+              },
+              "capture_to_payload": {
+                "n": 336,
+                "median": 21.147,
+                "p95": 62.372
+              },
+              "decode": {
+                "n": 336,
+                "median": 1.025,
+                "p95": 7.336
+              },
+              "payload_to_mailbox": {
+                "n": 336,
+                "median": 1.399,
+                "p95": 9.386
+              },
+              "mailbox_to_idle": {
+                "n": 295,
+                "median": 1.438,
+                "p95": 27.018
+              },
+              "idle_to_tick": {
+                "n": 295,
+                "median": 0.178,
+                "p95": 7.474
+              },
+              "mailbox_to_tick": {
+                "n": 302,
+                "median": 2.286,
+                "p95": 31.689
+              },
+              "texture": {
+                "n": 302,
+                "median": 0.62,
+                "p95": 4.174
+              },
+              "assign_picture": {
+                "n": 302,
+                "median": 0.032,
+                "p95": 0.051
+              },
+              "assign_to_paint": {
+                "n": 302,
+                "median": 21.975,
+                "p95": 49.767
+              },
+              "paint_to_feedback": {
+                "n": 302,
+                "median": 2.259,
+                "p95": 10.716
+              },
+              "origin_to_paint": {
+                "n": 302,
+                "median": 95.657,
+                "p95": 170.184
+              },
+              "origin_to_feedback": {
+                "n": 302,
+                "median": 98.5,
+                "p95": 176.556
+              },
+              "status_callback": {
+                "n": 57,
+                "median": 0.497,
+                "p95": 9.585
+              },
+              "tick_interval": {
+                "n": 301,
+                "median": 43.691,
+                "p95": 105.339
+              },
+              "paint_interval": {
+                "n": 301,
+                "median": 42.49,
+                "p95": 106.105
+              }
+            },
+            "mailbox_overwrite_pct": 10.42,
+            "video_region": [
+              1000,
+              574
+            ],
+            "activity_queries": 0,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 85.08,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.07,
+            "rss_start_mib": 28.95,
+            "rss_end_mib": 28.95
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 3.11,
+            "rss_start_mib": 31.1,
+            "rss_end_mib": 31.1
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.28,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.8,
+            "rss_start_mib": 25.18,
+            "rss_end_mib": 25.18
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 41.28,
+            "rss_start_mib": 962.04,
+            "rss_end_mib": 962.98
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 52.72,
+            "rss_start_mib": 99.02,
+            "rss_end_mib": 99.32
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 5.16,
+            "rss_start_mib": 3.38,
+            "rss_end_mib": 3.38
+          }
+        },
+        "idle_after_viewer_exit_ms": 44.62
+      },
+      {
+        "round": 2,
+        "mode": "standalone",
+        "windows": [
+          {
+            "x": 0,
+            "y": 0,
+            "width": 1280,
+            "height": 800
+          }
+        ],
+        "views": [
+          {
+            "seconds": 15.019,
+            "frames": {
+              "received": 390,
+              "unique": 390,
+              "overwritten": 30,
+              "submitted": 361,
+              "painted": 361,
+              "feedback": 361,
+              "decoded": 390,
+              "markers_painted": 361
+            },
+            "fps": {
+              "received": 25.97,
+              "painted": 24.04
+            },
+            "source": {
+              "source_deltas": 826,
+              "source_fps": 55.15,
+              "absent_at_client_between_markers": 437
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.001
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 390,
+                "median": 34.895,
+                "p95": 63.542
+              },
+              "capture_to_header": {
+                "n": 390,
+                "median": 1.25,
+                "p95": 8.109
+              },
+              "header_to_payload": {
+                "n": 390,
+                "median": 11.571,
+                "p95": 54.151
+              },
+              "capture_to_payload": {
+                "n": 390,
+                "median": 13.911,
+                "p95": 60.896
+              },
+              "decode": {
+                "n": 390,
+                "median": 0.961,
+                "p95": 6.885
+              },
+              "payload_to_mailbox": {
+                "n": 390,
+                "median": 1.329,
+                "p95": 9.98
+              },
+              "mailbox_to_idle": {
+                "n": 357,
+                "median": 1.401,
+                "p95": 25.399
+              },
+              "idle_to_tick": {
+                "n": 357,
+                "median": 0.166,
+                "p95": 4.958
+              },
+              "mailbox_to_tick": {
+                "n": 361,
+                "median": 2.107,
+                "p95": 27.639
+              },
+              "texture": {
+                "n": 361,
+                "median": 0.589,
+                "p95": 5.216
+              },
+              "assign_picture": {
+                "n": 361,
+                "median": 0.033,
+                "p95": 0.125
+              },
+              "assign_to_paint": {
+                "n": 361,
+                "median": 17.968,
+                "p95": 48.758
+              },
+              "paint_to_feedback": {
+                "n": 361,
+                "median": 0.736,
+                "p95": 8.336
+              },
+              "origin_to_paint": {
+                "n": 361,
+                "median": 77.736,
+                "p95": 169.309
+              },
+              "origin_to_feedback": {
+                "n": 361,
+                "median": 79.719,
+                "p95": 171.076
+              },
+              "status_callback": {
+                "n": 57,
+                "median": 0.41,
+                "p95": 2.485
+              },
+              "tick_interval": {
+                "n": 360,
+                "median": 34.772,
+                "p95": 88.735
+              },
+              "paint_interval": {
+                "n": 360,
+                "median": 35.097,
+                "p95": 89.319
+              }
+            },
+            "mailbox_overwrite_pct": 7.69,
+            "video_region": [
+              1260,
+              754
+            ],
+            "activity_queries": 0,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 83.4,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.13,
+            "rss_start_mib": 28.95,
+            "rss_end_mib": 28.95
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 1.0,
+            "rss_start_mib": 20.85,
+            "rss_end_mib": 20.85
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.45,
+            "rss_start_mib": 29.34,
+            "rss_end_mib": 29.34
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.25,
+            "rss_start_mib": 25.18,
+            "rss_end_mib": 25.18
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 35.92,
+            "rss_start_mib": 962.99,
+            "rss_end_mib": 963.05
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 60.54,
+            "rss_start_mib": 84.33,
+            "rss_end_mib": 84.98
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.86,
+            "rss_start_mib": 3.43,
+            "rss_end_mib": 3.43
+          }
+        },
+        "idle_after_viewer_exit_ms": 41.0
+      }
+    ],
+    "calculator": {
+      "source_display_verified": true,
+      "received": 17,
+      "unique": 17,
+      "painted": 16
+    },
+    "without_observers": {
+      "seconds": 5.005,
+      "no_capturers": true,
+      "private_ready": true,
+      "host": {
+        "busy_pct": 46.72,
+        "steal_pct": 0.0
+      },
+      "resources": {
+        "driver": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 1.18,
+          "rss_start_mib": 28.95,
+          "rss_end_mib": 28.95
+        },
+        "display_sway": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 0.0,
+          "rss_start_mib": 20.85,
+          "rss_end_mib": 20.85
+        },
+        "private_sway": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 4.9,
+          "rss_start_mib": 27.51,
+          "rss_end_mib": 27.51
+        },
+        "broker": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 0.39,
+          "rss_start_mib": 25.14,
+          "rss_end_mib": 25.14
+        },
+        "firefox_tree": {
+          "processes": 10,
+          "expected": 10,
+          "cpu_pct_one_cpu": 41.77,
+          "rss_start_mib": 963.04,
+          "rss_end_mib": 963.14
+        }
+      }
+    }
+  },
+  "viewport_control": {
+    "complete": true,
+    "renderer": "cairo",
+    "logical_cpus": 2,
+    "output": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 800
+    },
+    "rounds": [
+      {
+        "round": 1,
+        "mode": "combined",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 12.109,
+            "frames": {
+              "received": 236,
+              "unique": 236,
+              "overwritten": 97,
+              "submitted": 139,
+              "painted": 139,
+              "feedback": 139,
+              "decoded": 236,
+              "markers_painted": 139
+            },
+            "fps": {
+              "received": 19.49,
+              "painted": 11.48
+            },
+            "source": {
+              "source_deltas": 607,
+              "source_fps": 49.94,
+              "absent_at_client_between_markers": 372
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0001
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 236,
+                "median": 43.13,
+                "p95": 73.606
+              },
+              "capture_to_header": {
+                "n": 236,
+                "median": 1.941,
+                "p95": 11.503
+              },
+              "header_to_payload": {
+                "n": 236,
+                "median": 20.674,
+                "p95": 87.47
+              },
+              "capture_to_payload": {
+                "n": 236,
+                "median": 24.414,
+                "p95": 94.068
+              },
+              "decode": {
+                "n": 236,
+                "median": 1.04,
+                "p95": 8.093
+              },
+              "payload_to_mailbox": {
+                "n": 236,
+                "median": 1.321,
+                "p95": 10.831
+              },
+              "mailbox_to_idle": {
+                "n": 136,
+                "median": 15.472,
+                "p95": 52.282
+              },
+              "idle_to_tick": {
+                "n": 136,
+                "median": 0.451,
+                "p95": 9.734
+              },
+              "mailbox_to_tick": {
+                "n": 139,
+                "median": 16.72,
+                "p95": 58.347
+              },
+              "texture": {
+                "n": 139,
+                "median": 0.694,
+                "p95": 8.706
+              },
+              "assign_picture": {
+                "n": 139,
+                "median": 0.034,
+                "p95": 0.061
+              },
+              "assign_to_paint": {
+                "n": 139,
+                "median": 58.669,
+                "p95": 122.641
+              },
+              "paint_to_feedback": {
+                "n": 139,
+                "median": 2.1,
+                "p95": 10.448
+              },
+              "origin_to_paint": {
+                "n": 139,
+                "median": 155.013,
+                "p95": 264.857
+              },
+              "origin_to_feedback": {
+                "n": 139,
+                "median": 159.216,
+                "p95": 265.274
+              },
+              "status_callback": {
+                "n": 42,
+                "median": 0.372,
+                "p95": 12.536
+              },
+              "tick_interval": {
+                "n": 138,
+                "median": 73.341,
+                "p95": 172.585
+              },
+              "paint_interval": {
+                "n": 138,
+                "median": 71.105,
+                "p95": 184.613
+              }
+            },
+            "mailbox_overwrite_pct": 41.1,
+            "video_region": [
+              1000,
+              385
+            ],
+            "renderer": "CairoRenderer",
+            "activity_queries": 6,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 89.16,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.08,
+            "rss_start_mib": 26.91,
+            "rss_end_mib": 26.91
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 1.98,
+            "rss_start_mib": 28.36,
+            "rss_end_mib": 28.36
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.11,
+            "rss_start_mib": 31.55,
+            "rss_end_mib": 31.55
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.67,
+            "rss_start_mib": 24.5,
+            "rss_end_mib": 24.52
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 41.56,
+            "rss_start_mib": 977.25,
+            "rss_end_mib": 959.38
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 64.36,
+            "rss_start_mib": 95.94,
+            "rss_end_mib": 96.16
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.63,
+            "rss_start_mib": 3.47,
+            "rss_end_mib": 3.47
+          }
+        },
+        "idle_after_viewer_exit_ms": 73.3
+      },
+      {
+        "round": 1,
+        "mode": "combined-direct",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 12.007,
+            "frames": {
+              "received": 273,
+              "unique": 273,
+              "overwritten": 93,
+              "submitted": 181,
+              "painted": 181,
+              "feedback": 181,
+              "decoded": 273,
+              "markers_painted": 181
+            },
+            "fps": {
+              "received": 22.74,
+              "painted": 15.07
+            },
+            "source": {
+              "source_deltas": 612,
+              "source_fps": 51.48,
+              "absent_at_client_between_markers": 340
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 273,
+                "median": 39.954,
+                "p95": 72.145
+              },
+              "capture_to_header": {
+                "n": 273,
+                "median": 1.377,
+                "p95": 8.002
+              },
+              "header_to_payload": {
+                "n": 273,
+                "median": 12.982,
+                "p95": 72.89
+              },
+              "capture_to_payload": {
+                "n": 273,
+                "median": 15.143,
+                "p95": 74.91
+              },
+              "decode": {
+                "n": 273,
+                "median": 0.76,
+                "p95": 6.159
+              },
+              "payload_to_mailbox": {
+                "n": 273,
+                "median": 1.198,
+                "p95": 8.85
+              },
+              "mailbox_to_idle": {
+                "n": 171,
+                "median": 7.811,
+                "p95": 35.195
+              },
+              "idle_to_tick": {
+                "n": 171,
+                "median": 0.171,
+                "p95": 8.759
+              },
+              "mailbox_to_tick": {
+                "n": 181,
+                "median": 8.655,
+                "p95": 40.429
+              },
+              "texture": {
+                "n": 181,
+                "median": 0.611,
+                "p95": 4.107
+              },
+              "assign_picture": {
+                "n": 181,
+                "median": 0.033,
+                "p95": 0.112
+              },
+              "assign_to_paint": {
+                "n": 181,
+                "median": 40.793,
+                "p95": 95.576
+              },
+              "paint_to_feedback": {
+                "n": 181,
+                "median": 1.435,
+                "p95": 9.565
+              },
+              "origin_to_paint": {
+                "n": 181,
+                "median": 123.164,
+                "p95": 234.976
+              },
+              "origin_to_feedback": {
+                "n": 181,
+                "median": 125.888,
+                "p95": 244.717
+              },
+              "status_callback": {
+                "n": 43,
+                "median": 0.368,
+                "p95": 5.218
+              },
+              "tick_interval": {
+                "n": 180,
+                "median": 59.161,
+                "p95": 125.239
+              },
+              "paint_interval": {
+                "n": 180,
+                "median": 58.828,
+                "p95": 137.757
+              }
+            },
+            "mailbox_overwrite_pct": 34.07,
+            "video_region": [
+              1000,
+              385
+            ],
+            "renderer": "CairoRenderer",
+            "activity_queries": 6,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 85.83,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.0,
+            "rss_start_mib": 26.98,
+            "rss_end_mib": 26.98
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 2.25,
+            "rss_start_mib": 28.36,
+            "rss_end_mib": 28.36
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.16,
+            "rss_start_mib": 31.55,
+            "rss_end_mib": 31.55
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.24,
+            "rss_start_mib": 24.54,
+            "rss_end_mib": 24.54
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 36.87,
+            "rss_start_mib": 959.07,
+            "rss_end_mib": 959.25
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 68.83,
+            "rss_start_mib": 95.92,
+            "rss_end_mib": 96.21
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.58,
+            "rss_start_mib": 3.41,
+            "rss_end_mib": 3.41
+          }
+        },
+        "idle_after_viewer_exit_ms": 51.77
+      },
+      {
+        "round": 2,
+        "mode": "combined-direct",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 12.056,
+            "frames": {
+              "received": 271,
+              "unique": 271,
+              "overwritten": 109,
+              "submitted": 162,
+              "painted": 162,
+              "feedback": 162,
+              "decoded": 271,
+              "markers_painted": 162
+            },
+            "fps": {
+              "received": 22.48,
+              "painted": 13.44
+            },
+            "source": {
+              "source_deltas": 645,
+              "source_fps": 53.61,
+              "absent_at_client_between_markers": 375
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 271,
+                "median": 38.416,
+                "p95": 66.007
+              },
+              "capture_to_header": {
+                "n": 271,
+                "median": 1.586,
+                "p95": 8.876
+              },
+              "header_to_payload": {
+                "n": 271,
+                "median": 13.414,
+                "p95": 82.251
+              },
+              "capture_to_payload": {
+                "n": 271,
+                "median": 16.814,
+                "p95": 85.035
+              },
+              "decode": {
+                "n": 271,
+                "median": 1.029,
+                "p95": 5.849
+              },
+              "payload_to_mailbox": {
+                "n": 271,
+                "median": 1.316,
+                "p95": 8.189
+              },
+              "mailbox_to_idle": {
+                "n": 155,
+                "median": 8.628,
+                "p95": 42.851
+              },
+              "idle_to_tick": {
+                "n": 155,
+                "median": 0.661,
+                "p95": 10.953
+              },
+              "mailbox_to_tick": {
+                "n": 162,
+                "median": 11.022,
+                "p95": 45.155
+              },
+              "texture": {
+                "n": 162,
+                "median": 0.645,
+                "p95": 7.301
+              },
+              "assign_picture": {
+                "n": 162,
+                "median": 0.034,
+                "p95": 0.102
+              },
+              "assign_to_paint": {
+                "n": 162,
+                "median": 46.894,
+                "p95": 95.114
+              },
+              "paint_to_feedback": {
+                "n": 162,
+                "median": 2.004,
+                "p95": 10.626
+              },
+              "origin_to_paint": {
+                "n": 162,
+                "median": 131.025,
+                "p95": 221.494
+              },
+              "origin_to_feedback": {
+                "n": 162,
+                "median": 133.469,
+                "p95": 222.578
+              },
+              "status_callback": {
+                "n": 44,
+                "median": 0.397,
+                "p95": 1.836
+              },
+              "tick_interval": {
+                "n": 161,
+                "median": 60.326,
+                "p95": 165.524
+              },
+              "paint_interval": {
+                "n": 161,
+                "median": 64.385,
+                "p95": 154.235
+              }
+            },
+            "mailbox_overwrite_pct": 40.22,
+            "video_region": [
+              1000,
+              385
+            ],
+            "renderer": "CairoRenderer",
+            "activity_queries": 6,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 87.24,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.08,
+            "rss_start_mib": 26.98,
+            "rss_end_mib": 26.98
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 2.32,
+            "rss_start_mib": 28.36,
+            "rss_end_mib": 28.36
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.39,
+            "rss_start_mib": 31.55,
+            "rss_end_mib": 31.55
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.38,
+            "rss_start_mib": 24.55,
+            "rss_end_mib": 24.56
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 10,
+            "cpu_pct_one_cpu": 35.83,
+            "rss_start_mib": 959.14,
+            "rss_end_mib": 959.19
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 68.43,
+            "rss_start_mib": 96.02,
+            "rss_end_mib": 96.26
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.98,
+            "rss_start_mib": 3.54,
+            "rss_end_mib": 3.54
+          }
+        },
+        "idle_after_viewer_exit_ms": 72.72
+      },
+      {
+        "round": 2,
+        "mode": "combined",
+        "windows": [
+          {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          }
+        ],
+        "views": [
+          {
+            "seconds": 12.104,
+            "frames": {
+              "received": 233,
+              "unique": 233,
+              "overwritten": 103,
+              "submitted": 130,
+              "painted": 130,
+              "feedback": 130,
+              "decoded": 233,
+              "markers_painted": 130
+            },
+            "fps": {
+              "received": 19.25,
+              "painted": 10.74
+            },
+            "source": {
+              "source_deltas": 570,
+              "source_fps": 47.17,
+              "absent_at_client_between_markers": 338
+            },
+            "clock": {
+              "realtime_to_monotonic_usable": true,
+              "offset_drift_ms": 0.0
+            },
+            "overhead_ms": {
+              "origin_to_capture": {
+                "n": 233,
+                "median": 41.222,
+                "p95": 91.357
+              },
+              "capture_to_header": {
+                "n": 233,
+                "median": 1.506,
+                "p95": 13.566
+              },
+              "header_to_payload": {
+                "n": 233,
+                "median": 19.796,
+                "p95": 84.052
+              },
+              "capture_to_payload": {
+                "n": 233,
+                "median": 22.778,
+                "p95": 95.89
+              },
+              "decode": {
+                "n": 233,
+                "median": 1.07,
+                "p95": 10.504
+              },
+              "payload_to_mailbox": {
+                "n": 233,
+                "median": 1.432,
+                "p95": 11.384
+              },
+              "mailbox_to_idle": {
+                "n": 127,
+                "median": 11.453,
+                "p95": 49.99
+              },
+              "idle_to_tick": {
+                "n": 127,
+                "median": 0.236,
+                "p95": 10.641
+              },
+              "mailbox_to_tick": {
+                "n": 130,
+                "median": 11.861,
+                "p95": 55.151
+              },
+              "texture": {
+                "n": 130,
+                "median": 0.677,
+                "p95": 4.5
+              },
+              "assign_picture": {
+                "n": 130,
+                "median": 0.036,
+                "p95": 0.1
+              },
+              "assign_to_paint": {
+                "n": 130,
+                "median": 50.781,
+                "p95": 122.748
+              },
+              "paint_to_feedback": {
+                "n": 130,
+                "median": 1.94,
+                "p95": 11.321
+              },
+              "origin_to_paint": {
+                "n": 130,
+                "median": 147.855,
+                "p95": 249.86
+              },
+              "origin_to_feedback": {
+                "n": 130,
+                "median": 152.259,
+                "p95": 252.799
+              },
+              "status_callback": {
+                "n": 41,
+                "median": 0.429,
+                "p95": 13.343
+              },
+              "tick_interval": {
+                "n": 129,
+                "median": 68.622,
+                "p95": 254.556
+              },
+              "paint_interval": {
+                "n": 129,
+                "median": 73.15,
+                "p95": 227.078
+              }
+            },
+            "mailbox_overwrite_pct": 44.21,
+            "video_region": [
+              1000,
+              385
+            ],
+            "renderer": "CairoRenderer",
+            "activity_queries": 6,
+            "failure": null
+          }
+        ],
+        "host": {
+          "busy_pct": 89.17,
+          "steal_pct": 0.0
+        },
+        "resources": {
+          "driver": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 0.25,
+            "rss_start_mib": 27.5,
+            "rss_end_mib": 27.5
+          },
+          "display_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 1.83,
+            "rss_start_mib": 30.8,
+            "rss_end_mib": 30.8
+          },
+          "private_sway": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 6.32,
+            "rss_start_mib": 31.55,
+            "rss_end_mib": 31.55
+          },
+          "broker": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 8.23,
+            "rss_start_mib": 24.57,
+            "rss_end_mib": 24.57
+          },
+          "firefox_tree": {
+            "processes": 10,
+            "expected": 11,
+            "cpu_pct_one_cpu": 38.39,
+            "rss_start_mib": 960.31,
+            "rss_end_mib": 960.64
+          },
+          "gtk": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 59.67,
+            "rss_start_mib": 99.04,
+            "rss_end_mib": 99.24
+          },
+          "capture_1": {
+            "processes": 1,
+            "expected": 1,
+            "cpu_pct_one_cpu": 4.49,
+            "rss_start_mib": 3.39,
+            "rss_end_mib": 3.39
+          }
+        },
+        "idle_after_viewer_exit_ms": 6.64
+      }
+    ],
+    "calculator": {
+      "source_display_verified": true,
+      "received": 12,
+      "unique": 11,
+      "painted": 11
+    },
+    "without_observers": {
+      "seconds": 5.005,
+      "no_capturers": true,
+      "private_ready": true,
+      "host": {
+        "busy_pct": 35.62,
+        "steal_pct": 0.0
+      },
+      "resources": {
+        "driver": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 0.6,
+          "rss_start_mib": 27.5,
+          "rss_end_mib": 27.5
+        },
+        "display_sway": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 0.0,
+          "rss_start_mib": 20.54,
+          "rss_end_mib": 20.54
+        },
+        "private_sway": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 4.57,
+          "rss_start_mib": 29.72,
+          "rss_end_mib": 29.72
+        },
+        "broker": {
+          "processes": 1,
+          "expected": 1,
+          "cpu_pct_one_cpu": 0.4,
+          "rss_start_mib": 24.53,
+          "rss_end_mib": 24.53
+        },
+        "firefox_tree": {
+          "processes": 10,
+          "expected": 10,
+          "cpu_pct_one_cpu": 35.18,
+          "rss_start_mib": 960.64,
+          "rss_end_mib": 960.48
+        }
+      }
+    }
+  },
+  "functional_regression": {
+    "graphics": {
+      "complete": true,
+      "geometry": [
+        {
+          "output": [
+            1280,
+            800
+          ],
+          "usable": {
+            "x": 260,
+            "y": 0,
+            "width": 1020,
+            "height": 620
+          },
+          "zones": [
+            260,
+            180
+          ],
+          "windows": {
+            "foot": {
+              "x": 260,
+              "y": 0,
+              "width": 340,
+              "height": 620
+            },
+            "LoopShell · Combined · desktop": {
+              "x": 600,
+              "y": 0,
+              "width": 340,
+              "height": 620
+            },
+            "LoopBridge · sessão privada ao vivo": {
+              "x": 940,
+              "y": 0,
+              "width": 340,
+              "height": 620
+            }
+          },
+          "picture": [
+            320,
+            367
+          ],
+          "feed": [
+            324,
+            72
+          ]
+        },
+        {
+          "output": [
+            1024,
+            768
+          ],
+          "usable": {
+            "x": 260,
+            "y": 0,
+            "width": 764,
+            "height": 588
+          },
+          "zones": [
+            260,
+            180
+          ],
+          "windows": {
+            "foot": {
+              "x": 260,
+              "y": 0,
+              "width": 255,
+              "height": 588
+            },
+            "LoopShell · Combined · desktop": {
+              "x": 515,
+              "y": 0,
+              "width": 255,
+              "height": 588
+            },
+            "LoopBridge · sessão privada ao vivo": {
+              "x": 770,
+              "y": 0,
+              "width": 254,
+              "height": 588
+            }
+          },
+          "picture": [
+            235,
+            317
+          ],
+          "feed": [
+            239,
+            72
+          ]
+        }
+      ],
+      "integration": {
+        "passed": [
+          "video_only",
+          "activity_only",
+          "standalone_activity",
+          "both_authorized",
+          "media_revoke",
+          "activity_revoke",
+          "both_revoked",
+          "media_disconnect_unconfirmed",
+          "activity_disconnect",
+          "no_heartbeat",
+          "retention_gap",
+          "stale_epoch",
+          "explicit_resync",
+          "two_distinct_combined",
+          "combined_and_visual",
+          "third_media_denied",
+          "console_disconnect",
+          "observer_control_and_workspace_denied",
+          "credentials_absent_from_ui",
+          "authentic_calculator_change",
+          "dual_visual_update"
+        ],
+        "consecutive_events": [
+          {
+            "sequence": 23,
+            "kind": "control.changed",
+            "phase": "controlled",
+            "revision": 23
+          },
+          {
+            "sequence": 24,
+            "kind": "operation.confirmed",
+            "phase": "controlled",
+            "revision": 24
+          },
+          {
+            "sequence": 25,
+            "kind": "control.released",
+            "phase": "idle",
+            "revision": 25
+          }
+        ]
+      },
+      "private_healthy_after_shell": true,
+      "no_capture_helpers_after_shell": true
+    },
+    "tests": 353,
+    "failures": 0,
+    "skipped": 0,
+    "gtk": true
+  },
+  "primary_sway_unchanged": {
+    "pid_start_time": true,
+    "config_sha256": true,
+    "version": true,
+    "outputs": true,
+    "workspaces": true
+  },
+  "layer_shell_packages_not_installed": true,
+  "performance_qualification": "PARTIAL"
+}
