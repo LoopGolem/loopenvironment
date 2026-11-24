@@ -138,10 +138,11 @@ class SQLiteRegistry(Registry):
     does within its process.
     """
 
-    def __init__(self, path, authority, *, wall_clock=time, create=False):
+    def __init__(self, path, authority, *, wall_clock=time, create=False, storage_check=None):
         super().__init__(authority, clock=lambda: self._decision_time)
         self._wall_clock = wall_clock
         self._decision_time = None
+        self._storage_check = storage_check
         self.path = Path(os.path.abspath(path))
         try:
             _private_file(self.path, create=create)
@@ -158,6 +159,8 @@ class SQLiteRegistry(Registry):
             raise _storage_error(error) from None
 
     def _connect(self):
+        if self._storage_check is not None:
+            self._storage_check()
         _private_file(self.path)
         # mode=rw prevents silent creation if the evidence database disappears.
         db = sqlite3.connect(self.path.as_uri() + '?mode=rw', uri=True, timeout=2, isolation_level=None)
@@ -197,6 +200,8 @@ class SQLiteRegistry(Registry):
         now = self._wall(self._watermark(db))
         self._load(db, now)
         self._executors, self._objectives, self._receipts = {}, {}, {}
+        if self._storage_check is not None:
+            self._storage_check()
         db.commit()
 
     def _check_schema(self, db):
@@ -355,6 +360,8 @@ class SQLiteRegistry(Registry):
                         # The clock transition is legitimate even when the request expired.
                         outcome = error
                     self._save(db, before_executors, before_objectives, previous_receipts, actor.principal)
+                    if self._storage_check is not None:
+                        self._storage_check()
                     db.execute('UPDATE registry_clock SET last_wall=? WHERE id=1', (self._wall(self._decision_time),))
                     revalidate()
                     committing = True
