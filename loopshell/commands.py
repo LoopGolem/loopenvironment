@@ -6,7 +6,7 @@ import re
 
 from .errors import Error, ShellError
 
-GRAMMAR_VERSION = 1
+GRAMMAR_VERSION = 2
 MAX_INPUT = 256
 # Current Bridge session IDs are short logical names, distinct from credentials.
 SESSION_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,31}')
@@ -20,6 +20,7 @@ class Action(Enum):
     EXIT = 'exit'
     LIST = 'sessions list'
     STATUS = 'session status'
+    OBSERVE = 'session observe'
 
     @property
     def remote(self):
@@ -40,7 +41,7 @@ def parse(line):
     words = line.split()
     if not words:
         return None
-    if words[0] in UNAVAILABLE_GROUPS or words[:2] == ['session', 'observe']:
+    if words[0] in UNAVAILABLE_GROUPS:
         raise ShellError(Error.UNAVAILABLE)
 
     for action in Action:
@@ -48,7 +49,7 @@ def parse(line):
         if words[:len(prefix)] != prefix:
             continue
         args = words[len(prefix):]
-        if action is Action.STATUS:
+        if action in (Action.STATUS, Action.OBSERVE):
             if len(args) != 1 or not SESSION_ID.fullmatch(args[0]):
                 raise ShellError(Error.INVALID_COMMAND)
             return Command(action, args[0])

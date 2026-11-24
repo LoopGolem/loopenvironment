@@ -34,7 +34,8 @@ class CommandTests(ShellTests):
         for line, expected in (
             ('help', Command(Action.HELP)), ('clear', Command(Action.CLEAR)),
             ('exit', Command(Action.EXIT)), (' sessions\tlist ', Command(Action.LIST)),
-            ('session status desktop', Command(Action.STATUS, 'desktop')), ('\t ', None),
+            ('session status desktop', Command(Action.STATUS, 'desktop')),
+            ('session observe desktop', Command(Action.OBSERVE, 'desktop')), ('\t ', None),
         ):
             with self.subTest(line=line):
                 self.assertEqual(parse(line), expected)
@@ -47,7 +48,7 @@ class CommandTests(ShellTests):
             ('sessions list\nexit', Error.INVALID_COMMAND), ('help\x00', Error.INVALID_COMMAND),
             ('unexpected', Error.UNKNOWN_COMMAND), ('system status', Error.UNAVAILABLE),
             ('agent list', Error.UNAVAILABLE), ('mission create foo', Error.UNAVAILABLE),
-            ('session observe desktop', Error.UNAVAILABLE), ('acquire desktop', Error.UNAVAILABLE),
+            ('session observe', Error.INVALID_COMMAND), ('acquire desktop', Error.UNAVAILABLE),
         ):
             with self.subTest(line=line):
                 self.assert_error(reason, parse, line)
@@ -136,6 +137,24 @@ class TransportTests(ShellTests):
                              [('auth', {'credential': TOKEN}), ('discover', {}),
                               ('snapshot', {'session': 'desktop'})])
 
+    def test_visual_selection_pins_console_identity_without_returning_media(self):
+        with self.wire({'result': {'principal': 'observer'}},
+                       {'result': {'session': 'desktop', 'phase': 'idle', 'revision': 1,
+                                   'epoch': 'a' * 32}}) as (client, calls):
+            client.connect(TOKEN)
+            selection = client.select_session('desktop')
+            self.assertEqual((selection.session, selection.epoch, selection.principal),
+                             ('desktop', 'a' * 32, 'observer'))
+            self.assertEqual([r['method'] for r in calls], ['auth', 'snapshot'])
+
+    def test_visual_selection_requires_a_valid_epoch(self):
+        with self.wire({'result': {'principal': 'observer'}},
+                       {'result': {'session': 'desktop', 'phase': 'idle', 'revision': 1,
+                                   'epoch': 'stale'}}) as (client, _):
+            client.connect(TOKEN)
+            self.assert_error(Error.INVALID_RESPONSE, client.select_session, 'desktop')
+            self.assertIsNone(client.principal)
+
     def test_disconnected_and_bad_endpoint(self):
         client = BridgeClient()
         self.assert_error(Error.DISCONNECTED, client.list_sessions)
@@ -217,6 +236,7 @@ class TransportTests(ShellTests):
                      'opt-in GTK test on a disposable display')
 class ConsoleGeometryTests(unittest.TestCase):
     def test_authenticated_console_fits_minimum_reserved_height(self):
+        from loopshell.bridge import SessionSelection
         from loopshell.layout import HEIGHT_LIMITS, MIN_WORKSPACE
         from loopshell.ui import CommandConsole, Gdk, Gtk, STYLE
 
@@ -235,8 +255,11 @@ class ConsoleGeometryTests(unittest.TestCase):
         window = Gtk.Window(child=console)
         self.addCleanup(window.destroy)
         console.view.get_buffer().set_text('Session status\n' * 64)
-        minimum, *_ = console.measure(Gtk.Orientation.VERTICAL, MIN_WORKSPACE[0])
-        self.assertLessEqual(minimum, HEIGHT_LIMITS[0])
+        command_minimum, *_ = console.measure(Gtk.Orientation.VERTICAL, MIN_WORKSPACE[0])
+        self.assertLessEqual(command_minimum, HEIGHT_LIMITS[0])
+        console.prompt_view(SessionSelection('desktop', 'a' * 32, 'observer'))
+        credential_minimum, *_ = console.measure(Gtk.Orientation.VERTICAL, MIN_WORKSPACE[0])
+        self.assertLessEqual(credential_minimum, HEIGHT_LIMITS[0])
 
 
 class BrokerIntegration(ShellTests):

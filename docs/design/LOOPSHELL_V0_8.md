@@ -1,6 +1,6 @@
 # LoopShell V0.8 — workspace, command console and session supervision
 
-**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md).
+**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md). The first [Visual views (C.1)](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) have a bounded local GO.
 
 **Date:** 2026-11-23.  
 **Scope:** LoopEnvironment components on existing Linux, with no dependency on any particular AI provider, orchestrator, hypervisor, guest-image manager or external product.
@@ -56,6 +56,16 @@ LoopBridge socket. Credentials are entered through a masked field.
 `discover` and `snapshot` enforce their existing grants. The console
 projects snapshot identity, phase and revision. The [lab report](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md)
 documents the broker mappings, limitations and reproduction.
+
+### V0.8-C.1 Visual view
+
+`session observe <id>` selects a permitted session in the console and
+prompts for an observation credential. The GTK view uses the V0.7 reader
+on a dedicated socket and validates principal, session, private ID,
+epoch and the independent `desktop.stream` grant. A closed or stalled
+view removes its image. Reopening is explicit and repeats the validation.
+The [lab report](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) records the
+tested lifecycle and the remaining gates.
 
 ## Separate entities and lifecycles
 

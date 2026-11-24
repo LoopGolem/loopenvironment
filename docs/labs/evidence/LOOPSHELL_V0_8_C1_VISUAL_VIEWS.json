@@ -1,0 +1,138 @@
+{
+  "baseline": "c732a89",
+  "result": "GO locally",
+  "date": "2026-11-24",
+  "environment": {
+    "sway": "1.10.1",
+    "gtk": "4.18.6",
+    "layerShellDebian": "1.0.4-2",
+    "display": "Sway headless 1024x768 scale 1; separate private Sway",
+    "processIsolation": "same UID lab"
+  },
+  "discoveryWithoutStreamDenied": true,
+  "differentPrincipalDenied": true,
+  "calculatorSceneChange": true,
+  "tiling": {
+    "workspace": {
+      "x": 260,
+      "y": 0,
+      "width": 764,
+      "height": 588
+    },
+    "footAndTwoViews": [
+      {
+        "x": 260,
+        "y": 0,
+        "width": 255,
+        "height": 588
+      },
+      {
+        "x": 515,
+        "y": 0,
+        "width": 255,
+        "height": 588
+      },
+      {
+        "x": 770,
+        "y": 0,
+        "width": 254,
+        "height": 588
+      }
+    ]
+  },
+  "twoDistinctObservers": true,
+  "thirdStreamDenied": true,
+  "consoleReadWhileStreaming": true,
+  "observerControlAndCaptureDenied": true,
+  "observerInputCapabilityAbsent": true,
+  "staticViewerMetrics": {
+    "a": {
+      "state": "static",
+      "reason": null,
+      "width": 800,
+      "height": 600,
+      "received": 5,
+      "unique": 4,
+      "mailboxDropped": 1,
+      "duplicate": 1,
+      "painted": 3,
+      "presentationFeedback": 3,
+      "fps": 0,
+      "captureToReceiveMs": {
+        "samples": 5,
+        "median": 60.67,
+        "p95": 104.58
+      },
+      "appToPaintMs": null,
+      "appToPresentationMs": null,
+      "handshakeMs": 18.19,
+      "firstPaintMs": 166.68
+    },
+    "b": {
+      "state": "static",
+      "reason": null,
+      "width": 800,
+      "height": 600,
+      "received": 2,
+      "unique": 1,
+      "mailboxDropped": 0,
+      "duplicate": 1,
+      "painted": 1,
+      "presentationFeedback": 1,
+      "fps": 0,
+      "captureToReceiveMs": {
+        "samples": 2,
+        "median": 30.66,
+        "p95": 30.96
+      },
+      "appToPaintMs": null,
+      "appToPresentationMs": null,
+      "handshakeMs": 14.78,
+      "firstPaintMs": 173.71
+    },
+    "processCpuPercent": 9.22,
+    "processRssKiB": 113700,
+    "sampleSeconds": 1.02
+  },
+  "revocationClearedOnlyAffectedViewer": true,
+  "epochMismatchDenied": true,
+  "missingHeartbeatClearedRealFrame": true,
+  "lostTransportClearedRealFrame": true,
+  "credentialsAbsentFromHistory": true,
+  "liveAtShellClose": true,
+  "sessionAndCalculatorSurvivedClosingShell": true,
+  "allViewBuffersClearedAtShellClose": true,
+  "standaloneV07Metrics": {
+    "state": "AO VIVO",
+    "reason": null,
+    "width": 800,
+    "height": 600,
+    "received": 2,
+    "unique": 1,
+    "mailboxDropped": 0,
+    "duplicate": 1,
+    "painted": 1,
+    "presentationFeedback": 1,
+    "fps": 0.5,
+    "captureToReceiveMs": {
+      "samples": 2,
+      "median": 148.0,
+      "p95": 212.33
+    },
+    "appToPaintMs": null,
+    "appToPresentationMs": null,
+    "handshakeMs": 14.94,
+    "firstPaintMs": 416.46
+  },
+  "parentUnchanged": {
+    "version": true,
+    "outputs": true,
+    "workspaces": true,
+    "process": true,
+    "config": true
+  },
+  "tests": {
+    "passed": 328,
+    "gtkOptIn": true
+  }
+}
