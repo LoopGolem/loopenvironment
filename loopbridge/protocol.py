@@ -32,9 +32,9 @@ class Channel:
         self.sock.sendall(encode(value))
 
 
-def request(value):
+def request(value, *, versions=VERSIONS):
     if (not isinstance(value, dict) or set(value) != {'jsonrpc', 'version', 'id', 'method', 'params'}
-            or value['version'] not in VERSIONS or value['jsonrpc'] != '2.0' or type(value['id']) is not int
+            or value['version'] not in versions or value['jsonrpc'] != '2.0' or type(value['id']) is not int
             or not isinstance(value['method'], str) or not isinstance(value['params'], dict)):
         raise Fault(-32600, 'invalid_request')
     return value['id'], value['method'], value['params']

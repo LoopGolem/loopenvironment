@@ -8,10 +8,11 @@ from experiments.objective_registry import Error, IDENTIFIER, Permission, Regist
 
 
 class _AuthorizedRequest:
-    def __init__(self, principal, grants, clock):
+    def __init__(self, principal, grants, clock, verify):
         self.principal = principal
         self._grants = grants
         self._clock = clock
+        self._verify = verify
         self._checked = set()
 
     def permits(self, permission, executor_id):
@@ -22,6 +23,8 @@ class _AuthorizedRequest:
         return False
 
     def revalidate(self):
+        if self._verify() != self.principal:
+            raise RegistryError(Error.DENIED)
         now = self._clock()
         if any(not now < self._grants[key] for key in self._checked):
             raise RegistryError(Error.DENIED)
@@ -35,10 +38,10 @@ class RegistryPolicy:
     The verifier and clock must be local and must not call back into Registry.
     """
 
-    def __init__(self, verify, *, clock=monotonic):
+    def __init__(self, verify, *, clock=monotonic, lock=None):
         self._verify = verify
         self._clock = clock
-        self._lock = Lock()
+        self._lock = Lock() if lock is None else lock
         self._grants = {}
 
     @contextmanager
@@ -47,7 +50,8 @@ class RegistryPolicy:
             principal = self._verify(credential)
             if type(principal) is not str or not IDENTIFIER.fullmatch(principal):
                 raise RegistryError(Error.DENIED)
-            yield _AuthorizedRequest(principal, self._grants, self._clock)
+            yield _AuthorizedRequest(principal, self._grants, self._clock,
+                                     lambda: self._verify(credential))
 
     def grant(self, principal, permission, executor_id, *, expires_at):
         _validate_ids(principal, executor_id)
