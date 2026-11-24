@@ -98,7 +98,7 @@ class ActivityTests(unittest.TestCase):
         for payload in (
             [], batch() | {'session': 'other'}, batch(cursor=True), batch(cursor=9), batch(cursor=1 << 63),
             batch(row(7), row(6)), batch(row(), row()), batch(row(True)),
-            batch(row(epoch='bad')), batch(row(source=TOKEN)), batch(row(kind=TOKEN)),
+            batch(row(epoch='bad')), batch(row(epoch=REPLACEMENT)), batch(row(source=TOKEN)), batch(row(kind=TOKEN)),
             batch(row(state={'phase': {}, 'revision': 3})),
             batch(row(state={'phase': 'idle', 'revision': False})),
             batch(row(state={'phase': 'idle', 'revision': -1})),
@@ -106,7 +106,7 @@ class ActivityTests(unittest.TestCase):
         ):
             with self.subTest(payload_type=type(payload)):
                 self.assert_fault(Error.INVALID_RESPONSE, project_batch, payload, EPOCH, 5)
-        for payload in (batch(epoch=REPLACEMENT), batch(row(epoch=REPLACEMENT))):
+        for payload in (batch(epoch=REPLACEMENT), batch(row(epoch=REPLACEMENT), epoch=REPLACEMENT)):
             self.assert_fault(Error.EPOCH_CHANGED, project_batch, payload, EPOCH, 5)
 
     def test_auth_snapshot_and_polls_share_a_dedicated_socket(self):
@@ -270,13 +270,11 @@ class ActivityTests(unittest.TestCase):
                      'opt-in GTK test on a disposable display')
 class ActivityWindowTests(unittest.TestCase):
     def test_bounded_rows_and_cancelled_render_on_close(self):
-        from loopshell.activity_view import ActivityWindow, DISPLAY_LIMIT, GLib, Gtk
+        from loopshell.activity_view import ActivityPane, DISPLAY_LIMIT, GLib, Gtk
 
         Gtk.init()
-        application = Gtk.Application()
-        self.assertTrue(application.register(None))
-        window = ActivityWindow(application, None, None, PIN, TOKEN)
-        self.addCleanup(window.destroy)
+        window = ActivityPane(None, None, PIN, TOKEN)
+        self.addCleanup(window.stop_polling)
         events = tuple(ActivityEvent(seq, 'state.changed', 'idle', seq)
                        for seq in range(1, DISPLAY_LIMIT + 3))
         window.publish('Autorizado', events)
@@ -299,3 +297,22 @@ class ActivityWindowTests(unittest.TestCase):
         self.assertEqual(window.event_view.get_buffer().get_char_count(), 0)
         window.publish('Autorizado', events)
         self.assertEqual(window.render_source, 0)
+        self.assertEqual(window.adjustment_handler, 0)
+
+    def test_automatic_tail_waits_for_scroll_range_and_preserves_manual_scroll(self):
+        from loopshell.activity_view import ActivityPane, Gtk
+
+        Gtk.init()
+        pane = ActivityPane(None, None, PIN, TOKEN)
+        self.addCleanup(pane.stop_polling)
+        bounds = Gtk.Adjustment(lower=0, upper=40, page_size=40)
+        pane.follow_tail = True
+        pane.scroll_to_tail(bounds)
+        self.assertTrue(pane.follow_tail)
+        bounds.set_upper(120)
+        pane.scroll_to_tail(bounds)
+        self.assertEqual(bounds.get_value(), 80)
+        bounds.set_value(12)
+        bounds.set_upper(140)
+        pane.scroll_to_tail(bounds)
+        self.assertEqual(bounds.get_value(), 12)

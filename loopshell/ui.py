@@ -15,6 +15,7 @@ from loopbridge.visual_view import ViewOptions, Watch
 from .activity_view import ActivityWindow
 from .bridge import BridgeClient, TOKEN, TOKEN_LENGTH
 from .commands import Action, MAX_INPUT, parse
+from .combined_view import CombinedWindow
 from .compositor import apply_layout, setup_surfaces, show_surfaces
 from .console import ERROR_TEXT, PROMPT, dispatch, history_entry
 from .errors import Error, ShellError
@@ -157,11 +158,12 @@ class CommandConsole(Gtk.Box):
             self.paint_history()
         elif command.action is Action.EXIT:
             self.quit_shell()
-        elif command.action in (Action.OBSERVE, Action.ACTIVITY):
+        elif command.action.opens_view:
             if self.open_view is None:
                 self.record(command, ERROR_TEXT[Error.UNAVAILABLE])
             else:
-                self.start_io(lambda: self.client.select_session(command.session),
+                select = self.client.select_combined if command.action is Action.COMBINED else self.client.select_session
+                self.start_io(lambda: select(command.session),
                               command, on_success=lambda selection: self.prompt_view(selection, command.action))
         elif command.action.remote:
             self.start_io(lambda: dispatch(command, self.client), command)
@@ -235,6 +237,9 @@ class Shell:
             ActivityWindow(self.app, client.endpoint, client.expected_uid, selection, credential).present()
             return
         try:
+            if action is Action.COMBINED:
+                CombinedWindow(self.app, client.endpoint, client.expected_uid, selection, credential).present()
+                return
             stream = LiveConnection(client.endpoint, credential, selection.session, None, selection.epoch,
                                     expected_peer_uid=client.expected_uid, expected_principal=selection.principal)
         except OSError:
@@ -387,6 +392,8 @@ def run(path, layer_shell, endpoint=None, expected_uid=None):
                 window.stop_stream()
             elif isinstance(window, ActivityWindow):
                 window.stop_polling()
+            elif isinstance(window, CombinedWindow):
+                window.stop_views()
 
     app.connect('activate', activate)
     app.connect('shutdown', shutdown)

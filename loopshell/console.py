@@ -15,6 +15,7 @@ HELP = (
     'session status <id>   Consulta fase e revisão\n'
     'session observe <id> Abre a visualização autorizada\n'
     'session activity <id> Abre os eventos autorizados\n'
+    'session combined <id> Abre vídeo e atividade com autorizações independentes\n'
     'Use Conectar para autenticar com uma credencial delegada.\n'
     'Diagnóstico do sistema, agentes e missões estão indisponíveis.'
 )

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Reusable GTK4 window for one authorized private LoopBridge stream."""
+"""GTK4 presentation of one authorized private LoopBridge stream."""
 from collections import deque
 from dataclasses import dataclass
 import json
@@ -11,7 +11,7 @@ import time
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, GLib, Gtk
+from gi.repository import Gdk, GLib, Gtk, Pango
 
 from .presentation import STRIDE
 from .private_effects import OUTPUT
@@ -26,6 +26,7 @@ class ViewOptions:
     measure_motion: bool = False
     metrics_file: Path | None = None
     show_reconnect: bool = False
+    reopen_command: str = 'session observe'
 
 
 def motion_marker(pixels):
@@ -57,26 +58,27 @@ def percentiles(samples):
                 p95=round(ordered[(95 * len(ordered) + 99) // 100 - 1], 2))
 
 
-class Watch(Gtk.ApplicationWindow):
-    def __init__(self, app, args, connection):
-        super().__init__(application=app, title='LoopBridge · sessão privada ao vivo')
+class VisualPane(Gtk.Box):
+    def __init__(self, args, connection, *, on_invalidated=None):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.args, self.connection = args, connection
-        self.set_default_size(824, 660)
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        self.on_invalidated = on_invalidated
         for side in ('top', 'bottom', 'start', 'end'):
-            getattr(box, 'set_margin_' + side)(10)
-        self.label = Gtk.Label(xalign=0, wrap=True, max_width_chars=48)
-        self.picture = Gtk.Picture(can_target=False, can_shrink=True, vexpand=True)
-        box.append(self.label)
-        box.append(self.picture)
-        self.set_child(box)
+            getattr(self, 'set_margin_' + side)(10)
+        self.label = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR,
+                               max_width_chars=48)
+        self.picture = Gtk.Picture(can_target=False, can_shrink=True, vexpand=True,
+                                   content_fit=Gtk.ContentFit.CONTAIN)
+        self.append(self.label)
+        self.append(self.picture)
         self.stop = threading.Event()
         self.lock = threading.Lock()
         self.failure = None
         self.latest = None
         self.last_packet = self.last_change = None
         self.first_paint = self.pending_paint = None
-        self.draw_scheduled = False
+        self.draw_source = self.draw_tick = self.status_source = 0
+        self.frame_clock = self.frame_handler = None
         self.received = self.unique = self.overwritten = self.painted = self.presented = 0
         self.started = time.monotonic_ns()
         self.recent = deque()
@@ -89,28 +91,37 @@ class Watch(Gtk.ApplicationWindow):
         self.capture_to_receive = deque(maxlen=3600)
         self.connected = None
         self.connect('map', self.start)
-        self.connect('close-request', self.close_requested)
         self.status()
 
-    def start(self, _window):
-        if hasattr(self, 'worker'):
+    def start(self, _widget):
+        if self.stop.is_set() or hasattr(self, 'worker'):
             return
+        self.frame_clock = self.get_frame_clock()
+        self.frame_handler = self.frame_clock.connect('after-paint', self.after_paint)
+        self.status_source = GLib.timeout_add(250, self.status)
         self.worker = threading.Thread(target=self.receive, daemon=True)
         self.worker.start()
-        self.get_frame_clock().connect('after-paint', self.after_paint)
-        GLib.timeout_add(250, self.status)
-
-    def close_requested(self, _window):
-        self.stop_stream()
-        return False
 
     def stop_stream(self):
         self.stop.set()
         self.connection.cancel()
+        self.on_invalidated = None
         with self.lock:
             self.latest = None
+            source, self.draw_source = self.draw_source, 0
+        if source:
+            GLib.source_remove(source)
+        if self.status_source:
+            GLib.source_remove(self.status_source)
+            self.status_source = 0
+        if self.draw_tick:
+            self.remove_tick_callback(self.draw_tick)
+            self.draw_tick = 0
+        if self.frame_handler is not None:
+            self.frame_clock.disconnect(self.frame_handler)
+            self.frame_handler = self.frame_clock = None
         if self.connected is None and not hasattr(self, 'worker'):
-            self.connection.peer.close()
+            self.connection.release()
         self.clear_image()
 
     def clear_image(self):
@@ -125,7 +136,12 @@ class Watch(Gtk.ApplicationWindow):
             if replace or not self.failure:
                 self.failure = terminal_reason(reason)
             self.latest = None
-        GLib.idle_add(self.clear_image)
+            self.queue_draw_update()
+
+    def queue_draw_update(self):
+        # Called with the mailbox lock held by the reader or the watchdog.
+        if not self.draw_source:
+            self.draw_source = GLib.idle_add(self.schedule_draw)
 
     def receive(self):
         last = data = None
@@ -157,14 +173,18 @@ class Watch(Gtk.ApplicationWindow):
                     if self.latest:
                         self.overwritten += 1
                     else:
-                        GLib.idle_add(self.schedule_draw)
+                        self.queue_draw_update()
                     self.latest = (data, marker)
         except Fault as error:
-            self.fail(error.message)
+            reason = error.message
+            if reason == 'session_ended' or (reason == 'presentation_identity_mismatch' and error.code != -32002):
+                reason = 'invalid_presentation_response'
+            self.fail(reason)
         except (EOFError, OSError):
             self.fail('connection_lost')
             # Drop media and clear the window before bounded status diagnostics.
             last = data = None
+            self.connection.channel = None
             self.connection.peer.close()
             if self.connected is not None and not self.stop.is_set():
                 reason = self.connection.reason()
@@ -175,17 +195,23 @@ class Watch(Gtk.ApplicationWindow):
         except (ValueError, KeyError, TypeError, AssertionError, AttributeError):
             self.fail('invalid_presentation_response')
         finally:
-            self.connection.token = None
-            self.connection.peer.close()
+            self.connection.release()
 
     def schedule_draw(self):
-        if not self.draw_scheduled and not self.stop.is_set():
-            self.draw_scheduled = True
-            self.add_tick_callback(self.draw)
+        with self.lock:
+            self.draw_source = 0
+            failed = self.failure is not None
+        if self.stop.is_set():
+            return GLib.SOURCE_REMOVE
+        if failed:
+            self.clear_image()
+            self.status()
+        elif not self.draw_tick:
+            self.draw_tick = self.add_tick_callback(self.draw)
         return GLib.SOURCE_REMOVE
 
     def draw(self, _widget, clock):
-        self.draw_scheduled = False
+        self.draw_tick = 0
         with self.lock:
             latest, self.latest = self.latest, None
             can_draw = not self.failure and not self.stop.is_set()
@@ -276,13 +302,20 @@ class Watch(Gtk.ApplicationWindow):
             self.recent.popleft()
         fps = 0 if failed else len(self.recent) / 2
         text = STATE_TEXT[state]
+        if self.failure == 'presentation_limit':
+            text += ' · limite de transmissões atingido'
+        elif state is ViewerState.DISCONNECTED:
+            text += ' · encerramento da sessão não confirmado'
         if failed and self.args.show_reconnect:
-            text += ' · Nova autorização: session observe ' + self.args.session
+            text += f' · Nova autorização com {self.args.reopen_command} {self.args.session}'
         private_id = self.connection.identity['privateId'] or self.args.private_id
         identity = f'{self.args.session}/{private_id[:8]}' if private_id else self.args.session
         latency = percentiles(self.latencies)
         delay = f" · {latency['median']:.0f} ms" if latency else ''
         self.label.set_text(f'{text} · {identity} · {OUTPUT[0]}×{OUTPUT[1]} · {fps:.1f} FPS{delay}')
+        if self.on_invalidated is not None and state in (ViewerState.REPLACED, ViewerState.ENDED):
+            self.on_invalidated(state)
+            return GLib.SOURCE_REMOVE
         if self.args.metrics_file and self.get_mapped():
             mark = self.args.metrics_file
             tmp = mark.with_suffix('.tmp')
@@ -292,3 +325,19 @@ class Watch(Gtk.ApplicationWindow):
             except OSError:
                 pass
         return GLib.SOURCE_CONTINUE
+
+
+class Watch(Gtk.ApplicationWindow):
+    def __init__(self, app, args, connection):
+        super().__init__(application=app, title='LoopBridge · sessão privada ao vivo')
+        self.set_default_size(824, 660)
+        self.video = VisualPane(args, connection)
+        self.set_child(self.video)
+        self.connect('close-request', self.close_requested)
+
+    def stop_stream(self):
+        self.video.stop_stream()
+
+    def close_requested(self, _window):
+        self.stop_stream()
+        return False

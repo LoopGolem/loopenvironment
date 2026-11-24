@@ -11,9 +11,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 from loopbridge.identity import Identities
+from loopbridge.presentation import FORMAT, STRIDE
+from loopbridge.private_effects import OUTPUT
 from loopbridge.protocol import DeadlineChannel, Fault, RPC
 from loopbridge.service import SESSION, serve
-from loopshell.bridge import BridgeClient
+from loopshell.bridge import BridgeClient, SessionSelection
 from loopshell.commands import Action, Command, MAX_INPUT, parse
 from loopshell.console import ERROR_TEXT, dispatch, history_entry
 from loopshell.errors import Error, ShellError
@@ -36,7 +38,8 @@ class CommandTests(ShellTests):
             ('exit', Command(Action.EXIT)), (' sessions\tlist ', Command(Action.LIST)),
             ('session status desktop', Command(Action.STATUS, 'desktop')),
             ('session observe desktop', Command(Action.OBSERVE, 'desktop')),
-            ('session activity desktop', Command(Action.ACTIVITY, 'desktop')), ('\t ', None),
+            ('session activity desktop', Command(Action.ACTIVITY, 'desktop')),
+            ('session combined desktop', Command(Action.COMBINED, 'desktop')), ('\t ', None),
         ):
             with self.subTest(line=line):
                 self.assertEqual(parse(line), expected)
@@ -51,6 +54,7 @@ class CommandTests(ShellTests):
             ('agent list', Error.UNAVAILABLE), ('mission create foo', Error.UNAVAILABLE),
             ('session observe', Error.INVALID_COMMAND), ('session activity desktop extra', Error.INVALID_COMMAND),
             ('session activity ../desktop', Error.INVALID_COMMAND), ('acquire desktop', Error.UNAVAILABLE),
+            ('session combined', Error.INVALID_COMMAND), ('session combined desktop | id', Error.INVALID_COMMAND),
         ):
             with self.subTest(line=line):
                 self.assert_error(reason, parse, line)
@@ -64,7 +68,7 @@ class CommandTests(ShellTests):
         client = Mock(spec=BridgeClient)
         with patch('os.system') as system, patch('subprocess.Popen') as spawn:
             for line in ('/bin/sh', 'ls $(id)', 'help; id', 'sessions list | id',
-                         'session status desktop;whoami', 'eval __import__("os")',
+                         'session status desktop;whoami', 'session combined desktop;whoami', 'eval __import__("os")',
                          'rpc acquire', 'control acquire desktop'):
                 with self.subTest(line=line), self.assertRaises(ShellError):
                     dispatch(parse(line), client)
@@ -156,6 +160,43 @@ class TransportTests(ShellTests):
             client.connect(TOKEN)
             self.assert_error(Error.INVALID_RESPONSE, client.select_session, 'desktop')
             self.assertIsNone(client.principal)
+
+    def test_combined_selection_uses_snapshot_when_authorized(self):
+        with self.wire({'result': {'principal': 'observer'}},
+                       {'result': {'session': 'desktop', 'phase': 'idle', 'revision': 2,
+                                   'epoch': 'a' * 32}}) as (client, calls):
+            client.connect(TOKEN)
+            self.assertEqual(client.select_combined('desktop'),
+                             SessionSelection('desktop', 'a' * 32, 'observer'))
+            self.assertEqual([call['method'] for call in calls], ['auth', 'snapshot'])
+
+    def test_combined_stream_only_selection_validates_presentation_metadata(self):
+        media = dict(session='desktop', principal='observer', privateId='b' * 16, epoch='a' * 32,
+                     capability='desktop.stream', authorization='authorized', state='available',
+                     transport='unix_stream_upgrade_v1', format=FORMAT, width=OUTPUT[0], height=OUTPUT[1],
+                     stride=STRIDE, input=False)
+        for replacement in ({}, {'session': 'other'}, {'principal': 'delegate'}, {'input': True},
+                            {'epoch': TOKEN}, {'privateId': TOKEN}):
+            with self.subTest(replacement=tuple(replacement)), self.wire(
+                    {'result': {'principal': 'observer'}},
+                    {'error': {'code': -32001, 'message': 'grant_denied'}},
+                    {'result': media | replacement}) as (client, calls):
+                client.connect(TOKEN)
+                if replacement:
+                    self.assert_error(Error.INVALID_RESPONSE, client.select_combined, 'desktop')
+                else:
+                    self.assertEqual(client.select_combined('desktop'),
+                                     SessionSelection('desktop', 'a' * 32, 'observer', 'b' * 16))
+                self.assertEqual([call['method'] for call in calls],
+                                 ['auth', 'snapshot', 'presentation.describe'])
+                self.assertEqual(calls[-1]['params'], {'session': 'desktop'})
+
+    def test_combined_selection_does_not_bypass_an_invalid_snapshot(self):
+        with self.wire({'result': {'principal': 'observer'}},
+                       {'result': {'session': 'other', 'phase': 'idle', 'revision': 1}}) as (client, calls):
+            client.connect(TOKEN)
+            self.assert_error(Error.INVALID_RESPONSE, client.select_combined, 'desktop')
+            self.assertEqual([call['method'] for call in calls], ['auth', 'snapshot'])
 
     def test_disconnected_and_bad_endpoint(self):
         client = BridgeClient()

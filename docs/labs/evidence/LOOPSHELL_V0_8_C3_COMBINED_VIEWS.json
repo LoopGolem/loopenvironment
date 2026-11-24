@@ -1,0 +1,443 @@
+{
+  "milestone": "V0.8-C.3",
+  "base_main": "b8d76bbf75857030b863a3c551ae98c8e22bcd9e",
+  "environment": {
+    "os": "Debian 13.7 amd64",
+    "logical_cpus": 2,
+    "sway": "1.10.1",
+    "wlroots": "0.18.2",
+    "gtk": "4.18.6",
+    "firefox_esr": "153.7.0esr",
+    "layer_shell": "1.0.4-2, temporarily extracted",
+    "bridge_profile": "disposable local same-UID",
+    "renderer": "headless Wayland / Pixman and GTK Cairo"
+  },
+  "integration": {
+    "complete": true,
+    "geometry": [
+      {
+        "output": [
+          1280,
+          800
+        ],
+        "usable": {
+          "x": 260,
+          "y": 0,
+          "width": 1020,
+          "height": 620
+        },
+        "zones": [
+          260,
+          180
+        ],
+        "windows": {
+          "foot": {
+            "x": 260,
+            "y": 0,
+            "width": 340,
+            "height": 620
+          },
+          "LoopShell · Combined · desktop": {
+            "x": 600,
+            "y": 0,
+            "width": 340,
+            "height": 620
+          },
+          "LoopBridge · sessão privada ao vivo": {
+            "x": 940,
+            "y": 0,
+            "width": 340,
+            "height": 620
+          }
+        },
+        "picture": [
+          320,
+          367
+        ],
+        "feed": [
+          324,
+          72
+        ]
+      },
+      {
+        "output": [
+          1024,
+          768
+        ],
+        "usable": {
+          "x": 260,
+          "y": 0,
+          "width": 764,
+          "height": 588
+        },
+        "zones": [
+          260,
+          180
+        ],
+        "windows": {
+          "foot": {
+            "x": 260,
+            "y": 0,
+            "width": 255,
+            "height": 588
+          },
+          "LoopShell · Combined · desktop": {
+            "x": 515,
+            "y": 0,
+            "width": 255,
+            "height": 588
+          },
+          "LoopBridge · sessão privada ao vivo": {
+            "x": 770,
+            "y": 0,
+            "width": 254,
+            "height": 588
+          }
+        },
+        "picture": [
+          235,
+          317
+        ],
+        "feed": [
+          239,
+          72
+        ]
+      }
+    ],
+    "integration": {
+      "passed": [
+        "video_only",
+        "activity_only",
+        "both_authorized",
+        "media_revoke",
+        "activity_revoke",
+        "both_revoked",
+        "media_disconnect_unconfirmed",
+        "activity_disconnect",
+        "no_heartbeat",
+        "retention_gap",
+        "stale_epoch",
+        "explicit_resync",
+        "two_distinct_combined",
+        "combined_and_visual",
+        "third_media_denied",
+        "console_disconnect",
+        "observer_control_and_workspace_denied",
+        "credentials_absent_from_ui",
+        "authentic_calculator_change",
+        "dual_visual_update"
+      ],
+      "consecutive_events": [
+        {
+          "sequence": 21,
+          "kind": "control.changed",
+          "phase": "controlled",
+          "revision": 21
+        },
+        {
+          "sequence": 22,
+          "kind": "operation.confirmed",
+          "phase": "controlled",
+          "revision": 22
+        },
+        {
+          "sequence": 23,
+          "kind": "control.released",
+          "phase": "idle",
+          "revision": 23
+        }
+      ]
+    },
+    "private_healthy_after_shell": true,
+    "no_capture_helpers_after_shell": true
+  },
+  "sustained_measurement": {
+    "complete": true,
+    "performance": {
+      "static_one": {
+        "seconds": 60.01,
+        "resources": {
+          "shell_and_driver": {
+            "cpu_percent_one_logical_cpu": 2.17,
+            "rss_start_mib": 89.84,
+            "rss_end_mib": 89.79,
+            "rss_growth_mib": -0.05
+          },
+          "private_sway": {
+            "cpu_percent_one_logical_cpu": 0.02,
+            "rss_start_mib": 25.39,
+            "rss_end_mib": 25.39,
+            "rss_growth_mib": 0.0
+          },
+          "bridge": {
+            "cpu_percent_one_logical_cpu": 1.3,
+            "rss_start_mib": 24.35,
+            "rss_end_mib": 24.5,
+            "rss_growth_mib": 0.14
+          },
+          "capture_1": {
+            "cpu_percent_one_logical_cpu": 0.05,
+            "rss_start_mib": 3.41,
+            "rss_end_mib": 3.41,
+            "rss_growth_mib": 0.0
+          }
+        },
+        "panes": [
+          {
+            "frames": {
+              "received": 0,
+              "unique": 0,
+              "overwritten": 0,
+              "painted": 0,
+              "presented": 0
+            },
+            "duplicates": 0,
+            "painted_fps": 0.0,
+            "event_queries": 30,
+            "event_queries_per_second": 0.5,
+            "events": 0,
+            "latency_ms": {
+              "capture_to_receive": null,
+              "paint_latencies": null,
+              "latencies": null
+            }
+          }
+        ]
+      },
+      "motion_one": {
+        "seconds": 30.05,
+        "resources": {
+          "shell_and_driver": {
+            "cpu_percent_one_logical_cpu": 48.49,
+            "rss_start_mib": 98.68,
+            "rss_end_mib": 100.61,
+            "rss_growth_mib": 1.93
+          },
+          "private_sway": {
+            "cpu_percent_one_logical_cpu": 6.36,
+            "rss_start_mib": 29.76,
+            "rss_end_mib": 29.76,
+            "rss_growth_mib": 0.0
+          },
+          "bridge": {
+            "cpu_percent_one_logical_cpu": 8.65,
+            "rss_start_mib": 24.53,
+            "rss_end_mib": 24.55,
+            "rss_growth_mib": 0.02
+          },
+          "capture_1": {
+            "cpu_percent_one_logical_cpu": 4.56,
+            "rss_start_mib": 3.4,
+            "rss_end_mib": 3.4,
+            "rss_growth_mib": 0.0
+          }
+        },
+        "panes": [
+          {
+            "frames": {
+              "received": 385,
+              "unique": 385,
+              "overwritten": 230,
+              "painted": 155,
+              "presented": 154
+            },
+            "duplicates": 0,
+            "painted_fps": 5.16,
+            "event_queries": 15,
+            "event_queries_per_second": 0.499,
+            "events": 12,
+            "latency_ms": {
+              "capture_to_receive": {
+                "samples": 385,
+                "median": 42.27,
+                "p95": 154.87
+              },
+              "paint_latencies": {
+                "samples": 155,
+                "median": 284.2,
+                "p95": 467.6
+              },
+              "latencies": {
+                "samples": 154,
+                "median": 288.44,
+                "p95": 478.03
+              }
+            }
+          }
+        ]
+      },
+      "motion_two": {
+        "seconds": 30.55,
+        "resources": {
+          "shell_and_driver": {
+            "cpu_percent_one_logical_cpu": 49.13,
+            "rss_start_mib": 114.91,
+            "rss_end_mib": 114.98,
+            "rss_growth_mib": 0.07
+          },
+          "private_sway": {
+            "cpu_percent_one_logical_cpu": 7.14,
+            "rss_start_mib": 31.59,
+            "rss_end_mib": 32.72,
+            "rss_growth_mib": 1.12
+          },
+          "bridge": {
+            "cpu_percent_one_logical_cpu": 14.3,
+            "rss_start_mib": 24.67,
+            "rss_end_mib": 24.69,
+            "rss_growth_mib": 0.02
+          },
+          "capture_1": {
+            "cpu_percent_one_logical_cpu": 3.99,
+            "rss_start_mib": 3.37,
+            "rss_end_mib": 3.37,
+            "rss_growth_mib": 0.0
+          },
+          "capture_2": {
+            "cpu_percent_one_logical_cpu": 3.63,
+            "rss_start_mib": 3.42,
+            "rss_end_mib": 3.42,
+            "rss_growth_mib": 0.0
+          }
+        },
+        "panes": [
+          {
+            "frames": {
+              "received": 319,
+              "unique": 319,
+              "overwritten": 248,
+              "painted": 71,
+              "presented": 71
+            },
+            "duplicates": 0,
+            "painted_fps": 2.32,
+            "event_queries": 15,
+            "event_queries_per_second": 0.491,
+            "events": 12,
+            "latency_ms": {
+              "capture_to_receive": {
+                "samples": 319,
+                "median": 65.35,
+                "p95": 181.99
+              },
+              "paint_latencies": {
+                "samples": 71,
+                "median": 324.54,
+                "p95": 570.83
+              },
+              "latencies": {
+                "samples": 71,
+                "median": 455.1,
+                "p95": 680.99
+              }
+            }
+          },
+          {
+            "frames": {
+              "received": 295,
+              "unique": 295,
+              "overwritten": 228,
+              "painted": 67,
+              "presented": 67
+            },
+            "duplicates": 0,
+            "painted_fps": 2.19,
+            "event_queries": 15,
+            "event_queries_per_second": 0.491,
+            "events": 12,
+            "latency_ms": {
+              "capture_to_receive": {
+                "samples": 295,
+                "median": 72.84,
+                "p95": 189.06
+              },
+              "paint_latencies": {
+                "samples": 67,
+                "median": 363.55,
+                "p95": 504.52
+              },
+              "latencies": {
+                "samples": 67,
+                "median": 380.46,
+                "p95": 532.4
+              }
+            }
+          }
+        ]
+      },
+      "motion_unobserved": {
+        "seconds": 8.01,
+        "resources": {
+          "shell_and_driver": {
+            "cpu_percent_one_logical_cpu": 1.25,
+            "rss_start_mib": 102.41,
+            "rss_end_mib": 102.41,
+            "rss_growth_mib": 0.0
+          },
+          "private_sway": {
+            "cpu_percent_one_logical_cpu": 6.75,
+            "rss_start_mib": 29.05,
+            "rss_end_mib": 29.05,
+            "rss_growth_mib": 0.0
+          },
+          "bridge": {
+            "cpu_percent_one_logical_cpu": 0.62,
+            "rss_start_mib": 24.61,
+            "rss_end_mib": 24.61,
+            "rss_growth_mib": 0.0
+          }
+        },
+        "panes": []
+      }
+    },
+    "capture_idle_ms": 447.44,
+    "slow_viewer_retired": true,
+    "private_healthy_after_shell": true,
+    "no_capture_helpers_after_shell": true
+  },
+  "v07_comparison": {
+    "historical_primary_compositor": {
+      "seconds": 8.3,
+      "unique_motion_fps": 56.26,
+      "app_to_feedback_p95_ms": 43.86
+    },
+    "same_lab_standalone_current": {
+      "result": "PARTIAL",
+      "stage": "launch_calculator_and_firefox",
+      "failure": "calculator_open_did_not_change_view"
+    },
+    "same_lab_standalone_pre_c3": {
+      "result": "PARTIAL",
+      "stage": "measure_motion",
+      "failure": "viewer_did_not_decode_motion_marker"
+    },
+    "qualified_same_lab_performance_baseline": false
+  },
+  "regression_suite": {
+    "tests": 349,
+    "failures": 0,
+    "skipped": 0,
+    "gtk_opt_in": true
+  },
+  "primary_sway_unchanged": {
+    "pid_and_start": true,
+    "config_sha256": true,
+    "version": true,
+    "outputs": true,
+    "workspaces": true
+  },
+  "layer_shell_packages_not_installed": true,
+  "confirmed_end_evidence": "deterministic fixtures for existing closed-stream status",
+  "qualification": {
+    "combined_interface": "GO",
+    "real_streaming": "GO",
+    "structured_activity": "GO",
+    "independent_authorization": "GO",
+    "revocation_and_recovery": "GO in tested contract",
+    "lifecycle": "GO",
+    "multiple_observers": "GO within current limit",
+    "sustained_performance": "PARTIAL",
+    "host_isolation": "PARTIAL",
+    "human_usability": "PARTIAL"
+  }
+}

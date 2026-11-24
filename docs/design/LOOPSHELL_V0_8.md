@@ -1,6 +1,6 @@
 # LoopShell V0.8 — workspace, command console and session supervision
 
-**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md). [Visual (C.1)](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) and [Activity (C.2)](../labs/LOOPSHELL_V0_8_C2_ACTIVITY_VIEWS.md) have bounded local GO results.
+**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md). [Visual (C.1)](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md), [Activity (C.2)](../labs/LOOPSHELL_V0_8_C2_ACTIVITY_VIEWS.md) and [Combined (C.3)](../labs/LOOPSHELL_V0_8_C3_COMBINED_VIEWS.md) have bounded functional GO results. Sustained performance, host isolation and human usability remain PARTIAL in C.3.
 
 **Date:** 2026-11-23.  
 **Scope:** LoopEnvironment components on existing Linux, with no dependency on any particular AI provider, orchestrator, hypervisor, guest-image manager or external product.
@@ -37,6 +37,7 @@ bridge> agents list
 bridge> sessions list
 bridge> session observe <session-id>
 bridge> session activity <session-id>
+bridge> session combined <session-id>
 bridge> mission create --agent <agent-id>
 > Describe the objective in free text...
 bridge> mission create --orchestrator <agent-id>
@@ -81,6 +82,27 @@ rows in memory. A gap, epoch change, invalid cursor or transport fault
 clears the feed and requires explicit reauthentication and a fresh
 snapshot. The active media socket and its grant remain independent.
 [C.2 lab report](../labs/LOOPSHELL_V0_8_C2_ACTIVITY_VIEWS.md).
+
+### V0.8-C.3 Combined view
+
+`session combined <id>` places the Visual and Activity panes in one
+ordinary GTK window. Video preserves its aspect ratio and gets the
+larger region. The Activity feed and the outer viewport can scroll at
+compact sizes. The three view-opening commands remain independently
+available.
+
+The console pins the session and epoch through `snapshot`. If the
+broker denies snapshot permission, an authorized `presentation.describe`
+can supply the identity for a media-only selection. One explicit masked
+credential starts two authentications with the selected observer or
+delegate. The media pane owns its V0.7 connection and any bounded status
+query. The Activity pane owns its snapshot, cursor and polling connection.
+Each grant controls only its pane. The window cancels both panes and
+clears their content after a validated identity or epoch mismatch or a
+confirmed session end. EOF alone reports unknown session status. Recovery
+requires a new command and credential. Closing the window cancels both
+workers and their pending GTK callbacks.
+[C.3 lab report](../labs/LOOPSHELL_V0_8_C3_COMBINED_VIEWS.md).
 
 ## Separate entities and lifecycles
 
