@@ -37,7 +37,13 @@ class _Access:
         self._lock = Lock()
         self._legacy_digests = {bytes.fromhex(value)
                                 for value in broker.identities.manifest()['verifiers'].values()}
-        if (type(verifiers) is not dict or not 1 <= len(verifiers) <= MAX_PRINCIPALS
+        self._digests = self._decode(verifiers)
+        self._bindings = {}
+        self._retired_digests = frozenset()
+        self.policy = RegistryPolicy(self._verify, clock=clock, lock=self._lock)
+
+    def _decode(self, verifiers):
+        if (type(verifiers) is not dict or len(verifiers) > MAX_PRINCIPALS
                 or any(type(subject) is not str or OPAQUE_ID.fullmatch(subject) is None
                        or type(digest) is not str or VERIFIER.fullmatch(digest) is None
                        for subject, digest in verifiers.items())):
@@ -45,9 +51,21 @@ class _Access:
         digests = {subject: bytes.fromhex(digest) for subject, digest in verifiers.items()}
         if len(set(digests.values()) | self._legacy_digests) != len(digests) + len(self._legacy_digests):
             raise ValueError('invalid_registry_verifiers')
-        self._digests = digests
-        self._bindings = {}
-        self.policy = RegistryPolicy(self._verify, clock=clock, lock=self._lock)
+        return digests
+
+    def replace(self, verifiers, grants, *, retired=()):
+        digests = self._decode(verifiers)
+        retired_digests = frozenset(bytes.fromhex(digest) for digest in retired)
+
+        def update_identity():
+            prior = self._digests
+            self._retired_digests = retired_digests
+            self._digests = {subject: prior[subject] if prior.get(subject) == digest else digest
+                             for subject, digest in digests.items()}
+            self._bindings = {key: binding for key, binding in self._bindings.items()
+                              if self._digests.get(binding.principal) is binding.verifier}
+
+        self.policy.replace_grants(grants, update_identity=update_identity)
 
     def bind(self, connection, params):
         credential = params.pop('credential', None)
@@ -95,7 +113,7 @@ class _Access:
         if request.bound_principal is not None and request.bound_principal not in self._digests:
             return None
         if principal is not None and request.content is not None:
-            digests = self._legacy_digests.union(self._digests.values())
+            digests = self._legacy_digests.union(self._digests.values(), self._retired_digests)
             if contains_credential(request.content, digests):
                 raise RegistryError(Error.INVALID_INPUT)
         return principal
@@ -113,10 +131,11 @@ class RegistryLabBroker(DesktopBroker):
     wire_versions = (*DesktopBroker.wire_versions, VERSION)
 
     def __init__(self, identities, adapters, uid, journal, *, verifiers, database,
-                 wall_clock, clock, create):
-        super().__init__(identities, adapters, uid, journal, clock=clock)
-        self.access = _Access(self, verifiers, clock)
-        self.registry = _BoundRegistry(database, self.access.policy, wall_clock=wall_clock, create=create)
+                 wall_clock, clock, create, ingress_policy=None, grant_clock=None, storage_check=None):
+        super().__init__(identities, adapters, uid, journal, clock=clock, ingress_policy=ingress_policy)
+        self.access = _Access(self, verifiers, clock if grant_clock is None else grant_clock)
+        self.registry = _BoundRegistry(database, self.access.policy, wall_clock=wall_clock,
+                                       create=create, storage_check=storage_check)
         self.registry_rpc = RegistryRPC(self.registry, clock)
 
     def clear(self, connection):
@@ -148,6 +167,8 @@ class RegistryLabBroker(DesktopBroker):
 def serve_registry(root, identities, verifiers, *, create=False, adapters=None,
                    wall_clock=time, clock=monotonic):
     """Run only when the harness explicitly supplies an existing private directory."""
+    if not verifiers:
+        raise ValueError('invalid_registry_verifiers')
     root = private_directory(Path(root), create=False)
     endpoint = root / 'registry-lab.sock'
     with directory_lock(root):

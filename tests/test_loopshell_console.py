@@ -243,7 +243,7 @@ class TransportTests(ShellTests):
     def test_timeout_retires_connection(self):
         with self.wire({'result': {'principal': 'observer'}}, None) as (client, _):
             client.connect(TOKEN)
-            with patch.object(DeadlineChannel, 'receive', side_effect=TimeoutError):
+            with patch.object(client._channel, 'receive', side_effect=TimeoutError):
                 self.assert_error(Error.TIMEOUT, client.list_sessions)
             self.assert_error(Error.DISCONNECTED, client.list_sessions)
 

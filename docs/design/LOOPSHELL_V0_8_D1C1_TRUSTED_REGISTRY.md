@@ -104,3 +104,5 @@ a proteção do banco sob uma identidade de serviço dedicada, a admissão e
 a revogação operacionais, os limites e a integração com os processos
 confiáveis existentes. A prova local mantém independentes o isolamento do
 host, D5 e M1.3B. [Relatório do laboratório](../labs/LOOPSHELL_V0_8_D1C1_TRUSTED_REGISTRY.md).
+
+A [D.1C.2](LOOPSHELL_V0_8_D1C2_OPERATIONAL_REGISTRY.md) detalha o perfil restrito, os pins de provisionamento e a qualificação cross-UID pendente.

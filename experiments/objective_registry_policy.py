@@ -68,6 +68,13 @@ class RegistryPolicy:
         with self._lock:
             self._grants.pop((principal, permission, executor_id), None)
 
+    def replace_grants(self, grants, *, update_identity):
+        """Install a validated snapshot under the authorization/commit lock."""
+        replacement = dict(grants)
+        with self._lock:
+            update_identity()
+            self._grants = replacement
+
     def replace_verifier(self, verify):
         with self._lock:
             self._verify = verify
