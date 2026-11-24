@@ -8,7 +8,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, Gio, Gtk
 
-from .compositor import apply_layout, setup_surfaces
+from .compositor import apply_layout, setup_surfaces, show_surfaces
 from .layout import CONSOLE_EDGES, HEIGHT_LIMITS, RAIL_SIDES, WIDTH_LIMITS
 from .layout import Layout, load_layout, save_layout
 
@@ -173,6 +173,7 @@ class Shell:
         if anchored is not None:
             self.mode_label.set_text(f'Painel {fitted.width} px · Console {fitted.height} px')
             apply_layout(self.layer_shell, *self.windows, fitted)
+            show_surfaces(*self.windows)
         else:
             reason = 'tela compacta' if self.layer_shell is not None else 'janela comum'
             self.mode_label.set_text(f'Prévia ({reason})\nSem reserva no Sway')
@@ -184,9 +185,8 @@ class Shell:
                 self.rail, None if self.preferences.side == 'left' else self.preview_column)
             self.preview_column.reorder_child_after(
                 self.console, None if self.preferences.edge == 'top' else self.workspace)
-        for window in self.windows:
-            if not window.get_visible():
-                window.present()
+            if not self.windows[0].get_visible():
+                self.windows[0].present()
 
     def rebuild_windows(self, monitor):
         for widget in (self.rail, self.console):

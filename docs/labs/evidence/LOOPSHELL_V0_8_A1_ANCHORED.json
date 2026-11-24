@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-23",
+  "baseline": "967501e",
+  "status": "PARTIAL",
+  "packages": {
+    "gir1.2-gtk4layershell-1.0_1.0.4-2_amd64.deb": "dd5bd3d187f537305747c630eb63db33e2b540392b55836f4da7009ea0ff246c",
+    "libgtk4-layer-shell0_1.0.4-2_amd64.deb": "303a974dd81ccf1e88f6261fd5503cd29f0f9e36268a1d09c9bcf5f1de44e47f"
+  },
+  "compositor": {
+    "sway": "1.10.1",
+    "gtk": "4.18.6",
+    "renderer": "GTK Cairo / wlroots Pixman",
+    "headlessOutput": "HEADLESS-1",
+    "protocolVersion": 4
+  },
+  "initialConfigure": {
+    "beforeFix": {
+      "configuredSize": {
+        "loopshell-rail": [
+          260,
+          768
+        ],
+        "loopshell-console": [
+          1024,
+          180
+        ]
+      },
+      "requestedExclusiveZone": {
+        "loopshell-rail": 260,
+        "loopshell-console": 180
+      }
+    },
+    "afterFix": {
+      "configuredSize": {
+        "loopshell-rail": [
+          260,
+          768
+        ],
+        "loopshell-console": [
+          764,
+          180
+        ]
+      },
+      "requestedExclusiveZone": {
+        "loopshell-rail": 260,
+        "loopshell-console": 180
+      }
+    }
+  },
+  "startupWithDefaultGtkRenderer": {"loopshell-rail": {"firstConfigure": [260, 768], "exclusiveZone": 260}, "loopshell-console": {"firstConfigure": [764, 180], "exclusiveZone": 180}},
+  "matrix": [
+    {"layout": {"side": "left", "edge": "bottom", "width": 260, "height": 180}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 0, "y": 0, "width": 260, "height": 768}, "console": {"x": 260, "y": 588, "width": 764, "height": 180}, "exclusive": [260, 180], "workspace": {"x": 260, "y": 0, "width": 764, "height": 588}, "foot": {"loopshell-lab-foot-a": {"x": 260, "y": 0, "width": 382, "height": 588}, "loopshell-lab-foot-b": {"x": 642, "y": 0, "width": 382, "height": 588}}, "pointerOrigins": {"rail": [0, 0], "console": [260, 588]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "left", "edge": "bottom", "width": 200, "height": 120}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 0, "y": 0, "width": 200, "height": 768}, "console": {"x": 200, "y": 648, "width": 824, "height": 120}, "exclusive": [200, 120], "workspace": {"x": 200, "y": 0, "width": 824, "height": 648}, "foot": {"loopshell-lab-foot-a": {"x": 200, "y": 0, "width": 412, "height": 648}, "loopshell-lab-foot-b": {"x": 612, "y": 0, "width": 412, "height": 648}}, "pointerOrigins": {"rail": [0, 0], "console": [200, 648]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "left", "edge": "top", "width": 290, "height": 200}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 0, "y": 0, "width": 290, "height": 768}, "console": {"x": 290, "y": 0, "width": 734, "height": 200}, "exclusive": [290, 200], "workspace": {"x": 290, "y": 200, "width": 734, "height": 568}, "foot": {"loopshell-lab-foot-a": {"x": 290, "y": 200, "width": 367, "height": 568}, "loopshell-lab-foot-b": {"x": 657, "y": 200, "width": 367, "height": 568}}, "pointerOrigins": {"rail": [0, 0], "console": [290, 0]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "left", "edge": "top", "width": 370, "height": 220}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 0, "y": 0, "width": 370, "height": 768}, "console": {"x": 370, "y": 0, "width": 654, "height": 220}, "exclusive": [370, 220], "workspace": {"x": 370, "y": 220, "width": 654, "height": 548}, "foot": {"loopshell-lab-foot-a": {"x": 370, "y": 220, "width": 327, "height": 548}, "loopshell-lab-foot-b": {"x": 697, "y": 220, "width": 327, "height": 548}}, "pointerOrigins": {"rail": [0, 0], "console": [370, 0]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "right", "edge": "bottom", "width": 280, "height": 170}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 744, "y": 0, "width": 280, "height": 768}, "console": {"x": 0, "y": 598, "width": 744, "height": 170}, "exclusive": [280, 170], "workspace": {"x": 0, "y": 0, "width": 744, "height": 598}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 0, "width": 372, "height": 598}, "loopshell-lab-foot-b": {"x": 372, "y": 0, "width": 372, "height": 598}}, "pointerOrigins": {"rail": [744, 0], "console": [0, 598]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "right", "edge": "bottom", "width": 410, "height": 240}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 614, "y": 0, "width": 410, "height": 768}, "console": {"x": 0, "y": 528, "width": 614, "height": 240}, "exclusive": [410, 240], "workspace": {"x": 0, "y": 0, "width": 614, "height": 528}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 0, "width": 307, "height": 528}, "loopshell-lab-foot-b": {"x": 307, "y": 0, "width": 307, "height": 528}}, "pointerOrigins": {"rail": [614, 0], "console": [0, 528]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "right", "edge": "top", "width": 240, "height": 150}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 784, "y": 0, "width": 240, "height": 768}, "console": {"x": 0, "y": 0, "width": 784, "height": 150}, "exclusive": [240, 150], "workspace": {"x": 0, "y": 150, "width": 784, "height": 618}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 150, "width": 392, "height": 618}, "loopshell-lab-foot-b": {"x": 392, "y": 150, "width": 392, "height": 618}}, "pointerOrigins": {"rail": [784, 0], "console": [0, 0]}, "focus": ["Foot A", "Console (help)", "Foot B"]},
+    {"layout": {"side": "right", "edge": "top", "width": 480, "height": 400}, "output": {"x": 0, "y": 0, "width": 1024, "height": 768}, "rail": {"x": 544, "y": 0, "width": 480, "height": 768}, "console": {"x": 0, "y": 0, "width": 544, "height": 400}, "exclusive": [480, 400], "workspace": {"x": 0, "y": 400, "width": 544, "height": 368}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 400, "width": 272, "height": 368}, "loopshell-lab-foot-b": {"x": 272, "y": 400, "width": 272, "height": 368}}, "pointerOrigins": {"rail": [544, 0], "console": [0, 0]}, "focus": ["Foot A", "Console (help)", "Foot B"]}
+  ],
+  "outputChanges": [
+    {"command": "mode 1280x720", "layout": {"side": "right", "edge": "top", "width": 480, "height": 400}, "output": {"x": 0, "y": 0, "width": 1280, "height": 720}, "rail": {"x": 800, "y": 0, "width": 480, "height": 720}, "console": {"x": 0, "y": 0, "width": 800, "height": 400}, "exclusive": [480, 400], "workspace": {"x": 0, "y": 400, "width": 800, "height": 320}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 400, "width": 400, "height": 320}, "loopshell-lab-foot-b": {"x": 400, "y": 400, "width": 400, "height": 320}}},
+    {"command": "scale 2", "layout": {"side": "right", "edge": "top", "width": 480, "height": 400}, "output": {"x": 0, "y": 0, "width": 640, "height": 360}, "rail": {"x": 320, "y": 0, "width": 320, "height": 360}, "console": {"x": 0, "y": 0, "width": 320, "height": 160}, "exclusive": [320, 160], "workspace": {"x": 0, "y": 160, "width": 320, "height": 200}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 160, "width": 160, "height": 200}, "loopshell-lab-foot-b": {"x": 160, "y": 160, "width": 160, "height": 200}}},
+    {"command": "mode 960x600", "output": {"x": 0, "y": 0, "width": 480, "height": 300}, "workspace": {"x": 0, "y": 0, "width": 480, "height": 300}, "preview": true},
+    {"command": "mode 1280x720", "layout": {"side": "right", "edge": "top", "width": 480, "height": 400}, "output": {"x": 0, "y": 0, "width": 640, "height": 360}, "rail": {"x": 320, "y": 0, "width": 320, "height": 360}, "console": {"x": 0, "y": 0, "width": 320, "height": 160}, "exclusive": [320, 160], "workspace": {"x": 0, "y": 160, "width": 320, "height": 200}, "foot": {"loopshell-lab-foot-a": {"x": 0, "y": 160, "width": 160, "height": 200}, "loopshell-lab-foot-b": {"x": 160, "y": 160, "width": 160, "height": 200}}},
+    {"command": "scale 1", "output": {"x": 0, "y": 0, "width": 1280, "height": 720}, "workspace": {"x": 0, "y": 160, "width": 960, "height": 560}, "gdkMonitor": {"x": 0, "y": 0, "width": 640, "height": 360}, "zones": [320, 160]}
+  ],
+  "restart": [
+    {"finish": "close button", "zonesRestored": true, "zonesReleased": true, "privatePhase": "ready", "samePrivateProcess": true, "firstWaylandConfigure": {"configuredSize": {"loopshell-rail": [480, 768], "loopshell-console": [544, 400]}, "requestedExclusiveZone": {"loopshell-rail": 480, "loopshell-console": 400}}},
+    {"finish": "SIGTERM", "zonesRestored": true, "zonesReleased": true, "privatePhase": "ready", "samePrivateProcess": true, "firstWaylandConfigure": {"configuredSize": {"loopshell-rail": [480, 768], "loopshell-console": [544, 400]}, "requestedExclusiveZone": {"loopshell-rail": 480, "loopshell-console": 400}}}
+  ],
+  "parentUnchanged": {
+    "config": true,
+    "outputs": true,
+    "process": true,
+    "version": true
+  }
+}

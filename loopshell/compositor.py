@@ -41,3 +41,20 @@ def apply_layout(shell, rail, console, layout):
             shell.set_anchor(window, edge, name in anchors)
         window.set_default_size(width, height)
         shell.set_exclusive_zone(window, zone)
+
+
+def show_surfaces(rail, console):
+    if rail.get_visible():
+        return
+
+    # The first rail buffer maps its exclusive zone in Sway. Delay mapping the
+    # console until then so its first configure uses the remaining width.
+    rail.set_visible(True)
+    clock = rail.get_frame_clock()
+
+    def show_console(frame_clock):
+        frame_clock.disconnect(handler)
+        if rail.get_mapped():
+            console.set_visible(True)
+
+    handler = clock.connect_after('after-paint', show_console)

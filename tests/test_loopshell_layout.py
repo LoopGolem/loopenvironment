@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from loopshell.compositor import apply_layout, load_layer_shell, setup_surfaces
+from loopshell.compositor import apply_layout, load_layer_shell, setup_surfaces, show_surfaces
 from loopshell.layout import Layout, config_path, load_layout, save_layout
 
 
@@ -87,6 +87,36 @@ class LayerShellTests(unittest.TestCase):
                          [(rail, monitor), (console, monitor)])
         self.assertEqual([args for args, _kw in shell.set_keyboard_mode.call_args_list],
                          [(rail, 'on-demand'), (console, 'on-demand')])
+
+    def test_console_waits_for_the_first_rail_frame(self):
+        rail, console = Mock(), Mock()
+        rail.get_visible.return_value = False
+        clock = rail.get_frame_clock.return_value
+        clock.connect_after.return_value = 17
+
+        show_surfaces(rail, console)
+
+        rail.set_visible.assert_called_once_with(True)
+        console.set_visible.assert_not_called()
+        signal, callback = clock.connect_after.call_args.args
+        self.assertEqual(signal, 'after-paint')
+        callback(clock)
+        console.set_visible.assert_called_once_with(True)
+        clock.disconnect.assert_called_once_with(17)
+
+        rail.get_visible.return_value = True
+        show_surfaces(rail, console)
+        clock.connect_after.assert_called_once()
+
+    def test_unmapped_rail_does_not_show_a_delayed_console(self):
+        rail, console = Mock(), Mock()
+        rail.get_visible.return_value = False
+        rail.get_mapped.return_value = False
+        clock = rail.get_frame_clock.return_value
+
+        show_surfaces(rail, console)
+        clock.connect_after.call_args.args[1](clock)
+        console.set_visible.assert_not_called()
 
     def test_switching_orientation_updates_both_surfaces(self):
         edge = SimpleNamespace(LEFT='left', RIGHT='right', TOP='top', BOTTOM='bottom')
