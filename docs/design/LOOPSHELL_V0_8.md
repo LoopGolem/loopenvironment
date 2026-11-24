@@ -1,6 +1,6 @@
 # LoopShell V0.8 — workspace, command console and session supervision
 
-**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The V0.8-B.1 read-only console has a [bounded GO lab result](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md).
+**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md).
 
 **Date:** 2026-11-23.  
 **Scope:** LoopEnvironment components on existing Linux, with no dependency on any particular AI provider, orchestrator, hypervisor, guest-image manager or external product.
