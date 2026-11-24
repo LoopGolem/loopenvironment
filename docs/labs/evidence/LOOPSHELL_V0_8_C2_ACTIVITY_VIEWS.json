@@ -1,0 +1,119 @@
+{
+  "milestone": "V0.8-C.2",
+  "classification": "GO in the tested local profile",
+  "environment": {
+    "os": "Debian 13.7 amd64",
+    "sway": "1.10.1",
+    "wlroots": "0.18.2",
+    "gtk": "4.18.6",
+    "foot": "1.21.0",
+    "bubblewrap": "0.12.0",
+    "layer_shell": "1.0.4-2",
+    "compositor": "disposable headless Wayland with Pixman",
+    "gtk_renderer": "Cairo",
+    "private_broker": "DesktopBroker, disposable local same-UID profile"
+  },
+  "authorized_events": [
+    {
+      "sequence": 19,
+      "kind": "control.changed",
+      "phase": "controlled",
+      "revision": 19
+    },
+    {
+      "sequence": 20,
+      "kind": "control.released",
+      "phase": "idle",
+      "revision": 20
+    }
+  ],
+  "scope": {
+    "no_grant_denied": true,
+    "mismatched_credential_denied": true,
+    "observer_acquire_denied": true,
+    "observer_workspace_read_denied": true,
+    "activity_gate": "session.discover/*",
+    "media_gate": "desktop.stream/*"
+  },
+  "sampling": {
+    "seconds": 6.2,
+    "event_queries": 3,
+    "queries_per_second": 0.484,
+    "process_cpu_percent_one_logical_cpu": 3.77,
+    "rss_mib": [
+      77.59,
+      77.6
+    ],
+    "includes": "GTK and driver with authorized Activity and no new events; before Visual"
+  },
+  "layout": {
+    "output": [
+      1024,
+      768
+    ],
+    "scale": 1,
+    "usable": {
+      "x": 260,
+      "y": 0,
+      "width": 764,
+      "height": 588
+    },
+    "exclusive_zones": [
+      260,
+      180
+    ],
+    "rectangles": {
+      "Foot": {
+        "x": 260,
+        "y": 0,
+        "width": 255,
+        "height": 588
+      },
+      "LoopShell · atividade · desktop": {
+        "x": 515,
+        "y": 0,
+        "width": 255,
+        "height": 588
+      },
+      "LoopBridge · sessão privada ao vivo": {
+        "x": 770,
+        "y": 0,
+        "width": 254,
+        "height": 588
+      }
+    },
+    "real_visual_frames_painted": 1
+  },
+  "outcomes": {
+    "real_retention_gap": true,
+    "explicit_resync_without_missing_rows": true,
+    "live_revocation": true,
+    "live_expiration": true,
+    "visual_continued_after_activity_revocation": true,
+    "induced_socket_interruption": true,
+    "threads_and_rows_released": true,
+    "private_ready_after_view_close": true,
+    "credentials_absent_from_gtk_output": true,
+    "private_ready_after_shell_close": true,
+    "both_workers_stopped_on_shell_close": true
+  },
+  "full_suite": {
+    "tests": 338,
+    "failures": 0,
+    "skipped": 0,
+    "gtk_opt_in": true
+  },
+  "primary_sway_comparison": {
+    "process": true,
+    "version": true,
+    "config_hash": true,
+    "outputs": true,
+    "workspaces": true
+  },
+  "qualification": {
+    "isolation": "PARTIAL",
+    "sustained_resource_cost": "not qualified",
+    "real_epoch_replacement": "deterministic protocol fixtures only",
+    "gtk_scale_2_to_1": "known limitation, outside C.2"
+  }
+}

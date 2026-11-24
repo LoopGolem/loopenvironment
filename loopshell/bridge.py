@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Client-side transport for the allowed LoopBridge console reads."""
+from contextlib import suppress
 from dataclasses import dataclass
 import os
 import re
@@ -23,6 +24,10 @@ REMOTE_ERRORS = {
     (-32006, 'target_unavailable'): Error.SESSION_UNAVAILABLE,
     (-32601, 'method_not_found'): Error.UNAVAILABLE,
     (-32600, 'unsupported_version'): Error.UNAVAILABLE,
+    (-32602, 'invalid_cursor'): Error.INVALID_CURSOR,
+    (-32003, 'gap_snapshot_required'): Error.HISTORY_GAP,
+    (-32004, 'epoch_changed_snapshot_required'): Error.EPOCH_CHANGED,
+    (-32004, 'snapshot_required'): Error.SNAPSHOT_REQUIRED,
 }
 CLOSE_ON_ERROR = frozenset((Error.DISCONNECTED, Error.AUTHENTICATION,
                             Error.TIMEOUT, Error.INVALID_RESPONSE))
@@ -45,6 +50,12 @@ class BridgeClient:
         self.principal = None
         self._channel = None
         self._sequence = 0
+
+    def interrupt(self):
+        channel = self._channel
+        if channel is not None:
+            with suppress(OSError):
+                channel.sock.shutdown(socket.SHUT_RDWR)
 
     def close(self):
         channel, self._channel = self._channel, None

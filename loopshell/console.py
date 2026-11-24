@@ -14,6 +14,7 @@ HELP = (
     'sessions list         Lista sessões autorizadas\n'
     'session status <id>   Consulta fase e revisão\n'
     'session observe <id> Abre a visualização autorizada\n'
+    'session activity <id> Abre os eventos autorizados\n'
     'Use Conectar para autenticar com uma credencial delegada.\n'
     'Diagnóstico do sistema, agentes e missões estão indisponíveis.'
 )
@@ -31,6 +32,11 @@ ERROR_TEXT = {
     Error.TIMEOUT: 'Tempo de espera do LoopBridge esgotado.',
     Error.UNAVAILABLE: 'Operação indisponível nesta versão.',
     Error.REMOTE_FAILURE: 'O LoopBridge não concluiu a consulta.',
+    Error.INVALID_CURSOR: 'Cursor inválido · nova sincronização necessária.',
+    Error.HISTORY_GAP: 'Lacuna no histórico · nova sincronização necessária.',
+    Error.EPOCH_CHANGED: 'Sessão substituída ou epoch alterado · nova sincronização necessária.',
+    Error.SNAPSHOT_REQUIRED: 'Snapshot obrigatório · nova sincronização necessária.',
+    Error.REAUTH_REQUIRED: 'Limite de conexão atingido · nova autenticação necessária.',
 }
 
 

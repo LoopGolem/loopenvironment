@@ -17,6 +17,11 @@ class Error(Enum):
     TIMEOUT = auto()
     UNAVAILABLE = auto()
     REMOTE_FAILURE = auto()
+    INVALID_CURSOR = auto()
+    HISTORY_GAP = auto()
+    EPOCH_CHANGED = auto()
+    SNAPSHOT_REQUIRED = auto()
+    REAUTH_REQUIRED = auto()
 
 
 class ShellError(Exception):

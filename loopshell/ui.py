@@ -12,6 +12,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk
 from loopbridge.presentation_client import LiveConnection
 from loopbridge.visual_view import ViewOptions, Watch
 
+from .activity_view import ActivityWindow
 from .bridge import BridgeClient, TOKEN, TOKEN_LENGTH
 from .commands import Action, MAX_INPUT, parse
 from .compositor import apply_layout, setup_surfaces, show_surfaces
@@ -48,7 +49,7 @@ class CommandConsole(Gtk.Box):
         self.client = client
         self.quit_shell = quit_shell
         self.open_view = open_view
-        self.view_selection = None
+        self.view_request = None
         self.busy = False
         self.add_css_class('console')
         self.status = label('', 'shell-muted')
@@ -88,7 +89,7 @@ class CommandConsole(Gtk.Box):
         credential_entry = self.input_stack.get_visible_child() == self.password
         if self.busy:
             status = 'Consultando…' if self.client.principal else 'Autenticando…'
-        elif self.view_selection is not None:
+        elif self.view_request is not None:
             status = 'Credencial de observação'
         elif self.client.principal:
             status = f'Conectado · {self.client.principal}'
@@ -105,7 +106,7 @@ class CommandConsole(Gtk.Box):
 
     def connection_action(self, _button):
         if self.input_stack.get_visible_child() == self.password:
-            self.view_selection = None
+            self.view_request = None
             self.password.set_text('')
             self.input_stack.set_visible_child_name('command')
         elif self.client.principal:
@@ -122,14 +123,15 @@ class CommandConsole(Gtk.Box):
         entry.set_text('')
         self.connection_button.grab_focus()
         self.input_stack.set_visible_child_name('command')
-        selection, self.view_selection = self.view_selection, None
-        if selection is not None:
+        request, self.view_request = self.view_request, None
+        if request is not None:
             self.refresh()
             if not TOKEN.fullmatch(credential):
                 self.record(None, ERROR_TEXT[Error.AUTHENTICATION])
                 self.entry.grab_focus()
             else:
-                self.open_view(selection, credential)
+                action, selection = request
+                self.open_view(selection, credential, action)
             return
 
         def connect():
@@ -155,19 +157,19 @@ class CommandConsole(Gtk.Box):
             self.paint_history()
         elif command.action is Action.EXIT:
             self.quit_shell()
-        elif command.action is Action.OBSERVE:
+        elif command.action in (Action.OBSERVE, Action.ACTIVITY):
             if self.open_view is None:
                 self.record(command, ERROR_TEXT[Error.UNAVAILABLE])
             else:
                 self.start_io(lambda: self.client.select_session(command.session),
-                              command, on_success=self.prompt_view)
+                              command, on_success=lambda selection: self.prompt_view(selection, command.action))
         elif command.action.remote:
             self.start_io(lambda: dispatch(command, self.client), command)
         else:
             self.record(command, dispatch(command, self.client))
 
-    def prompt_view(self, selection):
-        self.view_selection = selection
+    def prompt_view(self, selection, action=Action.OBSERVE):
+        self.view_request = (action, selection)
         self.input_stack.set_visible_child_name('credential')
         self.refresh()
         self.password.grab_focus()
@@ -227,8 +229,11 @@ class Shell:
         self.monitors.connect('items-changed', self.update_monitor)
         self.update_monitor()
 
-    def open_view(self, selection, credential):
+    def open_view(self, selection, credential, action=Action.OBSERVE):
         client = self.console.client
+        if action is Action.ACTIVITY:
+            ActivityWindow(self.app, client.endpoint, client.expected_uid, selection, credential).present()
+            return
         try:
             stream = LiveConnection(client.endpoint, credential, selection.session, None, selection.epoch,
                                     expected_peer_uid=client.expected_uid, expected_principal=selection.principal)
@@ -380,6 +385,8 @@ def run(path, layer_shell, endpoint=None, expected_uid=None):
         for window in application.get_windows():
             if isinstance(window, Watch):
                 window.stop_stream()
+            elif isinstance(window, ActivityWindow):
+                window.stop_polling()
 
     app.connect('activate', activate)
     app.connect('shutdown', shutdown)

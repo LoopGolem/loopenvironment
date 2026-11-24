@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""V1 grammar for a single line of typed LoopShell commands."""
+"""Versioned grammar for a single line of typed LoopShell commands."""
 from dataclasses import dataclass
 from enum import Enum
 import re
 
 from .errors import Error, ShellError
 
-GRAMMAR_VERSION = 2
+GRAMMAR_VERSION = 3
 MAX_INPUT = 256
 # Current Bridge session IDs are short logical names, distinct from credentials.
 SESSION_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,31}')
@@ -21,6 +21,7 @@ class Action(Enum):
     LIST = 'sessions list'
     STATUS = 'session status'
     OBSERVE = 'session observe'
+    ACTIVITY = 'session activity'
 
     @property
     def remote(self):
@@ -49,7 +50,7 @@ def parse(line):
         if words[:len(prefix)] != prefix:
             continue
         args = words[len(prefix):]
-        if action in (Action.STATUS, Action.OBSERVE):
+        if action in (Action.STATUS, Action.OBSERVE, Action.ACTIVITY):
             if len(args) != 1 or not SESSION_ID.fullmatch(args[0]):
                 raise ShellError(Error.INVALID_COMMAND)
             return Command(action, args[0])

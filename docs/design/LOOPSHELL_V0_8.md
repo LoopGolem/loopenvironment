@@ -1,6 +1,6 @@
 # LoopShell V0.8 — workspace, command console and session supervision
 
-**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md). The first [Visual views (C.1)](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) have a bounded local GO.
+**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The read-only console has bounded GO results in [preview (B.1)](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md) and in the [anchored layout (B.2)](../labs/LOOPSHELL_V0_8_B2_ANCHORED_CONSOLE.md). [Visual (C.1)](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) and [Activity (C.2)](../labs/LOOPSHELL_V0_8_C2_ACTIVITY_VIEWS.md) have bounded local GO results.
 
 **Date:** 2026-11-23.  
 **Scope:** LoopEnvironment components on existing Linux, with no dependency on any particular AI provider, orchestrator, hypervisor, guest-image manager or external product.
@@ -36,6 +36,7 @@ bridge> help
 bridge> agents list
 bridge> sessions list
 bridge> session observe <session-id>
+bridge> session activity <session-id>
 bridge> mission create --agent <agent-id>
 > Describe the objective in free text...
 bridge> mission create --orchestrator <agent-id>
@@ -66,6 +67,20 @@ epoch and the independent `desktop.stream` grant. A closed or stalled
 view removes its image. Reopening is explicit and repeats the validation.
 The [lab report](../labs/LOOPSHELL_V0_8_C1_VISUAL_VIEWS.md) records the
 tested lifecycle and the remaining gates.
+
+### V0.8-C.2 Activity view
+
+`session activity <id>` opens a regular GTK window. It asks for a scoped
+credential and verifies the selected console principal and epoch on a
+dedicated RPC connection. `snapshot` establishes the current cursor and
+`events` follows it on that connection. The Core broker checks
+`desktop.observe`. DesktopBroker checks `session.discover` on `*` on
+each request. The view displays sequence, event kind, phase and revision.
+The stream starts at the snapshot cursor and keeps up to 64 projected
+rows in memory. A gap, epoch change, invalid cursor or transport fault
+clears the feed and requires explicit reauthentication and a fresh
+snapshot. The active media socket and its grant remain independent.
+[C.2 lab report](../labs/LOOPSHELL_V0_8_C2_ACTIVITY_VIEWS.md).
 
 ## Separate entities and lifecycles
 
