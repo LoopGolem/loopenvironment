@@ -1,0 +1,44 @@
+{
+  "baseline": "78a73b6",
+  "result": "GO",
+  "grammar": 1,
+  "wireVersion": "0.6",
+  "environment": {
+    "sway": "1.10.1",
+    "gtk": "4.18.6",
+    "uid": 1000,
+    "wayland": "isolated headless Sway",
+    "loopShellMode": "preview",
+    "service": "disposable managed private DesktopBroker with real Sway"
+  },
+  "smoke": {
+    "clear": true,
+    "credentialMaskedAndCleared": true,
+    "exit": true,
+    "grantRequiredAfterAuthentication": true,
+    "gui": true,
+    "hiddenMissingId": true,
+    "historyChecked": true,
+    "invalidAuthentication": true,
+    "observerAcquireDenied": true,
+    "observerMethods": [
+      "auth",
+      "discover",
+      "discover",
+      "snapshot",
+      "snapshot"
+    ],
+    "privateSessionReadyAfterExit": true,
+    "sessions": {
+      "sessions": [
+        "desktop"
+      ]
+    },
+    "status": {
+      "phase": "idle",
+      "revision": 18,
+      "session": "desktop"
+    },
+    "systemExecutionMarkerAbsent": true
+  }
+}

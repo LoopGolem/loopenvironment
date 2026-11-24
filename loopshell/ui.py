@@ -1,23 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
-"""GTK4 demonstration surfaces. Commands are handled locally as text."""
+"""GTK4 surfaces for the typed LoopBridge console."""
 from collections import deque
+from threading import Thread
 
 import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, Gio, Gtk
+from gi.repository import Gdk, Gio, GLib, Gtk
 
+from .bridge import BridgeClient, TOKEN_LENGTH
+from .commands import Action, MAX_INPUT, parse
 from .compositor import apply_layout, setup_surfaces, show_surfaces
+from .console import ERROR_TEXT, PROMPT, dispatch, history_entry
+from .errors import ShellError
 from .layout import CONSOLE_EDGES, HEIGHT_LIMITS, RAIL_SIDES, WIDTH_LIMITS
 from .layout import Layout, load_layout, save_layout
-
-PROMPT = 'bridge-demo> '
-HELP = (
-    'Demonstração local. Operações planejadas e indisponíveis:\n'
-    '  agents list\n  sessions list\n  session observe <id>\n'
-    '  mission create\n  mission status <id>\n  system status'
-)
 
 STYLE = b"""
 .rail { background: #192332; color: #e0e9f5; padding: 10px; }
@@ -32,12 +30,6 @@ STYLE = b"""
 """
 
 
-def command_reply(command):
-    if command == 'help':
-        return HELP
-    return 'Comando demonstrativo desconhecido. Digite help.'
-
-
 def label(text, style=None):
     widget = Gtk.Label(label=text, xalign=0, wrap=True)
     if style:
@@ -45,32 +37,129 @@ def label(text, style=None):
     return widget
 
 
-class DemoConsole(Gtk.Box):
-    def __init__(self):
+class CommandConsole(Gtk.Box):
+    def __init__(self, client, quit_shell):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self.client = client
+        self.quit_shell = quit_shell
+        self.busy = False
         self.add_css_class('console')
-        self.append(label('Console demonstrativo', 'shell-muted'))
-        self.history = deque(['Digite help para consultar os comandos planejados.'], maxlen=64)
+        self.status = label('', 'shell-muted')
+        self.status.set_hexpand(True)
+        self.connection_button = Gtk.Button()
+        self.connection_button.connect('clicked', self.connection_action)
+        header = Gtk.Box(spacing=8)
+        header.append(self.status)
+        header.append(self.connection_button)
+        self.append(header)
+        self.history = deque(maxlen=64)
         self.view = Gtk.TextView(editable=False, cursor_visible=False,
                                  wrap_mode=Gtk.WrapMode.WORD_CHAR)
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scroll.set_child(self.view)
         self.append(scroll)
+
         row = Gtk.Box(spacing=8)
         row.append(label(PROMPT, 'prompt'))
-        entry = Gtk.Entry(placeholder_text='Digite help', max_length=256, hexpand=True)
-        entry.connect('activate', self.submit)
-        row.append(entry)
-        self.append(row)
-        self.paint_history()
+        self.entry = Gtk.Entry(placeholder_text='Digite help', max_length=MAX_INPUT + 1,
+                               hexpand=True)
+        self.entry.connect('activate', self.submit)
+        row.append(self.entry)
+        self.password = Gtk.Entry(visibility=False, input_purpose=Gtk.InputPurpose.PASSWORD,
+                                  input_hints=Gtk.InputHints.PRIVATE,
+                                  placeholder_text='Credencial · pressione Enter',
+                                  max_length=TOKEN_LENGTH + 1)
+        self.password.connect('activate', self.authenticate)
+        self.input_stack = Gtk.Stack()
+        self.input_stack.add_named(row, 'command')
+        self.input_stack.add_named(self.password, 'credential')
+        self.append(self.input_stack)
+        self.refresh()
+
+    def refresh(self):
+        credential_entry = self.input_stack.get_visible_child() == self.password
+        if self.busy:
+            status = 'Consultando…' if self.client.principal else 'Autenticando…'
+        elif self.client.principal:
+            status = f'Conectado · {self.client.principal}'
+        elif self.client.endpoint:
+            status = 'Desconectado'
+        else:
+            status = 'Desconectado · use --socket'
+        self.status.set_text(status)
+        button = ('Cancelar' if credential_entry else
+                  'Desconectar' if self.client.principal else 'Conectar')
+        self.connection_button.set_label(button)
+        self.connection_button.set_sensitive(not self.busy and self.client.endpoint is not None)
+        self.entry.set_sensitive(not self.busy)
+
+    def connection_action(self, _button):
+        if self.input_stack.get_visible_child() == self.password:
+            self.password.set_text('')
+            self.input_stack.set_visible_child_name('command')
+        elif self.client.principal:
+            self.client.close()
+        else:
+            self.input_stack.set_visible_child_name('credential')
+            self.password.grab_focus()
+        self.refresh()
+
+    def authenticate(self, entry):
+        if self.busy:
+            return
+        credential = entry.get_text()
+        entry.set_text('')
+        self.input_stack.set_visible_child_name('command')
+
+        def connect():
+            self.client.connect(credential)
+            return 'Autenticado. As consultas continuam sujeitas aos grants do LoopBridge.'
+
+        self.start_io(connect)
 
     def submit(self, entry):
-        command = entry.get_text().strip()
-        if command:
-            self.history.append(PROMPT + command + '\n' + command_reply(command))
-            self.paint_history()
+        line = entry.get_text()
         entry.set_text('')
+        try:
+            command = parse(line)
+        except ShellError as error:
+            self.record(None, ERROR_TEXT[error.error])
+            return
+        if command is None:
+            return
+        if command.action is Action.CLEAR:
+            self.history.clear()
+            self.paint_history()
+        elif command.action is Action.EXIT:
+            self.quit_shell()
+        elif command.action.remote:
+            self.start_io(lambda: dispatch(command, self.client), command)
+        else:
+            self.record(command, dispatch(command, self.client))
+
+    def start_io(self, task, command=None):
+        self.busy = True
+        self.refresh()
+
+        def work():
+            try:
+                text = task()
+            except ShellError as error:
+                text = ERROR_TEXT[error.error]
+            GLib.idle_add(self.finished, command, text)
+
+        Thread(target=work, daemon=True).start()
+
+    def finished(self, command, text):
+        self.busy = False
+        self.refresh()
+        self.record(command, text)
+        self.entry.grab_focus()
+
+    def record(self, command, text):
+        self.history.append(history_entry(command, text))
+        self.paint_history()
 
     def paint_history(self):
         buffer = self.view.get_buffer()
@@ -80,7 +169,7 @@ class DemoConsole(Gtk.Box):
 
 
 class Shell:
-    def __init__(self, app, path, layer_shell):
+    def __init__(self, app, path, layer_shell, client):
         self.app = app
         self.path = path
         self.layer_shell = layer_shell
@@ -89,7 +178,7 @@ class Shell:
         self.monitor = None
         self.geometry_watch = None
         self.anchored_monitor = None
-        self.console = DemoConsole()
+        self.console = CommandConsole(client, app.quit)
         self.rail = self.build_rail()
         self.display = Gdk.Display.get_default()
         css = Gtk.CssProvider()
@@ -103,8 +192,6 @@ class Shell:
     def build_rail(self):
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         content.append(label('LoopShell', 'shell-title'))
-        content.append(label('Sessões simuladas', 'shell-muted'))
-        content.append(label('Exemplo local'))
         self.mode_label = label('', 'shell-muted')
         content.append(self.mode_label)
         content.append(Gtk.Separator())
@@ -230,14 +317,18 @@ class Shell:
         return False
 
 
-def run(path, layer_shell):
+def run(path, layer_shell, endpoint=None, expected_uid=None):
+    client = BridgeClient(endpoint, expected_uid)
     app = Gtk.Application(application_id='org.loopenvironment.LoopShell',
                           flags=Gio.ApplicationFlags.NON_UNIQUE)
 
     def activate(application):
         supported = (layer_shell is not None and layer_shell.is_supported()
                      and layer_shell.get_protocol_version() >= 4)
-        Shell(application, path, layer_shell if supported else None)
+        Shell(application, path, layer_shell if supported else None, client)
 
     app.connect('activate', activate)
-    return app.run([])
+    try:
+        return app.run([])
+    finally:
+        client.close()

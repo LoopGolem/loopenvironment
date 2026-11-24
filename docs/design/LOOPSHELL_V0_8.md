@@ -1,6 +1,6 @@
 # LoopShell V0.8 — workspace, command console and session supervision
 
-**Status:** approved architectural intent. The experimental V0.8-A client has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md).
+**Status:** approved architectural intent. The experimental V0.8-A layout has a [PARTIAL lab result](../labs/LOOPSHELL_V0_8_A_LAYOUT.md). The V0.8-B.1 read-only console has a [bounded GO lab result](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md).
 
 **Date:** 2026-11-23.  
 **Scope:** LoopEnvironment components on existing Linux, with no dependency on any particular AI provider, orchestrator, hypervisor, guest-image manager or external product.
@@ -29,7 +29,7 @@ This design refines [ADR 0011](../DECISIONS/0011-session-presentation-and-operat
 
 ## Typed Bridge command surface
 
-The console is **not Bash, a PTY into host privileges or unrestricted process execution**. It accepts an explicit, versioned, allowlisted Bridge command grammar mapped to authenticated structured API calls; unsupported commands fail closed. Illustrative proposed syntax (**not implemented or stable**):
+The console is **not Bash, a PTY into host privileges or unrestricted process execution**. It accepts an explicit, versioned, allowlisted Bridge command grammar mapped to authenticated structured API calls; unsupported commands fail closed. The example shows the proposed command surface. The implemented subset is documented below.
 
 ```text
 bridge> help
@@ -47,6 +47,15 @@ bridge> system status
 `mission` accepts a free-text objective **delegated to a configured eligible agent**, never executed as a shell statement. If no authorized agent exists, return a clear setup/authorization error; agent onboarding must be possible via independently authorized GUI/API flows. Providers may be local or external without vendor coupling. A mission may target one agent or a configured **orchestrator principal** delegated authority to request bounded subordinate sessions and operations.
 
 A default mission context may explain the environment, contract and expected structured response; operators may replace this **instructional** text. Prompt text cannot override authorization, isolation or validation. A candidate JSON response from an agent is an **untrusted operation proposal**, never a grant: validate schema, operation whitelist, target freshness, caller principal, scoped capabilities, lease, limits, argument types, result and audit. Separate request accepted / dispatched / externally verified effect. LoopEnvironment does **not** implement the planning or multi-agent reasoning algorithm.
+
+### V0.8-B.1 implemented subset
+
+The experimental v1 grammar implements local `help`, `clear` and `exit`,
+plus `sessions list` and `session status <id>` over the selected Unix
+LoopBridge socket. Credentials are entered through a masked field.
+`discover` and `snapshot` enforce their existing grants. The console
+projects snapshot identity, phase and revision. The [lab report](../labs/LOOPSHELL_V0_8_B1_CONSOLE.md)
+documents the broker mappings, limitations and reproduction.
 
 ## Separate entities and lifecycles
 
