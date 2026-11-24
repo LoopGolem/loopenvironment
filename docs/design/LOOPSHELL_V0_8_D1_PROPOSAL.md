@@ -5,6 +5,10 @@ associado a um principal e entrega um objetivo a um cliente autenticado
 que decide aceitá-lo ou recusá-lo. O resultado demonstrável é o estado
 dessa entrega e sua autoria.
 
+A D.1A exercita esse fluxo em memória. A proposta D.1B descreve as
+decisões de integração que precisam de revisão.
+[Contratos e proposta de integração](LOOPSHELL_V0_8_D1A_OBJECTIVE_CONTRACTS.md).
+
 ## Contratos de partida
 
 O principal autenticado é o sujeito das permissões. Humano, agente e
