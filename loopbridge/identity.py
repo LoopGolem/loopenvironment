@@ -49,24 +49,32 @@ class Identities:
         return dict(version=1, verifiers={p: digest.hex() for p, digest in self._digests.items()})
 
     def contains_credential(self, value):
-        for run in re.findall(r'[A-Za-z0-9_-]{43,}', value):
-            for offset in range(len(run) - 42):
-                digest = hashlib.sha256(run[offset:offset + 43].encode()).digest()
-                if any(hmac.compare_digest(digest, saved) for saved in self._digests.values()):
-                    return True
-        return False
+        return contains_credential(value, self._digests.values())
 
     def authenticate(self, credential):
-        if not isinstance(credential, str) or len(credential) > 128:
-            raise Fault(-32001, 'denied')
-        try:
-            digest = hashlib.sha256(credential.encode()).digest()
-        except UnicodeError:
-            raise Fault(-32001, 'denied') from None
-        principal = None
-        for p, expected in self._digests.items():
-            if hmac.compare_digest(digest, expected):
-                principal = p
-        if principal is None:
-            raise Fault(-32001, 'denied')
-        return principal
+        return authenticate_credential(credential, self._digests)
+
+
+def contains_credential(value, digests):
+    for run in re.findall(r'[A-Za-z0-9_-]{43,}', value):
+        for offset in range(len(run) - 42):
+            digest = hashlib.sha256(run[offset:offset + 43].encode()).digest()
+            if any(hmac.compare_digest(digest, saved) for saved in digests):
+                return True
+    return False
+
+
+def authenticate_credential(credential, digests):
+    if not isinstance(credential, str) or len(credential) > 128:
+        raise Fault(-32001, 'denied')
+    try:
+        digest = hashlib.sha256(credential.encode()).digest()
+    except UnicodeError:
+        raise Fault(-32001, 'denied') from None
+    principal = None
+    for name, expected in digests.items():
+        if hmac.compare_digest(digest, expected):
+            principal = name
+    if principal is None:
+        raise Fault(-32001, 'denied')
+    return principal

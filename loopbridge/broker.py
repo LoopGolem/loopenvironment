@@ -8,7 +8,7 @@ import socket
 import threading
 import time
 
-from .protocol import Fault, VERSION, DeadlineChannel, encode, request
+from .protocol import Fault, VERSION, VERSIONS, DeadlineChannel, encode, request
 from .service_ingress import PeerAdmission, peer_uid
 from .authority import Handle, Session, TARGET, fail
 
@@ -38,6 +38,7 @@ SCHEMA = {
 
 class Broker:
     schema = SCHEMA
+    wire_versions = VERSIONS
     versions = ('0.1', '0.2', '0.3', '0.4', '0.5', VERSION)
     connection_limits = (30, 180, 64)
 
@@ -152,6 +153,14 @@ class Broker:
         if method == 'invoke7':
             return self.invoke(session, connection, params)
         return self.extended(session, connection, method, params)
+
+    def handle_request(self, connection, version, method, params):
+        return self.handle(connection, method, params)
+
+    def audit_request(self, connection, version, method, outcome):
+        with self.audit_lock:
+            self.audit.append(dict(method=method if method in self.schema or method == 'auth' else 'unknown',
+                                   principal=connection.principal, outcome=outcome))
 
     def require_events(self, session, principal):
         session.require(principal, 'desktop.observe')
@@ -345,22 +354,20 @@ class Broker:
                 if time.monotonic() >= deadline:
                     break
                 value = channel.receive(min(idle_timeout, max(.001, deadline - time.monotonic())))
-                rid, method, params = request(value)
+                rid, method, params = request(value, versions=self.wire_versions)
                 if rid <= last_id:
                     fail('replay_request', -32600)
                 last_id = rid
                 try:
                     if value['version'] not in self.versions:
                         fail('unsupported_version', -32600)
-                    result = self.handle(connection, method, params)
+                    result = self.handle_request(connection, value['version'], method, params)
                     reply = dict(jsonrpc='2.0', version=value['version'], id=rid, result=result)
                     outcome = result.get('status', 'ok')
                 except Fault as error:
                     reply = dict(jsonrpc='2.0', version=value['version'], id=rid, error=dict(code=error.code, message=error.message))
                     outcome = error.message
-                with self.audit_lock:
-                    self.audit.append(dict(method=method if method in self.schema or method == 'auth' else 'unknown',
-                                           principal=connection.principal, outcome=outcome))
+                self.audit_request(connection, value['version'], method, outcome)
                 channel.send(reply)
                 if 'result' in reply and self.upgrade(connection, method, result, channel):
                     break

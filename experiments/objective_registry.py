@@ -192,11 +192,14 @@ class Registry:
         self._objectives = {}
         self._receipts = OrderedDict()
 
-    @contextmanager
-    def _request(self, credential):
+    def _authenticate(self, credential):
         if type(credential) is not str or not 0 < len(credential) <= 128:
             raise RegistryError(Error.DENIED)
-        with self._authority.authenticate(credential) as actor:
+        return self._authority.authenticate(credential)
+
+    @contextmanager
+    def _request(self, credential):
+        with self._authenticate(credential) as actor:
             if type(actor.principal) is not str or not IDENTIFIER.fullmatch(actor.principal):
                 raise RegistryError(Error.DENIED)
             with self._transaction(actor):
