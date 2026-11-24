@@ -30,6 +30,10 @@ class Error(StrEnum):
     EXPIRED = 'objective_expired'
     REQUEST_CONFLICT = 'request_conflict'
     CAPACITY = 'capacity'
+    STORAGE_UNAVAILABLE = 'storage_unavailable'
+    INVALID_STORAGE = 'invalid_storage'
+    COMMIT_UNKNOWN = 'commit_unknown'
+    CLOCK_UNCERTAIN = 'clock_uncertain'
 
 
 class RegistryError(Exception):
@@ -192,10 +196,16 @@ class Registry:
     def _request(self, credential):
         if type(credential) is not str or not 0 < len(credential) <= 128:
             raise RegistryError(Error.DENIED)
-        with self._authority.authenticate(credential) as actor, self._lock:
+        with self._authority.authenticate(credential) as actor:
             if type(actor.principal) is not str or not IDENTIFIER.fullmatch(actor.principal):
                 raise RegistryError(Error.DENIED)
-            yield actor
+            with self._transaction(actor):
+                yield actor
+
+    @contextmanager
+    def _transaction(self, _actor):
+        with self._lock:
+            yield
 
     def _replay(self, key, signature):
         stored = self._receipts.get(key)

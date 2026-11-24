@@ -131,6 +131,9 @@ A credencial fica com o adaptador e o atendimento temporário da chamada.
 
 ## V0.8-D.1B — integração candidata para revisão
 
+A prova durável e a revisão posterior destes candidatos estão no
+[contrato D.1B](LOOPSHELL_V0_8_D1B_DURABLE_REGISTRY.md).
+
 - **RPC.** Considerar `executor.register`, `executor.confirm`,
   `executor.status`, `executor.transition` com suspender, retomar e
   revogar tipados, `objective.create`, `objective.offer`,
