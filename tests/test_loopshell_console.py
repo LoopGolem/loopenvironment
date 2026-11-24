@@ -213,6 +213,32 @@ class TransportTests(ShellTests):
             self.assert_error(Error.INVALID_RESPONSE, client.session_status, 'desktop')
 
 
+@unittest.skipUnless(os.environ.get('LOOPSHELL_TEST_GTK') == '1',
+                     'opt-in GTK test on a disposable display')
+class ConsoleGeometryTests(unittest.TestCase):
+    def test_authenticated_console_fits_minimum_reserved_height(self):
+        from loopshell.layout import HEIGHT_LIMITS, MIN_WORKSPACE
+        from loopshell.ui import CommandConsole, Gdk, Gtk, STYLE
+
+        Gtk.init()
+        display = Gdk.Display.get_default()
+        self.assertIsNotNone(display)
+        provider = Gtk.CssProvider()
+        provider.load_from_data(STYLE)
+        Gtk.StyleContext.add_provider_for_display(
+            display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.addCleanup(Gtk.StyleContext.remove_provider_for_display, display, provider)
+
+        client = BridgeClient(Path('/unused.sock'))
+        client.principal = 'observer'
+        console = CommandConsole(client, lambda: None)
+        window = Gtk.Window(child=console)
+        self.addCleanup(window.destroy)
+        console.view.get_buffer().set_text('Session status\n' * 64)
+        minimum, *_ = console.measure(Gtk.Orientation.VERTICAL, MIN_WORKSPACE[0])
+        self.assertLessEqual(minimum, HEIGHT_LIMITS[0])
+
+
 class BrokerIntegration(ShellTests):
     def test_observer_shell_against_disposable_loopbridge(self):
         identities = Identities()

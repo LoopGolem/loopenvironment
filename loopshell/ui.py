@@ -23,6 +23,8 @@ STYLE = b"""
 .console textview, .console textview text {
   background: #101822; color: #c4d7e9; font-family: monospace;
 }
+/* Keep the history scrollable within the minimum exclusive zone. */
+.console scrollbar.vertical slider { min-height: 20px; }
 .console .prompt { color: #79e2ba; font-family: monospace; }
 .shell-title { font-size: 19px; font-weight: bold; }
 .shell-muted { color: #a9bfd5; }
@@ -92,7 +94,7 @@ class CommandConsole(Gtk.Box):
                   'Desconectar' if self.client.principal else 'Conectar')
         self.connection_button.set_label(button)
         self.connection_button.set_sensitive(not self.busy and self.client.endpoint is not None)
-        self.entry.set_sensitive(not self.busy)
+        self.entry.set_editable(not self.busy)
 
     def connection_action(self, _button):
         if self.input_stack.get_visible_child() == self.password:
@@ -110,6 +112,7 @@ class CommandConsole(Gtk.Box):
             return
         credential = entry.get_text()
         entry.set_text('')
+        self.connection_button.grab_focus()
         self.input_stack.set_visible_child_name('command')
 
         def connect():
@@ -119,6 +122,8 @@ class CommandConsole(Gtk.Box):
         self.start_io(connect)
 
     def submit(self, entry):
+        if self.busy:
+            return
         line = entry.get_text()
         entry.set_text('')
         try:

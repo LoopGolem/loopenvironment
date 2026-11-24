@@ -1,0 +1,250 @@
+{
+  "baseline": "1382757",
+  "result": "GO",
+  "date": "2026-11-24",
+  "environment": {
+    "uid": 1000,
+    "gtk": "4.18.6",
+    "sway": "1.10.1",
+    "gtk4LayerShellDebian": "1.0.4-2",
+    "protocolVersion": 4,
+    "display": "disposable headless Sway 1024x768 scale 1",
+    "broker": "separate disposable managed private desktop"
+  },
+  "beforeFix": {
+    "reservedConsoleHeight": 120,
+    "measuredConsoleHeight": 134,
+    "historyScrollerMinimumHeight": 46
+  },
+  "afterFixGtkFocusWarnings": false,
+  "geometry": [
+    {
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 260,
+        "height": 768
+      },
+      "console": {
+        "x": 260,
+        "y": 588,
+        "width": 764,
+        "height": 180
+      },
+      "workspace": {
+        "x": 260,
+        "y": 0,
+        "width": 764,
+        "height": 588
+      },
+      "foot": [
+        {
+          "x": 260,
+          "y": 0,
+          "width": 382,
+          "height": 588
+        },
+        {
+          "x": 642,
+          "y": 0,
+          "width": 382,
+          "height": 588
+        }
+      ],
+      "zones": [
+        260,
+        180
+      ],
+      "side": "left",
+      "edge": "bottom"
+    },
+    {
+      "rail": {
+        "x": 0,
+        "y": 0,
+        "width": 200,
+        "height": 768
+      },
+      "console": {
+        "x": 200,
+        "y": 0,
+        "width": 824,
+        "height": 120
+      },
+      "workspace": {
+        "x": 200,
+        "y": 120,
+        "width": 824,
+        "height": 648
+      },
+      "foot": [
+        {
+          "x": 200,
+          "y": 120,
+          "width": 412,
+          "height": 648
+        },
+        {
+          "x": 612,
+          "y": 120,
+          "width": 412,
+          "height": 648
+        }
+      ],
+      "zones": [
+        200,
+        120
+      ],
+      "side": "left",
+      "edge": "top"
+    },
+    {
+      "rail": {
+        "x": 614,
+        "y": 0,
+        "width": 410,
+        "height": 768
+      },
+      "console": {
+        "x": 0,
+        "y": 528,
+        "width": 614,
+        "height": 240
+      },
+      "workspace": {
+        "x": 0,
+        "y": 0,
+        "width": 614,
+        "height": 528
+      },
+      "foot": [
+        {
+          "x": 0,
+          "y": 0,
+          "width": 307,
+          "height": 528
+        },
+        {
+          "x": 307,
+          "y": 0,
+          "width": 307,
+          "height": 528
+        }
+      ],
+      "zones": [
+        410,
+        240
+      ],
+      "side": "right",
+      "edge": "bottom"
+    },
+    {
+      "rail": {
+        "x": 544,
+        "y": 0,
+        "width": 480,
+        "height": 768
+      },
+      "console": {
+        "x": 0,
+        "y": 0,
+        "width": 544,
+        "height": 400
+      },
+      "workspace": {
+        "x": 0,
+        "y": 400,
+        "width": 544,
+        "height": 368
+      },
+      "foot": [
+        {
+          "x": 0,
+          "y": 400,
+          "width": 272,
+          "height": 368
+        },
+        {
+          "x": 272,
+          "y": 400,
+          "width": 272,
+          "height": 368
+        }
+      ],
+      "zones": [
+        480,
+        400
+      ],
+      "side": "right",
+      "edge": "top"
+    }
+  ],
+  "sessions": {
+    "sessions": [
+      "desktop"
+    ]
+  },
+  "status": {
+    "session": "desktop",
+    "phase": "idle",
+    "revision": 17
+  },
+  "focus": [
+    "Foot A",
+    "Console",
+    "Foot B"
+  ],
+  "eventProbe": {
+    "snapshotRequired": true,
+    "kinds": [
+      "grant.changed"
+    ],
+    "revocationDenied": true
+  },
+  "acquireDenied": true,
+  "credentialMaskedAndCleared": true,
+  "checkedHistoryAndErrors": true,
+  "invalidCredentialDenied": true,
+  "noGrantDenied": true,
+  "revokedGrantDenied": true,
+  "privateReadyAfterDisconnect": true,
+  "timeout": {
+    "elapsedSeconds": 3.02,
+    "reenabled": true,
+    "focusStayedOnFoot": true,
+    "observedMethods": {
+      "auth": 1,
+      "discover": 1
+    }
+  },
+  "drop": {
+    "elapsedSeconds": 0.02,
+    "reenabled": true,
+    "focusStayedOnFoot": true,
+    "observedMethods": {
+      "auth": 1,
+      "discover": 1
+    }
+  },
+  "closeDuringRead": {
+    "exitBeforeTimeout": true,
+    "elapsedSeconds": 0.035,
+    "socketClosed": true,
+    "zonesReleased": true,
+    "privateStillReady": true,
+    "sameProcess": true,
+    "checkedChildLogs": true
+  },
+  "checkedBrokerAudit": true,
+  "parentUnchanged": {
+    "config": true,
+    "process": true,
+    "version": true,
+    "outputs": true,
+    "workspaces": true
+  },
+  "tests": {
+    "passed": 318,
+    "gtkOptIn": true
+  }
+}
