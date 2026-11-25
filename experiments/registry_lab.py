@@ -67,6 +67,12 @@ class _Access:
 
         self.policy.replace_grants(grants, update_identity=update_identity)
 
+    @contextmanager
+    def identity_snapshot(self):
+        """Resolve connection bindings and enrollment under the policy mutex."""
+        with self._lock:
+            yield self._bound_principal, self._digests.__contains__
+
     def bind(self, connection, params):
         credential = params.pop('credential', None)
         if (params or type(credential) is not str
@@ -129,13 +135,14 @@ class _BoundRegistry(SQLiteRegistry):
 class RegistryLabBroker(DesktopBroker):
     versions = (*DesktopBroker.versions, VERSION)
     wire_versions = (*DesktopBroker.wire_versions, VERSION)
+    _registry_type = _BoundRegistry
 
     def __init__(self, identities, adapters, uid, journal, *, verifiers, database,
                  wall_clock, clock, create, ingress_policy=None, grant_clock=None, storage_check=None):
         super().__init__(identities, adapters, uid, journal, clock=clock, ingress_policy=ingress_policy)
         self.access = _Access(self, verifiers, clock if grant_clock is None else grant_clock)
-        self.registry = _BoundRegistry(database, self.access.policy, wall_clock=wall_clock,
-                                       create=create, storage_check=storage_check)
+        self.registry = self._registry_type(database, self.access.policy, wall_clock=wall_clock,
+                                            create=create, storage_check=storage_check)
         self.registry_rpc = RegistryRPC(self.registry, clock)
 
     def clear(self, connection):
