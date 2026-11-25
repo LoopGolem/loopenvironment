@@ -1,0 +1,104 @@
+{
+  "provenance": "operator_supplied_terminal_output",
+  "result": "experimental_go",
+  "environment": {
+    "hypervisor": "VirtualBox",
+    "hostname": "looplab-d1c3",
+    "os": "Debian 13",
+    "snapshot_before_run": true
+  },
+  "source": {
+    "commit": "2917d1a35f0e9898c47656557c7a3e5ef067ecd6",
+    "tar_sha256": "6e7034c4d029aeca7afa86eba86dd59c97e375419439b3de35e876ba7aed6da6"
+  },
+  "run_id": "5f0c4c9f006e04ed",
+  "desktop": {"account": "vboxuser", "uid": 1000, "gid": 1000},
+  "service": {"account": "loopbridge-svc", "uid": 980, "gid": 980},
+  "installed_unit_preflight": {
+    "name": "loopbridge.service",
+    "ActiveState": "inactive",
+    "UnitFileState": "disabled"
+  },
+  "fixture": {
+    "root": {"path": "/run/loop-registry-d1c3-5f0c4c9f006e04ed", "mode": "0755", "uid": 0, "gid": 0},
+    "private_directory": {"mode": "0700", "uid": 980, "gid": 980},
+    "ingress_directory": {"mode": "0710", "uid": 980, "gid": 980, "acl": "user:1000:--x"},
+    "rpc_socket": {"mode": "0620", "admitted_uid": 1000},
+    "sqlite": {"mode": "0600", "uid": 980},
+    "manifest": {"mode": "0600", "uid": 980}
+  },
+  "phases": {
+    "initial": {
+      "result": "go",
+      "broker_pid": 5588,
+      "broker_uid": 980,
+      "client_uid": 1000,
+      "broker_peer_verified_by_client_via_so_peercred": true,
+      "individual_authentication": true,
+      "executor_registered": true,
+      "binding_confirmed": true,
+      "objective_created": true,
+      "objective_offered": true,
+      "objective_accepted": true,
+      "invalid_credential_denied": true,
+      "ungranted_principal_denied": true,
+      "ancillary_data_observed": false
+    },
+    "revocation_and_rotation": {
+      "result": "go",
+      "policy_generation": 2,
+      "issuer_grant_revoked": true,
+      "old_executor_credential_denied": true,
+      "rotated_executor_credential_accepted": true,
+      "ungranted_principal_denied": true,
+      "ancillary_data_observed": false
+    },
+    "restart_and_recovery": {
+      "result": "go",
+      "first_broker_stopped_orderly_and_removed_sockets": true,
+      "broker_pid": 5833,
+      "broker_uid": 980,
+      "database_pin_unchanged": "24:2231:24:2234",
+      "objective_state": "accepted",
+      "original_receipt_reconciled_by_request_id": true,
+      "recovered_receipt_revision": 3,
+      "old_executor_credential_denied": true,
+      "issuer_grant_still_revoked": true,
+      "ancillary_data_observed": false,
+      "second_broker_stopped_orderly_and_removed_sockets": true
+    }
+  },
+  "direct_access": {
+    "client_uid": 1000,
+    "phases": ["initial", "revocation_and_rotation", "restart_and_recovery"],
+    "checks_per_phase": [
+      "private_traversal",
+      "private_listing",
+      "sqlite_read",
+      "manifest_read",
+      "sentinel_socket_connect",
+      "sentinel_descriptor_open"
+    ],
+    "outcome_for_each_check": "denied",
+    "error": "EACCES",
+    "errno": 13,
+    "total_denied": 18
+  },
+  "cleanup": {
+    "result": "go",
+    "hostname_confirmed": "looplab-d1c3",
+    "administrative_uid": 0,
+    "broker_pids_absent_before_removal": [5588, 5833],
+    "experimental_sockets_absent_before_removal": true,
+    "no_internal_mounts_identified": true,
+    "sqlite_and_manifest_retained_expected_uid_and_mode_before_removal": true,
+    "removal_command": "rm -r --one-file-system",
+    "removal_limited_to_approved_fixture_root": true,
+    "post_removal_confirmation": "CLEANUP GO",
+    "installed_unit_after_removal": {
+      "name": "loopbridge.service",
+      "ActiveState": "inactive",
+      "UnitFileState": "disabled"
+    }
+  }
+}
