@@ -21,7 +21,7 @@ from experiments.objective_registry import Permission as Delivery, RegistryError
 from experiments.registry_rpc import VERSION as REGISTRY
 from experiments.supervision_lab import (VERSION, SupervisedExecution, SupervisionPermission as Control,
                                        _calculate_stage, serve_supervision_lab)
-from experiments.supervision_storage import MAX_ADVANCES, PLAN
+from experiments.supervision_storage import MAX_ADVANCES, PLAN, SupervisionTransaction
 from loopbridge.protocol import DeadlineChannel, Fault, RPC
 from tools.supervised_execution import main as client_main
 
@@ -119,6 +119,22 @@ class SupervisedExecutionRPC(unittest.TestCase):
         self.assertEqual([event['revision'] for event in trail['events']], list(range(1, trail['revision'] + 1)))
         return trail
 
+    def assert_recovers_with_only_audit(self, attempt, expected):
+        with patch('experiments.supervision_lab._calculate_stage') as stage, \
+                serve_supervision_lab(self.root, self.verifiers,
+                                      wall_clock=lambda: self.clock) as (endpoint, broker):
+            self.fault('denied', self.audit, endpoint, attempt)
+            broker.execution.grant(AUDITOR, Permission.AUDIT, SCOPE, expires_at=WALL + 1000)
+            self.assertEqual(self.audit(endpoint, attempt), expected)
+            self.fault('denied', self.status, endpoint, attempt)
+            self.fault('denied', self.control, endpoint, 'continue', attempt, expected['revision'], 99)
+            stage.assert_not_called()
+
+    def shorten_advance_grant(self, broker, attempt, permission):
+        broker.execution.revoke(SUPERVISOR, permission, SCOPE, attempt_id=attempt)
+        broker.execution.grant(SUPERVISOR, permission, SCOPE,
+                               expires_at=WALL + 5, attempt_id=attempt)
+
     def fault(self, reason, action, *args, **kwargs):
         with self.assertRaisesRegex(Fault, f'^{reason}$'):
             action(*args, **kwargs)
@@ -193,20 +209,28 @@ class SupervisedExecutionRPC(unittest.TestCase):
                 self.assertEqual(db.execute('PRAGMA integrity_check').fetchall(), [('ok',)])
                 self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
 
+    @contextmanager
+    def gated_work(self):
+        waiting, release = Event(), Event()
+        original = SupervisedExecution._work
+
+        def work(execution, *args):
+            waiting.set()
+            if not release.wait(WAIT):
+                raise TimeoutError
+            return original(execution, *args)
+
+        with patch.object(SupervisedExecution, '_work', work):
+            try:
+                yield waiting, release
+            finally:
+                release.set()
+
     def test_pause_can_win_before_first_dispatch(self):
-        with self.service() as (endpoint, _), ThreadPoolExecutor(1) as pool:
+        with self.service() as (endpoint, _), ThreadPoolExecutor(1) as pool, self.gated_work() as gate:
             attempt = self.ready(endpoint)
-            waiting, release = Event(), Event()
-            original = SupervisedExecution._work
-
-            def wait_for_pause(execution, *args):
-                waiting.set()
-                if not release.wait(WAIT):
-                    raise TimeoutError
-                return original(execution, *args)
-
-            with patch.object(SupervisedExecution, '_work', wait_for_pause), \
-                    patch('experiments.supervision_lab._calculate_stage') as stage:
+            waiting, release = gate
+            with patch('experiments.supervision_lab._calculate_stage') as stage:
                 run = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
                 try:
                     self.assertTrue(waiting.wait(WAIT))
@@ -222,11 +246,11 @@ class SupervisedExecutionRPC(unittest.TestCase):
             self.assert_progress(endpoint, attempt)
 
     @contextmanager
-    def gated_stage(self):
+    def gated_stage(self, stage_number=1):
         arrived, release = Event(), Event()
 
         def run(index, value):
-            if index == 1:
+            if index == stage_number:
                 arrived.set()
                 if not release.wait(WAIT):
                     raise TimeoutError
@@ -310,7 +334,11 @@ class SupervisedExecutionRPC(unittest.TestCase):
             self.assertEqual(self.control(endpoint, 'continue', attempt, 2, 61)['kind'], 'expired')
             terminal = self.assert_progress(endpoint, attempt, state='expired', mode=None)
             self.fault('invalid_state', self.control, endpoint, 'continue', attempt, terminal['revision'], 62)
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual(trail['reason'], 'attempt_expired')
+            self.assertIsNone(trail['result'])
             stage.assert_not_called()
+        self.assert_recovers_with_only_audit(attempt, trail)
 
     def test_revocation_during_stage_prevents_success_and_more_dispatches(self):
         with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
@@ -342,12 +370,32 @@ class SupervisedExecutionRPC(unittest.TestCase):
             self.assertIsNone(self.audit(endpoint, attempt)['result'])
             stage.assert_called_once_with(1, None)
 
+    def test_continue_grant_expires_before_first_dispatch(self):
+        with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_work() as gate:
+            attempt = self.ready(endpoint)
+            self.shorten_advance_grant(broker, attempt, Control.CONTINUE)
+            waiting, release = gate
+            with patch('experiments.supervision_lab._calculate_stage') as stage:
+                run = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
+                try:
+                    self.assertTrue(waiting.wait(WAIT))
+                    self.assert_progress(endpoint, attempt, mode='flowing')
+                    self.clock = WALL + 5
+                finally:
+                    release.set()
+                run.result(WAIT)
+                stage.assert_not_called()
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual((trail['state'], trail['reason'], trail['result']),
+                             ('expired', 'advance_expired', None))
+            self.assertEqual([event['kind'] for event in trail['events']],
+                             ['admitted', 'running', 'continue', 'expired'])
+        self.assert_recovers_with_only_audit(attempt, trail)
+
     def test_continue_grant_expires_during_step_boundary(self):
         with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
-            attempt = self.ready(endpoint)
-            broker.execution.revoke(SUPERVISOR, Control.CONTINUE, SCOPE, attempt_id=attempt)
-            broker.execution.grant(SUPERVISOR, Control.CONTINUE, SCOPE,
-                                   expires_at=WALL + 5, attempt_id=attempt)
+            attempt = self.ready(endpoint, ttl=120)
+            self.shorten_advance_grant(broker, attempt, Control.CONTINUE)
             arrived, release, stage = gate
             running = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
             self.assertTrue(arrived.wait(WAIT))
@@ -355,9 +403,92 @@ class SupervisedExecutionRPC(unittest.TestCase):
             release.set()
             running.result(WAIT)
             view = self.assert_progress(endpoint, attempt, state='expired', mode=None)
+            self.assertEqual(view['reason'], 'advance_expired')
             self.fault('authorization_expired', self.control, endpoint, 'continue', attempt, view['revision'], 62)
-            self.assertIsNone(self.audit(endpoint, attempt)['result'])
+            self.fault('invalid_state', self.control, endpoint, 'cancel', attempt, view['revision'], 63)
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual(trail['expires_unix_ms'], (WALL + 120) * 1000)
+            self.assertEqual(trail['events'][-1]['at_unix_ms'], (WALL + 5) * 1000)
+            self.assertEqual(trail['events'][2]['deadline_unix_ms'], (WALL + 5) * 1000)
+            self.assertIsNone(trail['result'])
             stage.assert_called_once_with(1, None)
+        self.assert_recovers_with_only_audit(attempt, trail)
+
+    def test_advance_expires_during_final_stage_with_pause_requested(self):
+        with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_stage(2) as gate:
+            attempt = self.ready(endpoint)
+            self.shorten_advance_grant(broker, attempt, Control.CONTINUE)
+            arrived, release, stage = gate
+            running = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
+            self.assertTrue(arrived.wait(WAIT))
+            self.clock = WALL + 4
+            view = self.assert_progress(endpoint, attempt, mode='flowing', done=1, current=2)
+            receipt = self.control(endpoint, 'pause', attempt, view['revision'], 62)
+            self.assertEqual(receipt['kind'], 'pause_requested')
+            self.clock = WALL + 5
+            release.set()
+            running.result(WAIT)
+            self.assert_progress(endpoint, attempt, state='expired', mode=None, done=1)
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual((trail['reason'], trail['result']), ('advance_expired', None))
+            self.assertEqual([event['kind'] for event in trail['events'][-2:]], ['pause_requested', 'expired'])
+            self.assertEqual(self.control(endpoint, 'pause', attempt, view['revision'], 62), receipt)
+            self.assertEqual([call.args for call in stage.call_args_list], [(1, None), (2, 2)])
+        self.assert_recovers_with_only_audit(attempt, trail)
+
+    def test_step_grant_expiry_invalidates_its_result(self):
+        with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
+            attempt = self.ready(endpoint)
+            self.shorten_advance_grant(broker, attempt, Control.STEP)
+            arrived, release, stage = gate
+            running = pool.submit(self.control, endpoint, 'step', attempt, 2, 61)
+            self.assertTrue(arrived.wait(WAIT))
+            self.assert_progress(endpoint, attempt, mode='stepping', current=1)
+            self.clock = WALL + 5
+            release.set()
+            self.assertEqual(running.result(WAIT)['kind'], 'step')
+            self.assert_progress(endpoint, attempt, state='expired', mode=None)
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual((trail['reason'], trail['result']), ('advance_expired', None))
+            stage.assert_called_once_with(1, None)
+        self.assert_recovers_with_only_audit(attempt, trail)
+
+    def test_advance_deadline_wins_during_final_publication_transaction(self):
+        with self.service() as (endpoint, broker):
+            attempt = self.ready(endpoint)
+            self.shorten_advance_grant(broker, attempt, Control.CONTINUE)
+            append = SupervisionTransaction.append
+
+            def reach_deadline(tx, attempt, previous, state, **kwargs):
+                event = append(tx, attempt, previous, state, **kwargs)
+                if state == 'completed':
+                    # The result and lifecycle event are staged but still uncommitted.
+                    self.clock = WALL + 5
+                return event
+
+            with patch.object(SupervisionTransaction, 'append', reach_deadline), patch(
+                    'experiments.supervision_lab._calculate_stage', wraps=_calculate_stage) as stage:
+                self.control(endpoint, 'continue', attempt, 2, 61)
+                self.assertEqual([call.args for call in stage.call_args_list], [(1, None), (2, 2)])
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual((trail['state'], trail['reason'], trail['result'], trail['completed_stages']),
+                             ('expired', 'advance_expired', None, 1))
+            self.assertEqual([event['kind'] for event in trail['events'][-2:]], ['dispatched', 'expired'])
+        self.assert_recovers_with_only_audit(attempt, trail)
+
+    def test_completed_publication_survives_later_advance_expiry(self):
+        with self.service() as (endpoint, broker):
+            attempt = self.ready(endpoint)
+            self.shorten_advance_grant(broker, attempt, Control.CONTINUE)
+            self.clock = WALL + 4
+            self.control(endpoint, 'continue', attempt, 2, 61)
+            trail = self.audit(endpoint, attempt)
+            self.assertEqual((trail['state'], trail['reason'], trail['result']), ('completed', None, 5))
+            self.clock = WALL + 5
+            self.fault('authorization_expired', self.control, endpoint, 'continue', attempt, 2, 61)
+            self.fault('invalid_state', self.control, endpoint, 'cancel', attempt, trail['revision'], 62)
+            self.assertEqual(self.audit(endpoint, attempt), trail)
+        self.assert_recovers_with_only_audit(attempt, trail)
 
     def test_control_credential_rotation_fences_running_step(self):
         with self.service() as (endpoint, broker), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
@@ -556,6 +687,47 @@ class SupervisedExecutionRPC(unittest.TestCase):
             self.assertIsNone(self.audit(endpoint, attempt)['result'])
             stage.assert_called_once_with(1, None)
 
+    def backdate_expiry(self, attempt):
+        with closing(sqlite3.connect(self.db)) as db:
+            for table in ('execution_events', 'supervision_events'):
+                column = 'state' if table == 'execution_events' else 'kind'
+                cursor = db.execute(f"UPDATE {table} SET at=? WHERE attempt_id=? AND {column}='expired'",
+                                    (WALL + 5, attempt))
+                self.assertEqual(cursor.rowcount, 1)
+            db.commit()
+            self.assertEqual(db.execute('PRAGMA integrity_check').fetchall(), [('ok',)])
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+    def test_false_early_expiry_with_only_consumed_step_is_rejected(self):
+        with self.service() as (endpoint, broker):
+            attempt = self.ready(endpoint, ttl=120)
+            self.shorten_advance_grant(broker, attempt, Control.STEP)
+            self.control(endpoint, 'step', attempt, 2, 61)
+            paused = self.assert_progress(endpoint, attempt, done=1)
+            self.clock = WALL + 120
+            self.control(endpoint, 'continue', attempt, paused['revision'], 62)
+            self.assertEqual(self.audit(endpoint, attempt)['reason'], 'attempt_expired')
+        self.backdate_expiry(attempt)
+        with self.assertRaisesRegex(RegistryError, '^invalid_storage$'):
+            with self.service(create=False):
+                self.fail('accepted expiry based on a consumed step')
+
+    def test_false_early_expiry_with_active_but_unexpired_continue_is_rejected(self):
+        with self.service() as (endpoint, _), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
+            attempt = self.ready(endpoint, ttl=120)
+            arrived, release, stage = gate
+            running = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
+            self.assertTrue(arrived.wait(WAIT))
+            self.clock = WALL + 120
+            release.set()
+            running.result(WAIT)
+            self.assertEqual(self.audit(endpoint, attempt)['reason'], 'attempt_expired')
+            stage.assert_called_once_with(1, None)
+        self.backdate_expiry(attempt)
+        with self.assertRaisesRegex(RegistryError, '^invalid_storage$'):
+            with self.service(create=False):
+                self.fail('accepted expiry before the active command deadline')
+
     def test_tampered_ledger_fails_closed_on_open(self):
         with self.service() as (endpoint, _):
             attempt = self.ready(endpoint)
@@ -568,16 +740,44 @@ class SupervisedExecutionRPC(unittest.TestCase):
             with self.service(create=False):
                 self.fail('accepted a fabricated pause acknowledgement')
 
+    def reference_client(self, endpoint, principal, *arguments):
+        output, errors = StringIO(), StringIO()
+        with patch('tools.supervised_execution.getpass', return_value=self.tokens[principal]), \
+                redirect_stdout(output), redirect_stderr(errors):
+            self.assertEqual(client_main(['--socket', str(endpoint), *arguments]), 0)
+        self.assertNotIn(self.tokens[principal], output.getvalue() + errors.getvalue())
+        return json.loads(output.getvalue())
+
     def test_reference_client_uses_typed_commands_and_masks_credential(self):
         with self.service() as (endpoint, _):
             attempt = self.ready(endpoint)
-            for principal, arguments, key, expected in (
-                    (OBSERVER, ['status', attempt], 'supervision', 'paused'),
-                    (SUPERVISOR, ['step', attempt, '2', opaque(61)], 'kind', 'step'),
-                    (OBSERVER, ['status', attempt], 'completed_stages', 1)):
-                output, errors = StringIO(), StringIO()
-                with patch('tools.supervised_execution.getpass', return_value=self.tokens[principal]), \
-                        redirect_stdout(output), redirect_stderr(errors):
-                    self.assertEqual(client_main(['--socket', str(endpoint), *arguments]), 0)
-                self.assertEqual(json.loads(output.getvalue())[key], expected)
-                self.assertNotIn(self.tokens[principal], output.getvalue() + errors.getvalue())
+            self.assertEqual(self.reference_client(endpoint, OBSERVER, 'status', attempt)['supervision'], 'paused')
+            self.assertEqual(self.reference_client(endpoint, SUPERVISOR, 'step', attempt, '2', opaque(61))['kind'],
+                             'step')
+            self.assertEqual(self.reference_client(endpoint, OBSERVER, 'status', attempt)['completed_stages'], 1)
+
+    def test_reference_client_replays_historical_control_receipts_separately_from_status(self):
+        with self.service() as (endpoint, _), ThreadPoolExecutor(1) as pool, self.gated_stage() as gate:
+            attempt = self.ready(endpoint)
+            arrived, release, stage = gate
+            running = pool.submit(self.control, endpoint, 'continue', attempt, 2, 61)
+            self.assertTrue(arrived.wait(WAIT))
+            before_pause = self.assert_progress(endpoint, attempt, mode='flowing', current=1)
+            pause = self.control(endpoint, 'pause', attempt, before_pause['revision'], 62)
+            release.set()
+            advance = running.result(WAIT)
+            paused = self.assert_progress(endpoint, attempt, done=1)
+            step = self.control(endpoint, 'step', attempt, paused['revision'], 63)
+            for action, revision, request, expected in (
+                    ('continue', 2, 61, advance),
+                    ('pause', before_pause['revision'], 62, pause),
+                    ('step', paused['revision'], 63, step)):
+                replay = self.reference_client(endpoint, SUPERVISOR, action, attempt,
+                                               str(revision), opaque(request))
+                self.assertEqual(replay, expected)
+                self.assertEqual(set(replay), {'id', 'revision', 'kind'})
+            snapshot = self.reference_client(endpoint, OBSERVER, 'status', attempt)
+            self.assertEqual((pause['kind'], snapshot['state'], snapshot['supervision']),
+                             ('pause_requested', 'completed', None))
+            self.assertGreater(snapshot['revision'], step['revision'])
+            self.assertEqual([call.args for call in stage.call_args_list], [(1, None), (2, 2)])

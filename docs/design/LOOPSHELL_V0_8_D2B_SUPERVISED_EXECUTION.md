@@ -64,12 +64,15 @@ geração e prazo para os despachos daquele comando.
 
 O recibo de admissão ou controle contém `id`, `revision` e `kind`.
 Na admissão idempotente, esses campos descrevem a tentativa reconciliada.
-No controle, descrevem o evento confirmado pelo comando. O recibo de pausa indica solicitação ou
-confirmação na revisão registrada. Repetições autorizadas do mesmo
-comando, por tentativa, principal e ID, reconciliam o recibo original.
-Reutilização divergente é recusada. Controle inédito com revisão antiga
-é recusado. Após falha de transporte, o cliente pode reconciliar com
-o mesmo ID ou consultar o estado com grant próprio.
+No controle, descrevem o evento confirmado pelo comando naquela revisão.
+O recibo histórico de `pause`, `step` ou `continue` continua descrevendo
+essa decisão quando uma repetição autorizada reconcilia o mesmo ID por
+tentativa e principal. Reutilização divergente e controle inédito com
+revisão antiga são recusados. Após perda de resposta, repita a solicitação
+original para obter seu recibo. Para exibir o estado efetivo, o cliente
+de referência e uma futura interface gráfica dependem do snapshot de
+`status`, com seu próprio grant e sua revisão. Um `pause_requested`
+recuperado de um recibo histórico pode anteceder um desfecho terminal.
 
 `status` projeta tentativa, objetivo, estado, plano, etapa corrente,
 etapas concluídas e totais, situação de pausa, motivo sanitizado e
@@ -95,6 +98,35 @@ espaço para a pausa de cada avanço, conclusão, cancelamento e recuperação.
 O serviço valida o encadeamento e a correspondência das trilhas ao
 reabrir o banco. Bancos históricos conservam seu formato e endpoint.
 A D.2B exige um banco criado para seu perfil.
+
+### Expiração e validação retrospectiva
+
+O estado terminal `expired` tem duas origens. A projeção sanitizada
+distingue `attempt_expired` e `advance_expired` com base no evento
+durável e no prefixo ordenado da trilha de supervisão.
+
+| Motivo projetado | Evidência exigida |
+| --- | --- |
+| `attempt_expired` | O timestamp do evento alcançou o prazo original da tentativa. Essa regra também cobre prazos simultâneos. |
+| `advance_expired` | O evento antecede o prazo da tentativa. No prefixo que termina imediatamente antes do evento, há um comando `step` ou `continue` ainda ativo e seu prazo efetivo foi alcançado. |
+
+A D.2B verifica a correspondência entre o evento de ciclo e sua entrada
+ordenada de supervisão. A validação reconstrói qual avanço estava
+ativo, inclusive durante `pause_requested`. Um avanço consumido pelo
+passo ou invalidado pela pausa confirmada deixa de fundamentar
+expiração antecipada. O comando aceito já grava o prazo efetivo,
+limitado pelo grant de avanço e pela tentativa. A auditoria autorizada
+projeta esse dado como `deadline_unix_ms` no evento do comando.
+Assim a recuperação usa o SQLite preservado e dispensa a reemissão
+dos grants anteriores. Os schemas permanecem iguais. Na D.2A, a única
+evidência aceita continua sendo o prazo original da tentativa.
+
+O serviço confere esse prazo antes de publicar o resultado. Se o
+prazo de avanço vencer enquanto a conclusão final está preparada em
+SQLite, a transação perde a disputa e o resultado fica ausente.
+Uma publicação já confirmada permanece no histórico.
+
+### Reabertura do perfil
 
 Na reabertura, uma tentativa aberta sem etapa despachada pendente é
 revogada. Uma etapa com despacho confirmado e sem desfecho leva a

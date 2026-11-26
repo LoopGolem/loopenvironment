@@ -268,6 +268,14 @@ class ExecutionRegistry(_BoundRegistry):
 
     @classmethod
     def _validate_history(cls, attempt, events, tx):
+        cls._validate_lifecycle(attempt, events, tx)
+        last = events[-1]
+        if last.state == 'expired' and last.at < attempt.deadline:
+            raise RegistryError(Error.INVALID_STORAGE)
+
+    @classmethod
+    def _validate_lifecycle(cls, attempt, events, tx):
+        """Validate the common attempt history before checking the profile's expiry evidence."""
         ids = (attempt.id, attempt.authorizer, attempt.performer, attempt.request_id,
                attempt.authorize_generation, attempt.perform_generation)
         first = events[0]
@@ -286,8 +294,7 @@ class ExecutionRegistry(_BoundRegistry):
                     or not previous.at <= event.at <= tx.now
                     or (event.actor is not None and not OPAQUE_ID.fullmatch(event.actor))
                     or (event.state in ('running', 'completed', 'failed')
-                        and (event.actor != attempt.performer or event.at >= attempt.deadline))
-                    or (event.state == 'expired' and event.at < attempt.deadline)):
+                        and (event.actor != attempt.performer or event.at >= attempt.deadline))):
                 raise RegistryError(Error.INVALID_STORAGE)
         if not _valid_wall(first.at) or first.at > tx.now:
             raise RegistryError(Error.INVALID_STORAGE)

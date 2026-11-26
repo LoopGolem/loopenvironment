@@ -227,6 +227,8 @@ class SupervisedExecution(Execution):
         if entry.command is not None:
             event.update(action=entry.command.action, request_id=entry.command.request_id,
                          expected_revision=entry.command.expected_revision)
+            if entry.command.action in ADVANCE_MODES:
+                event['deadline_unix_ms'] = int(entry.command.deadline * 1000)
         return event
 
 

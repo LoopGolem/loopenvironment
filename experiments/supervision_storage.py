@@ -144,10 +144,20 @@ class Progress:
             if state in ('failed', 'uncertain'):
                 _require(self.current_stage is not None)
             _require((entry.command is not None) == (state == 'cancelled'))
+            if state == 'expired':
+                self.reason = self._expiry_reason(event, attempt)
+            else:
+                self.reason = event.reason or (None if state == 'completed' else state)
             self.mode = self.current_stage = self.driver = None
-            self.reason = event.reason or (None if state == 'completed' else state)
             self.result = event.result
         self.state = state
+
+    def _expiry_reason(self, event, attempt):
+        if event.at >= attempt.deadline:
+            return 'attempt_expired'
+        # The ledger carries the effective deadline of the still-active advance.
+        _require(self.driver is not None and self.driver.command.deadline <= event.at)
+        return 'advance_expired'
 
     def _supervision(self, entry, attempt):
         _require(self.state == 'running' and self.completed < len(STAGE_RESULTS))
@@ -216,7 +226,7 @@ class SupervisionRegistry(ExecutionRegistry):
 
     @classmethod
     def _validate_history(cls, attempt, events, tx):
-        super()._validate_history(attempt, events, tx)
+        cls._validate_lifecycle(attempt, events, tx)
         tx.progress(attempt, events)
 
     def _interrupted_state(self, tx, attempt, previous):

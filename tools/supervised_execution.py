@@ -14,7 +14,10 @@ from loopbridge.service_ingress import peer_uid
 
 
 def parser():
-    root = argparse.ArgumentParser(description=__doc__)
+    root = argparse.ArgumentParser(
+        description=__doc__,
+        epilog='Control commands return receipts at the recorded revision. status reads the current progress snapshot.',
+    )
     root.add_argument('--socket', required=True)
     commands = root.add_subparsers(dest='command', required=True)
     authorize = commands.add_parser('authorize')

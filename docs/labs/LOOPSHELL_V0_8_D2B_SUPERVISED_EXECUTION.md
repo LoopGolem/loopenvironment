@@ -49,6 +49,39 @@ disponível em seu perfil próprio.
 | Compatibilidade e relógio | Os dois protocolos recusaram retrocesso abaixo de commit do outro. A D.2A recusou o banco D.2B. A regressão completa exercitou a D.2A e o Registry históricos. |
 | Isolamento da operação | A única função de computação somou constantes em memória e recebeu somente estado interno verificado. Texto do objetivo com aparência de comando ficou inerte. A trilha e o snapshot excluíram credenciais, texto e resultado intermediário. |
 
+## Revisão independente e consistência de recuperação
+
+No commit `8924bc1`, a D.2B registrava `expired` quando o prazo de
+`continue` era alcançado durante uma etapa. O teste usou TTL 120 s,
+grant de avanço de 5 s e uma barreira na primeira etapa. Em T+5, o
+serviço registrou `expired`, com uma chamada efetiva à primeira etapa,
+zero à segunda e nenhum resultado. Depois de encerrar o broker
+ordenadamente, a abertura do mesmo SQLite retornou `invalid_storage`.
+O validador comum comparava o timestamp da expiração somente com o
+prazo original de T+120. O teste foi executado antes da alteração do
+código de produção.
+
+```sh
+/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervised_execution.py' \
+    -v -k test_continue_grant_expires_during_step_boundary
+```
+
+A correção preservou os checks comuns do ciclo e manteve a regra
+histórica da D.2A. Na D.2B, a recuperação valida a origem pelo
+timestamp e pelo comando efetivamente ativo na trilha ordenada.
+O prazo daquele comando já era durável. A auditoria agora o projeta
+em `deadline_unix_ms`. `status` e `audit` distinguem
+`attempt_expired` e `advance_expired`. O SQLite conserva as mesmas
+tabelas e versões, inclusive para os bancos criados antes da correção.
+
+| Cobertura corretiva | Resultado |
+| --- | --- |
+| Expiração de autoridade | `continue` venceu antes do primeiro despacho, durante a primeira etapa e na última etapa com pausa solicitada. `step` venceu durante a etapa única. Cada caso reabriu com somente o grant de auditoria reemitido, sem redespacho ou resultado fictício. |
+| Prazo da própria tentativa | A tentativa expirou em pausa com o motivo `attempt_expired`. Reabertura conservou o histórico. A D.2A reabriu uma expiração legítima e continuou recusando uma expiração antes do prazo. |
+| Expiração e publicação final | O vencimento injetado depois de preparar o resultado e antes do commit abortou a publicação e preservou somente a primeira etapa verificada. Quando a publicação confirmou primeiro, o inteiro `5` permaneceu no histórico após o prazo e a reabertura. |
+| Históricos antecipados inválidos | Foram recusadas trilhas estruturalmente válidas no SQLite, com timestamps concordantes nas duas tabelas, que tentavam justificar expiração antecipada por um passo consumido ou por um `continue` ainda dentro do prazo. |
+| Recibo e estado atual | O cliente reconciliou recibos históricos de `pause`, `step` e `continue` após a conclusão. Os recibos mantiveram as revisões originais. O snapshot autorizado de `status` mostrou a revisão terminal e o estado `completed`. |
+
 ## Reprodução
 
 `serve_supervision_lab` abre `supervised-lab.sock` em diretório privado
@@ -78,13 +111,13 @@ o [procedimento D.1C.1](LOOPSHELL_V0_8_D1C1_TRUSTED_REGISTRY.md#reprodução).
 
 | Comando | Resultado |
 | --- | --- |
-| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervised_execution.py'` | 21 aprovados. |
-| Mesmo comando com `test_execution_d2a.py` | 32 aprovados. |
+| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervised_execution.py'` | 29 aprovados. |
+| Mesmo comando com `test_execution_d2a.py` | 33 aprovados. |
 | Mesmo comando com `*registry*.py` | 88 aprovados. |
 | Mesmo comando com `test_loopbridge*.py` | 62 aprovados. |
 | Mesmo comando com `test_loopshell*.py`, `test_activity_view.py` e `test_combined_view.py` em execuções separadas | 50 no total, com 42 aprovados e 8 GTK omitidos por opt-in. |
-| `/usr/bin/python3 -B -m unittest discover -s tests` | 494 no total, com 486 aprovados e 8 GTK omitidos por opt-in. |
-| Mesmo comando com `LOOPSHELL_TEST_GTK=1` na fixture gráfica | 494 aprovados, incluindo as 8 regressões GTK. |
+| `/usr/bin/python3 -B -m unittest discover -s tests` | 503 no total, com 495 aprovados e 8 GTK omitidos por opt-in. |
+| Mesmo comando com `LOOPSHELL_TEST_GTK=1` na fixture gráfica | 503 aprovados, incluindo as 8 regressões GTK. |
 | `git diff --check`, links locais, contrato RPC e schemas | Aprovados. Os testes também verificaram integridade SQLite e chaves estrangeiras. |
 
 A [CI do repositório](../../.github/workflows/regression.yml) executa a
@@ -94,14 +127,16 @@ suíte completa. Os resultados da CI do candidato ficam no PR.
 
 A prova usa mesmo UID, política volátil, até oito comandos de avanço
 por tentativa com uma pausa reservada por avanço e computação
-cooperativa pura.
-O desligamento pode deixar um despacho com desfecho incerto. Reabrir
-exige banco preservado e confirma apenas o que ficou durável. A avaliação
-de usabilidade de supervisão gráfica, operações externas e preempção
-de código arbitrário ficam fora do GO.
+cooperativa pura. O desligamento pode deixar um despacho com desfecho
+incerto. A reabertura confirma apenas o que ficou durável. A validação
+da origem da expiração pressupõe o SQLite confiável e preservado e o
+piso temporal compartilhado. A trilha não oferece
+atestação contra adulteração privilegiada do banco, do relógio ou
+rollback integral da VM. Avaliação de supervisão gráfica, operações
+externas e preempção de código arbitrário ficam fora do GO.
 
 Cross-UID da execução está **NOT RUN**, [D5](../design/TRUSTED_SERVICE_BOUNDARY_V1.md#acceptance-matrix-for-eventual-d5)
 permanece **PARTIAL** e [M1.3B](../ROADMAP.md#m13b--trusted-input--enforcement-feasibility)
-segue independente. O próximo marco recomendado é a revisão independente
-da fronteira de supervisão e da distinção entre pausa solicitada e
-confirmada antes de selecionar o escopo de D.2C.
+segue independente. A recomendação é revisar o diff corretivo e
+aprovar o merge manual do PR #41 com a CI aprovada. A seleção do escopo
+de D.2C é uma decisão posterior.
