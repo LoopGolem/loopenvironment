@@ -195,17 +195,18 @@ def process_record(pid):
 
 def check_worker_identity(role, real):
     require(not any(os.environ.get(key) for key in registry.GRAPHICAL_ENV), 'graphical_environment_inherited')
-    for fd in os.listdir('/proc/self/fd'):
+    for entry in os.listdir('/proc/self/fd'):
+        fd = int(entry)
         try:
-            info = os.fstat(int(fd))
+            os.fstat(fd)
         except OSError as error:
             if error.errno == errno.EBADF:
                 continue
             raise
-        require(int(fd) <= 2 and (stat.S_ISFIFO(info.st_mode) or int(fd) == 2 and stat.S_ISCHR(info.st_mode)),
-                'unexpected_inherited_descriptor', result='no_go')
-    for fd in (0, 1):
-        require(os.readlink(f'/proc/self/fd/{fd}').startswith('pipe:['), 'private_pipe_required')
+        require(fd <= 2, 'unexpected_extra_descriptor', result='no_go')
+    for fd in (0, 1, 2):
+        require(stat.S_ISFIFO(os.fstat(fd).st_mode) and os.readlink(f'/proc/self/fd/{fd}').startswith('pipe:['),
+                f'private_pipe_required_{fd}', result='no_go')
     record = process_record(os.getpid())
     require(record['no_new_privileges'] and record['zero_capabilities'], 'worker_privileges', result='no_go')
     if real:
@@ -289,7 +290,8 @@ class Worker:
             args += ['--root', str(session.layout.root), '--bounds', str(session.window.wall_end),
                      str(session.window.monotonic_end)]
         self.process = subprocess.Popen(args, cwd='/', env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'},
-                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                        close_fds=True)
         self.pidfd = None
         self.identity = None
         self.exit_recorded = False
@@ -343,6 +345,7 @@ class Worker:
                 self.pidfd = None
             self.process.stdin.close()
             self.process.stdout.close()
+            self.process.stderr.close()
             self.session.emit('process_exited', role=self.role, pid=self.process.pid,
                               start_ticks=self.identity['start_ticks'] if self.identity else None, exit_code=code)
         require(expected is None or code == expected, 'unexpected_process_exit')
