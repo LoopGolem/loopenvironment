@@ -196,20 +196,35 @@ def process_record(pid):
                                       for field in ('CapInh', 'CapPrm', 'CapEff', 'CapAmb')))
 
 
+def check_descriptors(pid):
+    directory = Path(f'/proc/{pid}/fd')
+    own_scan_fd = 0
+    with os.scandir(directory) as entries:
+        for entry in entries:
+            fd = int(entry.name)
+            try:
+                target = os.readlink(entry.path)
+            except FileNotFoundError:
+                continue
+            if fd <= 2:
+                require(target.startswith('pipe:['), f'private_pipe_required_{fd}', result='no_go')
+                continue
+            if pid == os.getpid() and target == str(directory):
+                # scandir holds one descriptor for this enumeration.
+                own_scan_fd += 1
+                require(own_scan_fd == 1, 'duplicate_descriptor_enumeration_fd', result='no_go')
+                continue
+            kind = ('socket' if target.startswith('socket:[') else 'pipe' if target.startswith('pipe:[')
+                    else 'anonymous' if target.startswith('anon_inode:') else 'path')
+            raise QualificationError(f'unexpected_extra_descriptor_{fd}_{kind}', 'no_go')
+    for fd in (0, 1, 2):
+        require(os.readlink(directory / str(fd)).startswith('pipe:['),
+                f'private_pipe_required_{fd}', result='no_go')
+
+
 def check_worker_identity(role, real):
     require(not any(os.environ.get(key) for key in registry.GRAPHICAL_ENV), 'graphical_environment_inherited')
-    for entry in os.listdir('/proc/self/fd'):
-        fd = int(entry)
-        try:
-            os.fstat(fd)
-        except OSError as error:
-            if error.errno == errno.EBADF:
-                continue
-            raise
-        require(fd <= 2, 'unexpected_extra_descriptor', result='no_go')
-    for fd in (0, 1, 2):
-        require(stat.S_ISFIFO(os.fstat(fd).st_mode) and os.readlink(f'/proc/self/fd/{fd}').startswith('pipe:['),
-                f'private_pipe_required_{fd}', result='no_go')
+    check_descriptors(os.getpid())
     record = process_record(os.getpid())
     require(record['no_new_privileges'] and record['zero_capabilities'], 'worker_privileges', result='no_go')
     if real:
@@ -304,6 +319,7 @@ class Worker:
         self.identity = self.receive()['identity']
         require(self.identity == process_record(self.process.pid), 'worker_identity_mismatch', result='no_go')
         if session.real:
+            check_descriptors(self.process.pid)
             uid, gid = identity_pair(role)
             require(self.identity['uids'] == [uid] * 4 and self.identity['gids'] == [gid] * 4
                     and self.identity['groups'] == [], 'worker_identity_mismatch', result='no_go')
