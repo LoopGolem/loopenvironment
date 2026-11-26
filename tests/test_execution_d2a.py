@@ -831,6 +831,24 @@ class AuthorizedExecution(unittest.TestCase):
             with self.service(create=False):
                 self.fail('accepted a completion with no durable start')
 
+    def test_reopen_still_rejects_early_expiration_in_d2a(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            attempt = self.admit(endpoint, ttl_seconds=1)
+            self.clock = WALL + 1
+            self.expect_error('authorization_expired', self.start, endpoint, attempt)
+            trail = self.assert_audit(endpoint, attempt, 'admitted expired')
+        with self.service(create=False) as (endpoint, _):
+            self.assertEqual(self.audit(endpoint, attempt), trail)
+        with closing(sqlite3.connect(self.database)) as db:
+            event = db.execute("UPDATE execution_events SET at=? WHERE attempt_id=? AND state='expired'",
+                               (WALL, attempt))
+            self.assertEqual(event.rowcount, 1)
+            db.commit()
+        with self.assertRaisesRegex(RegistryError, 'invalid_storage'):
+            with self.service(create=False):
+                self.fail('D.2A accepted expiry before the attempt deadline')
+
     def test_hard_stop_after_start_reopens_as_uncertain(self):
         context = multiprocessing.get_context('spawn')
         parent, child = context.Pipe()

@@ -10,7 +10,7 @@ from time import monotonic, time
 
 from experiments.durable_objective_registry import _valid_wall
 from experiments.execution_storage import (Attempt, DeadlinePassed, ExecutionRegistry, MAX_TTL,
-                                           Scope, TRANSITIONS)
+                                           OPERATION, Scope, TRANSITIONS)
 from experiments.objective_registry import Error, RegistryError
 from experiments.registry_lab import RegistryLabBroker
 from experiments.registry_rpc import ERROR_CODES, OPAQUE_ID, VERSION as REGISTRY_VERSION
@@ -59,21 +59,23 @@ def _add_fixed_constants():
 class Execution:
     """Every policy decision holds ingress identity and exact grants stable."""
 
+    operation = OPERATION
+    _permission_types = (Permission,)
+
     def __init__(self, registry, access):
         self._registry = registry
         self._access = access
         self._grants = {}
 
-    @staticmethod
-    def _key(principal, permission, scope):
-        if (not _valid_id(principal) or type(permission) is not Permission
-                or type(scope) is not Scope or not scope.valid()):
+    def _key(self, principal, permission, scope, *, attempt_id=None):
+        if (attempt_id is not None or not _valid_id(principal) or type(permission) not in self._permission_types
+                or type(scope) is not Scope or not scope.valid(self.operation)):
             raise ValueError('invalid_execution_grant')
         return principal, permission, scope
 
-    def grant(self, principal, permission, scope, *, expires_at):
+    def grant(self, principal, permission, scope, *, expires_at, attempt_id=None):
         """Trusted fixture control. Grant management is outside RPC."""
-        key = self._key(principal, permission, scope)
+        key = self._key(principal, permission, scope, attempt_id=attempt_id)
         if not _valid_wall(expires_at):
             raise ValueError('invalid_execution_grant')
         with self._access.identity_snapshot() as (_, enrolled):
@@ -81,8 +83,8 @@ class Execution:
                 raise ValueError('invalid_execution_grant')
             self._grants[key] = Grant(token_hex(16), expires_at)
 
-    def revoke(self, principal, permission, scope):
-        key = self._key(principal, permission, scope)
+    def revoke(self, principal, permission, scope, *, attempt_id=None):
+        key = self._key(principal, permission, scope, attempt_id=attempt_id)
         with self._access.identity_snapshot():
             grant = self._grants.pop(key, None)
             if grant is None or permission not in (Permission.AUTHORIZE, Permission.PERFORM):
@@ -99,8 +101,9 @@ class Execution:
                         state = 'expired' if tx.sample_time() >= attempt.deadline else 'revoked'
                         tx.append(attempt, previous, state)
 
-    def _require_grant(self, tx, principal, permission, scope):
-        grant = self._grants.get((principal, permission, scope))
+    def _require_grant(self, tx, principal, permission, scope, *, attempt_id=None):
+        key = self._key(principal, permission, scope, attempt_id=attempt_id)
+        grant = self._grants.get(key)
         if grant is None:
             fail('denied')
         if tx.now >= grant.deadline:
@@ -127,16 +130,7 @@ class Execution:
             if params.keys() != SCHEMA[method]:
                 fail('invalid_params', -32602)
             if method == 'execution.authorize':
-                scope = Scope(params['executor_id'], params['objective_id'],
-                              params['accepted_revision'], params['operation'])
-                request_id, ttl = params['request_id'], params['ttl_seconds']
-                if not scope.valid() or not _valid_id(request_id) or type(ttl) is not int or not 1 <= ttl <= MAX_TTL:
-                    fail('invalid_params', -32602)
-                with self._access.identity_snapshot() as (resolve, enrolled):
-                    principal = resolve(connection)
-                    if principal is None:
-                        fail('denied')
-                    return self._decide(lambda tx: self._authorize(tx, principal, enrolled, scope, request_id, ttl))
+                return self._authorize_request(connection, params)
 
             attempt_id = params['attempt_id']
             if not _valid_id(attempt_id):
@@ -166,6 +160,22 @@ class Execution:
             code, message = ERROR_CODES[error.code]
             fail(message, code)
 
+    def _authorize_request(self, connection, params):
+        scope = Scope(params['executor_id'], params['objective_id'],
+                      params['accepted_revision'], params['operation'])
+        request_id, ttl = params['request_id'], params['ttl_seconds']
+        if (not scope.valid(self.operation) or not _valid_id(request_id)
+                or type(ttl) is not int or not 1 <= ttl <= MAX_TTL):
+            fail('invalid_params', -32602)
+        with self._access.identity_snapshot() as (resolve, enrolled):
+            principal = resolve(connection)
+            if principal is None:
+                fail('denied')
+            return self._decide(lambda tx: self._authorize(tx, principal, enrolled, scope, request_id, ttl))
+
+    def _admission_receipt(self, tx, attempt, event):
+        return event.receipt(attempt)
+
     def _authorize(self, tx, principal, enrolled, scope, request_id, ttl):
         authority = self._require_grant(tx, principal, Permission.AUTHORIZE, scope)
         target = tx.target(scope.objective_id)
@@ -192,12 +202,12 @@ class Execution:
             tx.require_before(previous.deadline)
             event = tx.history(previous)[-1]
             event = self._retire_if_inactive(tx, previous, event, enrolled)
-            return event.receipt(previous)
+            return self._admission_receipt(tx, previous, event)
         deadline = min(tx.now + ttl, authority.deadline, performer.deadline, target.deadline)
         tx.require_before(deadline)
         attempt = Attempt(token_hex(16), principal, target.principal, request_id, scope, ttl,
                           target.executor_revision, deadline, authority.generation, performer.generation)
-        return tx.admit(attempt).receipt(attempt)
+        return self._admission_receipt(tx, attempt, tx.admit(attempt))
 
     def _retire_if_inactive(self, tx, attempt, event, enrolled):
         if event.state not in TRANSITIONS:
@@ -279,19 +289,21 @@ class Execution:
 class ExecutionLabBroker(RegistryLabBroker):
     versions = wire_versions = (REGISTRY_VERSION, VERSION)
     _registry_type = ExecutionRegistry
+    _execution_type = Execution
+    _execution_version = VERSION
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         with self.access.identity_snapshot():
             self.registry.recover_execution()
-        self.execution = Execution(self.registry, self.access)
+        self.execution = self._execution_type(self.registry, self.access)
 
     def audit_request(self, connection, version, method, outcome):
         # Both protocols keep separate durable domain histories.
         return None
 
     def handle_request(self, connection, version, method, params):
-        if version == VERSION:
+        if version == self._execution_version:
             if method == 'auth':
                 self.clear(connection)
                 return self.access.bind(connection, params)
@@ -302,13 +314,19 @@ class ExecutionLabBroker(RegistryLabBroker):
 @contextmanager
 def serve_execution_lab(root, verifiers, *, create=False, wall_clock=time, clock=monotonic):
     """Explicit local profile with no adapters, session routes, or installed service."""
+    with _serve_profile(root, verifiers, ExecutionLabBroker, 'execution', create, wall_clock, clock) as profile:
+        yield profile
+
+
+@contextmanager
+def _serve_profile(root, verifiers, broker_type, name, create, wall_clock, clock):
     if not verifiers:
         raise ValueError('invalid_execution_verifiers')
     root = private_directory(Path(root), create=False)
-    endpoint = root / 'execution-lab.sock'
+    endpoint = root / f'{name}-lab.sock'
     with directory_lock(root):
-        broker = ExecutionLabBroker(Identities(), {}, os.getuid(), Journal(root), verifiers=verifiers,
-                                    database=root / 'execution.sqlite3', wall_clock=wall_clock,
-                                    clock=clock, grant_clock=wall_clock, create=create)
+        broker = broker_type(Identities(), {}, os.getuid(), Journal(root), verifiers=verifiers,
+                             database=root / f'{name}.sqlite3', wall_clock=wall_clock,
+                             clock=clock, grant_clock=wall_clock, create=create)
         with bound_listener(endpoint) as listener, Server(broker, listener, allow_owner=False):
             yield endpoint, broker
