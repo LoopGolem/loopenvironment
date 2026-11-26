@@ -5,7 +5,8 @@ Debian clone. Use separately identified service and executor identities, an
 approved source revision, a private fixture root, a preprovisioned ingress
 outside that root and a bounded run window. Retain the trusted pins through
 restart. Use the existing [cross-UID preflight](../labs/LOOPSHELL_V0_8_D2B1_CROSS_UID_PREFLIGHT.md)
-as a runbook reference. The workspace capability has its own gate.
+as a reference. The workspace capability has its own gate and
+[prepared operator runbook](../labs/LOOPSHELL_V0_8_D2C2_CROSS_UID_PREFLIGHT.md).
 
 | Gate | Required observations |
 | --- | --- |
