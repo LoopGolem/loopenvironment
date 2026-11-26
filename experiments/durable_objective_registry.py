@@ -138,6 +138,9 @@ class SQLiteRegistry(Registry):
     does within its process.
     """
 
+    application_id = APPLICATION_ID
+    schema = dict(zip(TABLES, SCHEMA))
+
     def __init__(self, path, authority, *, wall_clock=time, create=False, storage_check=None):
         super().__init__(authority, clock=lambda: self._decision_time)
         self._wall_clock = wall_clock
@@ -188,10 +191,10 @@ class SQLiteRegistry(Registry):
         version, = db.execute('PRAGMA user_version').fetchone()
         app, = db.execute('PRAGMA application_id').fetchone()
         if create and (version, app) == (0, 0) and not db.execute('SELECT 1 FROM sqlite_schema LIMIT 1').fetchone():
-            for statement in SCHEMA:
+            for statement in self.schema.values():
                 db.execute(statement)
             db.execute('INSERT INTO registry_clock VALUES (1, ?)', (self._wall(0),))
-            db.execute(f'PRAGMA application_id={APPLICATION_ID}')
+            db.execute(f'PRAGMA application_id={self.application_id}')
             db.execute(f'PRAGMA user_version={SCHEMA_VERSION}')
         self._check_schema(db)
         if (db.execute('PRAGMA integrity_check').fetchall() != [('ok',)]
@@ -206,10 +209,10 @@ class SQLiteRegistry(Registry):
 
     def _check_schema(self, db):
         if (db.execute('PRAGMA user_version').fetchone() != (SCHEMA_VERSION,)
-                or db.execute('PRAGMA application_id').fetchone() != (APPLICATION_ID,)):
+                or db.execute('PRAGMA application_id').fetchone() != (self.application_id,)):
             raise RegistryError(Error.INVALID_STORAGE)
         objects = db.execute("SELECT type, name, sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'")
-        expected = {('table', name, ' '.join(sql.split())) for name, sql in zip(TABLES, SCHEMA)}
+        expected = {('table', name, ' '.join(sql.split())) for name, sql in self.schema.items()}
         if {(kind, name, ' '.join(sql.split()) if sql else None) for kind, name, sql in objects} != expected:
             raise RegistryError(Error.INVALID_STORAGE)
 
@@ -333,6 +336,14 @@ class SQLiteRegistry(Registry):
                            ((self._decision_time, *change) for change in changes))
             db.execute('DELETE FROM audit WHERE sequence <= (SELECT max(sequence) - ? FROM audit)', (MAX_AUDIT,))
 
+    @staticmethod
+    def _write_watermark(db, now):
+        db.execute('UPDATE registry_clock SET last_wall=? WHERE id=1', (now,))
+
+    def _prepare_commit(self, db, revalidate):
+        self._write_watermark(db, self._wall(self._decision_time))
+        revalidate()
+
     def _commit(self, db):
         db.commit()
 
@@ -362,8 +373,7 @@ class SQLiteRegistry(Registry):
                     self._save(db, before_executors, before_objectives, previous_receipts, actor.principal)
                     if self._storage_check is not None:
                         self._storage_check()
-                    db.execute('UPDATE registry_clock SET last_wall=? WHERE id=1', (self._wall(self._decision_time),))
-                    revalidate()
+                    self._prepare_commit(db, revalidate)
                     committing = True
                     self._commit(db)
             except sqlite3.Error as error:

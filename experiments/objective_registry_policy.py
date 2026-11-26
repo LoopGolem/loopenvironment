@@ -22,10 +22,11 @@ class _AuthorizedRequest:
             return True
         return False
 
-    def revalidate(self):
+    def revalidate(self, *, now=None):
         if self._verify() != self.principal:
             raise RegistryError(Error.DENIED)
-        now = self._clock()
+        if now is None:
+            now = self._clock()
         if any(not now < self._grants[key] for key in self._checked):
             raise RegistryError(Error.DENIED)
 
