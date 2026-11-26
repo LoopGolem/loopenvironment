@@ -3,6 +3,7 @@
 from argparse import ArgumentParser, SUPPRESS
 from dataclasses import dataclass
 import errno
+import fcntl
 from hashlib import sha256
 import json
 import os
@@ -196,14 +197,28 @@ def process_record(pid):
                                       for field in ('CapInh', 'CapPrm', 'CapEff', 'CapAmb')))
 
 
-def check_descriptors(pid):
-    # The parent inspects the waiting child, so opening procfs cannot add a
-    # descriptor to the process being checked.
+def descriptor_candidates(pid):
     directory = Path(f'/proc/{pid}/fd')
-    require(set(os.listdir(directory)) == {'0', '1', '2'}, 'unexpected_worker_descriptors', result='no_go')
+    names = set(os.listdir(directory))
+    require({'0', '1', '2'} <= names, 'missing_worker_pipes', result='no_go')
     for fd in (0, 1, 2):
         require(os.readlink(directory / str(fd)).startswith('pipe:['),
                 f'private_pipe_required_{fd}', result='no_go')
+    return sorted(int(name) for name in names - {'0', '1', '2'})
+
+
+def check_closed_descriptors(candidates):
+    require(type(candidates) is list and len(candidates) <= 32
+            and all(type(fd) is int and 3 <= fd < 2**31 for fd in candidates),
+            'invalid_descriptor_inventory')
+    for fd in candidates:
+        try:
+            fcntl.fcntl(fd, fcntl.F_GETFD)
+        except OSError as error:
+            if error.errno == errno.EBADF:
+                continue
+            raise
+        raise QualificationError(f'unexpected_live_descriptor_{fd}', 'no_go')
 
 
 def check_worker_identity(role, real):
@@ -259,8 +274,17 @@ def worker_main(role, run_id, root, bounds):
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     channel = Pipe(0, 1, window)
     try:
-        channel.reply(identity=check_worker_identity(role, real))
-        require(channel.receive() == {'op': 'seal'}, 'invalid_bootstrap_handshake', result='no_go')
+        identity = check_worker_identity(role, real)
+        # The bootstrap closed launcher descriptors before imports. Close again
+        # after identity probes, before enabling the credential channel.
+        os.closerange(3, os.sysconf('SC_OPEN_MAX'))
+        channel.reply(identity=identity)
+        seal = channel.receive()
+        require(seal.keys() == {'op', 'candidates'} and seal['op'] == 'seal',
+                'invalid_bootstrap_handshake', result='no_go')
+        # Probe the slots themselves. Enumeration may race the close of the
+        # descriptor used to read a procfs fd directory.
+        check_closed_descriptors(seal['candidates'])
         protect_process()
         channel.reply(sealed=True)
         startup = channel.receive()
@@ -303,12 +327,16 @@ class Worker:
         self.pipe = Pipe(self.process.stdout.fileno(), self.process.stdin.fileno(), session.window)
         self.identity = self.receive()['identity']
         require(self.identity == process_record(self.process.pid), 'worker_identity_mismatch', result='no_go')
-        check_descriptors(self.process.pid)
+        candidates = descriptor_candidates(self.process.pid)
         if session.real:
             uid, gid = identity_pair(role)
             require(self.identity['uids'] == [uid] * 4 and self.identity['gids'] == [gid] * 4
                     and self.identity['groups'] == [], 'worker_identity_mismatch', result='no_go')
-        require(self.call(op='seal') == {'sealed': True}, 'worker_seal_unverified', result='no_go')
+        require(self.call(op='seal', candidates=candidates) == {'sealed': True},
+                'worker_seal_unverified', result='no_go')
+        if session.real:
+            require(not descriptor_candidates(self.process.pid), 'unexpected_sealed_worker_descriptors',
+                    result='no_go')
         session.emit('process_started', role=role, **self.identity)
 
     def send(self, **data):
