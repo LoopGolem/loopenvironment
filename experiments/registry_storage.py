@@ -109,21 +109,21 @@ class PrivateRegistryDirectory:
         except OSError:
             raise _unsafe() from None
 
-    def check_database(self, pin):
+    def check_database(self, pin, *, name=DATABASE):
         self.check()
-        if DatabasePin(self.identity, path_inode(self.stat_file(DATABASE))) != pin:
+        if DatabasePin(self.identity, path_inode(self.stat_file(name))) != pin:
             raise _unsafe()
-        self.stat_file(DATABASE + '-journal', optional=True)
+        self.stat_file(name + '-journal', optional=True)
         for suffix in ('-wal', '-shm'):
-            if self.stat_file(DATABASE + suffix, optional=True) is not None:
+            if self.stat_file(name + suffix, optional=True) is not None:
                 raise _unsafe()
 
 
     @contextmanager
-    def hold_database(self, pin):
-        self.check_database(pin)
+    def hold_database(self, pin, *, name=DATABASE):
+        self.check_database(pin, name=name)
         flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
-        fd = os.open(DATABASE, flags, dir_fd=self.fd)
+        fd = os.open(name, flags, dir_fd=self.fd)
         try:
             info = os.fstat(fd)
             self._check_file(info)
@@ -142,15 +142,19 @@ def private_registry_directory(path):
 
 def initialize_registry_database(path, *, wall_clock=time):
     """Explicit enrollment of a new file. Runtime startup only accepts a pin."""
+    return _initialize_database(path, DATABASE, SQLiteRegistry, wall_clock)
+
+
+def _initialize_database(path, name, registry_type, wall_clock):
     with private_registry_directory(path) as directory:
         # Serialize bootstrap against service startup and any other initializer.
         fcntl.flock(directory.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         flags = os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_WRONLY | os.O_CLOEXEC
-        fd = os.open(DATABASE, flags, 0o600, dir_fd=directory.fd)
+        fd = os.open(name, flags, 0o600, dir_fd=directory.fd)
         try:
             pin = DatabasePin(directory.identity, path_inode(os.fstat(fd)))
-            SQLiteRegistry(path / DATABASE, None, wall_clock=wall_clock, create=True,
-                           storage_check=lambda: directory.check_database(pin))
+            registry_type(path / name, None, wall_clock=wall_clock, create=True,
+                          storage_check=lambda: directory.check_database(pin, name=name))
             return pin
         finally:
             os.close(fd)

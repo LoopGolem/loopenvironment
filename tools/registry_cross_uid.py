@@ -20,7 +20,6 @@ import select
 import signal
 import socket
 import stat
-import struct
 from time import monotonic, time
 
 from experiments.objective_registry import RegistryError
@@ -29,7 +28,7 @@ from experiments.registry_rpc import VERSION
 from experiments.registry_storage import DATABASE, DatabasePin, initialize_registry_database
 from loopbridge.protocol import Fault, RPC, unique_object
 from loopbridge.service_ingress import (DEFAULT_ACL, CrossUIDIngress, PeerAdmission, bound_listener,
-                                       named_user_acl, read_acl)
+                                       named_user_acl, peer_identity, read_acl)
 
 BASE = Path('/run')
 BOOT_ID = Path('/proc/sys/kernel/random/boot_id')
@@ -123,7 +122,7 @@ def check_metadata(info, owner, mode, kind, check):
     return info
 
 
-def read_approval(layout, run_id):
+def read_approval(layout, run_id, *, parser=parse_approval):
     check_metadata(BASE.lstat(), (0, 0), 0o755, stat.S_ISDIR, 'unsafe_run_parent')
     check_metadata(layout.root.lstat(), (0, 0), 0o755, stat.S_ISDIR, 'unsafe_run_root')
     flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
@@ -132,7 +131,7 @@ def read_approval(layout, run_id):
         require(approval.st_nlink == 1 and approval.st_size <= MAX_APPROVAL, 'unsafe_approval')
         raw = source.read(MAX_APPROVAL + 1)
     require(len(raw) <= MAX_APPROVAL, 'unsafe_approval')
-    return parse_approval(raw, run_id, boot_id=BOOT_ID.read_text().strip(), now=time())
+    return parser(raw, run_id, boot_id=BOOT_ID.read_text().strip(), now=time())
 
 
 def check_identity(expected, uid, euid, gid, egid, groups):
@@ -329,18 +328,13 @@ class JsonSocket:
         return data
 
 
-def peer_identity(peer):
-    record = struct.Struct('iII')
-    return record.unpack(peer.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, record.size))
-
-
 @contextmanager
-def connect(layout, service, pid):
+def connect(layout, service, pid, *, version=VERSION, timeout=4):
     with socket.socket(socket.AF_UNIX) as peer:
-        peer.settimeout(4)
+        peer.settimeout(timeout)
         peer.connect(str(layout.endpoint))
         require(peer_identity(peer) == (pid, *service), 'unexpected_broker_identity', result='no_go')
-        yield RPC(JsonSocket(peer), VERSION, timeout=4)
+        yield RPC(JsonSocket(peer), version, timeout=timeout)
 
 
 def authenticate(rpc, token, principal):
@@ -417,14 +411,15 @@ def restricted_flow(layout, service, pid, credentials):
         require(rpc.call('objective.respond', **ANSWER) == EXPECT_RECEIPT, 'receipt_not_recovered')
 
 
-def initial_flow(layout, service, pid, credentials):
+def initial_flow(layout, service, pid, credentials, *, label='Executor sintético D.1C.3',
+                 text=FIXTURE_TEXT):
     def request_id(n):
         return f'{n:032x}'
 
     with connect(layout, service, pid) as rpc:
         authenticate(rpc, credentials['admin'], ADMIN)
         result = rpc.call('executor.register', executor_id=TARGET, bound_principal_id=EXECUTOR,
-                          label='Executor sintético D.1C.3', request_id=request_id(17))
+                          label=label, request_id=request_id(17))
         require(result == dict(id=TARGET, state='pending', revision=1), 'registration_failed')
     with connect(layout, service, pid) as rpc:
         authenticate(rpc, credentials['executor'], EXECUTOR)
@@ -433,7 +428,7 @@ def initial_flow(layout, service, pid, credentials):
     with connect(layout, service, pid) as rpc:
         authenticate(rpc, credentials['issuer'], ISSUER)
         result = rpc.call('objective.create', objective_id=OBJECTIVE, executor_id=TARGET,
-                          text=FIXTURE_TEXT, ttl_seconds=900, request_id=request_id(19))
+                          text=text, ttl_seconds=900, request_id=request_id(19))
         require(result == dict(id=OBJECTIVE, state='created', revision=1), 'objective_creation_failed')
         result = rpc.call('objective.offer', objective_id=OBJECTIVE, expected_revision=1, request_id=request_id(20))
         require(result == dict(id=OBJECTIVE, state='offered', revision=2), 'offer_failed')
@@ -441,7 +436,7 @@ def initial_flow(layout, service, pid, credentials):
         authenticate(rpc, credentials['executor'], EXECUTOR)
         offers = rpc.call('objective.list_offers', executor_id=TARGET, limit=16)['items']
         require(len(offers) == 1 and offers[0]['id'] == OBJECTIVE, 'offer_missing')
-        require(rpc.call('objective.status', objective_id=OBJECTIVE)['text'] == FIXTURE_TEXT, 'fixture_text_changed')
+        require(rpc.call('objective.status', objective_id=OBJECTIVE)['text'] == text, 'fixture_text_changed')
         require(rpc.call('objective.respond', **ANSWER) == EXPECT_RECEIPT, 'acceptance_failed')
     emit('objective_workflow', registration=True, confirmation=True, offer=True, acceptance=True)
 

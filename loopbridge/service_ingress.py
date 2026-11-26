@@ -14,10 +14,14 @@ DEFAULT_ACL = 'system.posix_acl_default'
 UNIX_PATH_LIMIT = 108
 
 
-def peer_uid(sock):
+def peer_identity(sock):
     credentials = struct.Struct('iII')  # Linux ucred: pid_t, uid_t, gid_t.
     return credentials.unpack(sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED,
-                                               credentials.size))[1]
+                                               credentials.size))
+
+
+def peer_uid(sock):
+    return peer_identity(sock)[1]
 
 
 def named_user_acl(uid, owner, user):
