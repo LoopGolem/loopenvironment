@@ -18,12 +18,10 @@ TRANSITIONS = {
     'admitted': {'running', 'cancelled', 'revoked', 'expired'},
     'running': {'completed', 'failed', 'cancelled', 'revoked', 'expired', 'uncertain'},
 }
-SCHEMA = {
-    'execution_clock': """CREATE TABLE execution_clock (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        last_wall REAL NOT NULL CHECK (last_wall >= 0)
-    ) STRICT""",
-    'execution_attempts': f"""CREATE TABLE execution_attempts (
+
+
+def attempt_schema(operation):
+    return f"""CREATE TABLE execution_attempts (
         id TEXT PRIMARY KEY NOT NULL,
         authorizer TEXT NOT NULL,
         performer TEXT NOT NULL,
@@ -31,14 +29,22 @@ SCHEMA = {
         executor_id TEXT NOT NULL REFERENCES executors(id),
         objective_id TEXT NOT NULL REFERENCES objectives(id),
         accepted_revision INTEGER NOT NULL CHECK (accepted_revision BETWEEN 1 AND {MAX_REVISION}),
-        operation TEXT NOT NULL CHECK (operation = '{OPERATION}'),
+        operation TEXT NOT NULL CHECK (operation = '{operation}'),
         ttl_seconds INTEGER NOT NULL CHECK (ttl_seconds BETWEEN 1 AND {MAX_TTL}),
         executor_revision INTEGER NOT NULL CHECK (executor_revision BETWEEN 1 AND {MAX_REVISION}),
         deadline REAL NOT NULL CHECK (deadline >= 0),
         authorize_generation TEXT NOT NULL,
         perform_generation TEXT NOT NULL,
         UNIQUE (authorizer, request_id)
+    ) STRICT"""
+
+
+SCHEMA = {
+    'execution_clock': """CREATE TABLE execution_clock (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        last_wall REAL NOT NULL CHECK (last_wall >= 0)
     ) STRICT""",
+    'execution_attempts': attempt_schema(OPERATION),
     'execution_events': """CREATE TABLE execution_events (
         attempt_id TEXT NOT NULL REFERENCES execution_attempts(id),
         revision INTEGER NOT NULL CHECK (revision BETWEEN 1 AND 3),
@@ -69,11 +75,11 @@ class Scope:
     accepted_revision: int
     operation: str
 
-    def valid(self):
+    def valid(self, operation=OPERATION):
         return (all(type(value) is str and OPAQUE_ID.fullmatch(value)
                     for value in (self.executor_id, self.objective_id))
                 and type(self.accepted_revision) is int and 1 <= self.accepted_revision <= MAX_REVISION
-                and type(self.operation) is str and self.operation == OPERATION)
+                and type(self.operation) is str and self.operation == operation)
 
 
 @dataclass(frozen=True)
@@ -206,6 +212,8 @@ class ExecutionTransaction:
 class ExecutionRegistry(_BoundRegistry):
     application_id = 0x4C4F4558
     schema = {**_BoundRegistry.schema, **SCHEMA}
+    operation = OPERATION
+    _transaction_type = ExecutionTransaction
 
     def _watermark(self, db):
         registry = super()._watermark(db)
@@ -232,7 +240,7 @@ class ExecutionRegistry(_BoundRegistry):
                     db.execute('BEGIN IMMEDIATE')
                     self._check_schema(db)
                     floor = max(self._watermark(db), observed_floor)
-                    tx = ExecutionTransaction(db, self._wall, self._wall(floor))
+                    tx = self._transaction_type(db, self._wall, self._wall(floor))
                     yield tx
                     tx.prepare_commit()
                     committing = True
@@ -250,18 +258,21 @@ class ExecutionRegistry(_BoundRegistry):
                 events = tx.history(attempt)
                 self._validate_history(attempt, events, tx)
                 previous = events[-1]
-                if previous.state == 'admitted':
-                    tx.append(attempt, previous, 'revoked')
-                elif previous.state == 'running':
-                    tx.append(attempt, previous, 'uncertain', reason='interrupted')
+                if previous.state in TRANSITIONS:
+                    state = self._interrupted_state(tx, attempt, previous)
+                    reason = 'interrupted' if state == 'uncertain' else None
+                    tx.append(attempt, previous, state, reason=reason)
 
-    @staticmethod
-    def _validate_history(attempt, events, tx):
+    def _interrupted_state(self, tx, attempt, previous):
+        return 'uncertain' if previous.state == 'running' else 'revoked'
+
+    @classmethod
+    def _validate_history(cls, attempt, events, tx):
         ids = (attempt.id, attempt.authorizer, attempt.performer, attempt.request_id,
                attempt.authorize_generation, attempt.perform_generation)
         first = events[0]
         target = tx.target(attempt.scope.objective_id)
-        if (not all(OPAQUE_ID.fullmatch(value) for value in ids) or not attempt.scope.valid()
+        if (not all(OPAQUE_ID.fullmatch(value) for value in ids) or not attempt.scope.valid(cls.operation)
                 or target is None or target.executor_id != attempt.scope.executor_id
                 or target.principal != attempt.performer or target.executor_revision < attempt.executor_revision
                 or target.objective_revision < attempt.scope.accepted_revision
