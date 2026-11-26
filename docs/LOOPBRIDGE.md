@@ -142,3 +142,12 @@ The [V0.5 contract](LOOPBRIDGE_V0_5.md) describes local MCP, the packaged Firefo
 ## Live presentation in V0.7
 
 [V0.7](LOOPBRIDGE_V0_7.md) adds separately authorized local streams for pinned private desktops and a read-only GTK4 viewer. The supervision Shell remains planned under [ADR 0011](DECISIONS/0011-session-presentation-and-operator-shell.md).
+
+## Experimental mediated workspace effect in V0.8-D.2C.1
+
+The opt-in `workspace-effect/1` profile requires an accepted Registry
+objective and separate, exact capability grants. Its two-stage plan prepares
+and publishes a single UTF-8 document in an enrolled disposable resource.
+It records durable intent, independent filesystem evidence and recovery in
+its own pinned database. See the [capability and supervision contract](design/LOOPSHELL_V0_8_D2C1_MEDIATED_WORKSPACE.md)
+and the [local qualification](labs/LOOPSHELL_V0_8_D2C1_MEDIATED_WORKSPACE.md).
