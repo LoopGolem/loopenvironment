@@ -1,11 +1,16 @@
 # V0.8-D.2B.1 — Fronteira cross-UID da supervisão
 
-**Perfil experimental preparado para qualificação.** O único plano é
+**Perfil experimental incorporado à `main` na D.2B.1.** O único plano é
 `add_in_two_stages`, com resultado inteiro `5`. A supervisão, a auditoria e
 a recuperação seguem a [D.2B](LOOPSHELL_V0_8_D2B_SUPERVISED_EXECUTION.md).
 A [D.1C.4](../labs/LOOPSHELL_V0_8_D1C4_CROSS_UID_EXECUTION.md) oferece
 evidência cross-UID para o Registry. A execução supervisionada exige
 a prova própria descrita no [runbook D.2B.1](../labs/LOOPSHELL_V0_8_D2B1_CROSS_UID_PREFLIGHT.md).
+A [D.2B.2](../labs/LOOPSHELL_V0_8_D2B2_CROSS_UID_EXECUTION.md)
+registrou GO experimental para ingresso, isolamento por sentinelas,
+fluxo, disputas e recuperação (fases A–D) e GO para cleanup.
+O resultado global ficou PARTIAL com o baseline gráfico agregado
+inconclusivo segundo a matriz original.
 
 ## Fronteiras
 
@@ -116,3 +121,13 @@ O mesmo harness conhece as credenciais sintéticas que usa para
 representar cada principal. A prova verifica a separação lógica por
 credencial apresentada. Ela não qualifica custódia independente de
 credenciais entre processos do mesmo usuário do desktop.
+
+## Qualificações futuras
+
+O [baseline gráfico revisado](../labs/LOOPSHELL_V0_8_D2B1_CROSS_UID_PREFLIGHT.md#baseline-gráfico-para-qualificações-futuras)
+separa identidade estrutural de estado dinâmico e exige evidência para
+atribuir divergências a interações esperadas. Mantém-se o resultado
+histórico da D.2B.2. A próxima [D.2C](../ROADMAP.md#v08-d2c--first-mediated-capability)
+propõe um primeiro efeito externo observável em workspace descartável.
+A confirmação e a recuperação desse efeito exigem evidência própria.
+As garantias desta prova se limitam às computações em memória.

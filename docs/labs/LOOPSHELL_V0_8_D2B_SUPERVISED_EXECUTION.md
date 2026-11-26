@@ -135,8 +135,10 @@ atestação contra adulteração privilegiada do banco, do relógio ou
 rollback integral da VM. Avaliação de supervisão gráfica, operações
 externas e preempção de código arbitrário ficam fora do GO.
 
-Cross-UID da execução está **NOT RUN**, [D5](../design/TRUSTED_SERVICE_BOUNDARY_V1.md#acceptance-matrix-for-eventual-d5)
+Cross-UID ficou **NOT RUN** neste ensaio local. A
+[D.2B.2](LOOPSHELL_V0_8_D2B2_CROSS_UID_EXECUTION.md) registra a prova
+posterior, com GO experimental para A–D e PARTIAL global. [D5](../design/TRUSTED_SERVICE_BOUNDARY_V1.md#acceptance-matrix-for-eventual-d5)
 permanece **PARTIAL** e [M1.3B](../ROADMAP.md#m13b--trusted-input--enforcement-feasibility)
-segue independente. A recomendação é revisar o diff corretivo e
-aprovar o merge manual do PR #41 com a CI aprovada. A seleção do escopo
-de D.2C é uma decisão posterior.
+segue independente. A revisão original recomendou o merge manual do PR #41
+com a CI aprovada. A [D.2C](../ROADMAP.md#v08-d2c--first-mediated-capability)
+é a próxima etapa proposta.

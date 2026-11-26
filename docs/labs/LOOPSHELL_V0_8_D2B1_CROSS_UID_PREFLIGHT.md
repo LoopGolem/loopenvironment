@@ -1,8 +1,9 @@
 # V0.8-D.2B.1 — Preflight de execução supervisionada cross-UID
 
-**PREPARED / NOT EXECUTED.** O perfil, o driver e o procedimento foram
-preparados. A autorização para dois UIDs reais pertence a um ensaio
-posterior. O [PR #41](https://github.com/LoopGolem/loopenvironment/pull/41)
+**Preflight incorporado à `main` pelo [PR #42](https://github.com/LoopGolem/loopenvironment/pull/42).**
+Os testes desta etapa foram locais. A [execução D.2B.2](LOOPSHELL_V0_8_D2B2_CROSS_UID_EXECUTION.md)
+registra a prova posterior com dois UIDs reais, sob autorização própria.
+O [PR #41](https://github.com/LoopGolem/loopenvironment/pull/41)
 foi incorporado à `main` em `049b82bc686938debeb8e79ecd294b421220c043`
 com árvore idêntica à de `24584ddb3bba6f36c4e03669fc509717e3d91ebe`.
 O desenvolvimento partiu de worktree limpo e preservou o checkout
@@ -25,7 +26,7 @@ auditoria e retorno `5` percorrem o código do driver. A abertura do
 banco com pin errado, política inválida, peer inesperado e aprovações
 inválidas foi recusada. Os testes herdados D.1C.3 cobrem a inspeção de
 grupos, privilégios, descritores e dados auxiliares. Os seis probes
-de isolamento D.2B.1 com UIDs distintos estão **NOT RUN**.
+de isolamento com UIDs distintos ficaram **NOT RUN** no preflight.
 
 | Comando | Resultado |
 | --- | --- |
@@ -69,7 +70,8 @@ a conexão. Todos os testes usaram SQLite e o RPC da fixture local.
 A checagem comum roda depois de preparar o commit de Execution e
 antes de sinalizar commit ambíguo. O teste de troca de arquivo operou
 sob o UID dono da fixture. Isso demonstra a falha de armazenamento
-entre as duas checagens, com isolamento cross-UID ainda NOT RUN.
+entre as duas checagens. A revisão local manteve o isolamento cross-UID
+como NOT RUN.
 Os testes de regressão preservaram os schemas, os contratos RPC,
 o piso temporal e o comportamento de `commit_unknown`.
 
@@ -81,9 +83,9 @@ particular na instância de recuperação. Os testes separam timeout ou
 contagem faltante de confirmação duplicada ou computação indevida.
 A evidência continua sanitizada e a revisão não usou o clone.
 
-## Matriz para a prova futura
+## Matriz original aplicada na D.2B.2
 
-| Fase | Evidência obrigatória | Resultado atual |
+| Fase | Evidência obrigatória | Estado ao final do preflight |
 | --- | --- | --- |
 | A — Ingresso e isolamento | Dois UIDs reais, `SO_PEERCRED` com PID/UID/GID esperados, credencial válida, negativas de credencial errada e de principal sem grant. Com a sentinela viva, seis negativas por instância para travessia, listagem, banco, manifesto, conexão privada e abertura de descritor em `/proc`. `EACCES` ou `EPERM` com ausência de mensagens auxiliares. | PREPARED / NOT EXECUTED |
 | B — Fluxo | Cadastro, confirmação, oferta, aceite, admissão própria, zero progresso e chamadas antes do avanço, um passo, retorno a pausa, continuação, segundo despacho, resultado inteiro `5` e auditoria separada. Observador recusado em passo, avanço e cancelamento. | PREPARED / NOT EXECUTED |
@@ -101,7 +103,10 @@ A ausência de um arquivo sentinela, `ENOENT` ou timeout não prova negação.
 Respeite o campo `result` de `qualification_failed` quando emitido. Uma
 rodada interrompida sem evidência suficiente permanece PARTIAL.
 Divergência de identidade, pin, byte de arquivo, aprovação de execução
-expirada ou falha de limpeza interrompem o procedimento.
+expirada ou falha de limpeza interrompem o procedimento. A classificação
+de cleanup registra a remoção verificada da fixture separadamente. A
+[D.2B.2](LOOPSHELL_V0_8_D2B2_CROSS_UID_EXECUTION.md) preserva o requisito
+original de coincidência do baseline agregado na avaliação global.
 
 ## Preparação do operador
 
@@ -117,42 +122,28 @@ seu próprio escopo.
 
 Na origem confiável, exportar o **commit completo revisado** e levar
 o TAR ao clone por mídia de leitura aprovada, como uma ISO anexada
-manualmente pelo operador no VirtualBox. Fornecer commit e SHA-256 em
-um canal confiável independente da mídia. O clone pode ficar sem rede.
+manualmente pelo operador no VirtualBox. Em clone completo de uma origem
+confiável, o TAR armazenado antes da clonagem pode ser herdado. Nesse
+caso, verificar o mesmo SHA-256 na exportação direta, no TAR armazenado
+na origem e na cópia do clone, como na D.2B.2. Fornecer commit e SHA-256
+por canal confiável independente da transferência. O clone pode ficar sem rede.
 A aprovação deve identificar o TAR e a janela. Os comandos abaixo
 são para execução **posterior** pelo operador.
 
 ```bash
 [[ "${D2B1_COMMIT:?commit aprovado}" =~ ^[0-9a-f]{40}$ ]]
 test "$(git rev-parse --verify "$D2B1_COMMIT^{commit}")" = "$D2B1_COMMIT"
-git archive --format=tar --output "$D2B1_ARCHIVE" "$D2B1_COMMIT"
+git -c tar.umask=0022 archive --format=tar --output "$D2B1_ARCHIVE" "$D2B1_COMMIT"
 sha256sum -- "$D2B1_ARCHIVE"
 ```
 
 ### 2. Capturar baselines e verificar pré-requisitos
 
-Na sessão gráfica existente do desktop, colete o hash abaixo antes e
-depois do ensaio. Use a mesma sessão e o mesmo socket real de Sway.
-Saídas e workspaces devem ser comparados em uma área de trabalho ociosa.
-Os dados da sessão ficam locais. A evidência exportada pode registrar
-somente o resultado da comparação.
-
-```bash
-sway_baseline() {
-  local pid
-  pid=$(pgrep -x -u "$(id -u)" sway) || return
-  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-  {
-    ps -p "$pid" -o pid=,lstart=,uid=
-    swaymsg -r -t get_version
-    swaymsg -r -t get_config
-    swaymsg -r -t get_outputs
-    swaymsg -r -t get_workspaces
-  } | sha256sum
-}
-set -o pipefail
-sway_baseline
-```
+Na sessão gráfica existente do desktop, siga o
+[baseline gráfico para qualificações futuras](#baseline-gráfico-para-qualificações-futuras).
+Informe o PID e o socket IPC da mesma sessão esperada. A captura deve
+estar completa antes de provisionar. Registre também o baseline da
+unidade instalada como abaixo.
 
 Os blocos administrativos seguintes pressupõem sessão root já
 autorizada no clone, tracing desligado e aprovação para criar e
@@ -186,7 +177,7 @@ D2B1_UNIT_BEFORE=$(d2b1_unit)
 ### 3. Provisionar somente a fixture
 
 ```bash
-: "${D2B1_ARCHIVE:?TAR revisado na mídia de leitura}"
+: "${D2B1_ARCHIVE:?TAR revisado no clone}"
 : "${D2B1_ARCHIVE_SHA:?SHA-256 recebido por canal confiável}"
 [[ "$D2B1_ARCHIVE_SHA" =~ ^[0-9a-f]{64}$ ]]
 test -f "$D2B1_ARCHIVE" && test ! -L "$D2B1_ARCHIVE"
@@ -401,12 +392,105 @@ find -P "$D2B1_ROOT" -xdev -print
 test "$(d2b1_unit)" = "$D2B1_UNIT_BEFORE"
 ```
 
-Depois de revisar a listagem e repetir a baseline de Sway na sessão
-desktop, autorize a remoção exclusivamente da raiz confirmada.
+Depois de revisar a listagem, repita a captura de Sway na sessão
+desktop, com a fixture parada. Registre a comparação e a classificação
+gráfica separadamente do cleanup. Autorize a remoção exclusivamente
+da raiz confirmada, após as verificações de identidade, escopo e estado
+da fixture.
 
 ```bash
 d2b1_check_cleanup
 rm -r --one-file-system -- "$D2B1_ROOT"
 test ! -e "$D2B1_ROOT"
 test "$(d2b1_unit)" = "$D2B1_UNIT_BEFORE"
+```
+
+## Baseline gráfico para qualificações futuras
+
+Use [`tools.sway_baseline`](../../tools/sway_baseline.py) da revisão
+aprovada, na sessão do UID desktop e em pontos estáveis. Capture antes
+do provisionamento e depois de parar a fixture. Confirme que a saída e
+o workspace esperados estão presentes. Planeje a interação permitida,
+registre previamente os componentes dinâmicos que ela pode afetar e
+anote localmente os eventos do operador. Preserve localmente a
+observação prévia e posterior dos detalhes relevantes quando hashes
+por componente forem insuficientes para identificar a causa. Use as
+mesmas condições de comparação e defina `baseline_dir` como um
+diretório privado para os arquivos locais.
+
+```bash
+umask 077
+/usr/bin/python3 -B -m tools.sway_baseline capture \
+  --pid "${SWAY_PID:?PID confirmado do compositor}" \
+  --socket "${SWAYSOCK:?socket IPC confirmado}" > "$baseline_dir/before.json"
+# No checkpoint posterior, repita no mesmo desktop com saída em after.json.
+/usr/bin/python3 -B -m tools.sway_baseline capture \
+  --pid "${SWAY_PID:?PID confirmado do compositor}" \
+  --socket "${SWAYSOCK:?socket IPC confirmado}" > "$baseline_dir/after.json"
+/usr/bin/python3 -B -m tools.sway_baseline compare \
+  "$baseline_dir/before.json" "$baseline_dir/after.json"
+```
+
+Passe `--expect-dynamic focus` à comparação somente se essa mudança
+tiver sido prevista e suas observações locais a corroborarem. Repita
+a opção para cada componente aplicável. O coletor emite somente
+hashes por componente da captura. A comparação lista os nomes dos
+componentes alterados e ausentes. A evidência exportada deve conter
+apenas os resultados revisados e observações sanitizadas.
+
+| Tipo | Componentes coletados |
+| --- | --- |
+| Estrutural | Processo (boot, PID, UID, executável e instante de início em ticks), identidade do socket (caminho, dispositivo, inode, UID/GID e modo), versão, caminho e identidade do arquivo de configuração, SHA-256 dos bytes do arquivo em disco, SHA-256 da configuração retornada pelo IPC e identidade das saídas (nome, fabricante, modelo e serial). |
+| Dinâmico | Workspaces; foco e sua ordem na árvore; containers, janelas e propriedades visuais reportadas na árvore; modos, resolução, geometria, escala e transformação das saídas; demais propriedades das saídas, inclusive ativação e energia. |
+
+O coletor faz apenas consultas GET do [IPC do Sway](https://github.com/swaywm/sway/blob/1.10.1/sway/sway-ipc.7.scd)
+e leituras de arquivo. Confere o peer de cada conexão e a estabilidade
+da identidade do processo e do socket entre o início e o fim da
+captura. Ordena chaves JSON e registros de saída e workspace por nome,
+preservando arrays cuja ordem pode ter significado, inclusive a ordem
+de foco. Propriedades restantes de saídas e da árvore continuam na
+comparação. O hash de disco cobre o arquivo principal reportado pelo
+Sway. Se o ensaio depender de arquivos incluídos, documente sua
+identidade e seu hash separadamente. A coleta não é atômica e retrata
+dois pontos no tempo. As propriedades visuais são metadados do IPC,
+sem captura de pixels ou monitoramento contínuo de efeitos.
+
+| Resultado | Critério |
+| --- | --- |
+| Coincidente (`unchanged`) | Capturas completas, identidades coerentes e nenhum componente divergente. |
+| Mudança dinâmica legítima (`expected_dynamic_change`) | Estrutura coincidente e cada divergência dinâmica já prevista, com causa observável e corroborada pelo registro do operador. Uma troca de foco documentada é um exemplo. O nome aceito pela ferramenta representa a expectativa declarada. Divergência de ativação, visibilidade ou outra propriedade relevante exige verificação explícita da causa. |
+| Mudança inesperada (`unexpected_change`) | Qualquer mudança estrutural ou mudança dinâmica fora das expectativas. Interrompa a avaliação de preservação e investigue a diferença. Uma causa legítima possível ainda requer evidência. |
+| Evidência insuficiente (`insufficient_evidence`) | Captura faltante, inválida ou incompleta, IPC ou arquivo inacessível, identidade instável ou observações insuficientes para corroborar a causa. A ferramenta mantém divergências já detectadas ao sinalizar campos ausentes. |
+| Violação observada (`NO-GO` no ensaio) | Evidência direta de acesso, entrega de descritor, despacho ou outra alteração efetiva fora da autoridade concedida. Registre a violação mesmo se alguma captura estiver ausente. |
+
+A captura retorna código 2 se houver componentes ausentes. A comparação
+retorna 0 para coincidência ou mudança dinâmica esperada segundo os
+argumentos, 1 para mudança inesperada e 2 para evidência insuficiente.
+Se a causa de uma diferença permanecer sem comprovação, registre a
+preservação como inconclusiva. O comando não decide a classificação
+global. Os [testes sintéticos](../../tests/test_sway_baseline.py) cobrem
+foco, mudança de arquivo e configuração carregada, identidade do processo,
+modos e identidade das saídas, captura incompleta e revalidação.
+
+### Captura agregada histórica da D.2B.2
+
+O procedimento aplicado na D.2B.2 condensava os dados abaixo em um
+hash único. Este bloco documenta o método histórico que exigia
+coincidência integral para GO e não guardava os componentes separadamente.
+
+```bash
+sway_baseline() {
+  local pid
+  pid=$(pgrep -x -u "$(id -u)" sway) || return
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  {
+    ps -p "$pid" -o pid=,lstart=,uid=
+    swaymsg -r -t get_version
+    swaymsg -r -t get_config
+    swaymsg -r -t get_outputs
+    swaymsg -r -t get_workspaces
+  } | sha256sum
+}
+set -o pipefail
+sway_baseline
 ```
