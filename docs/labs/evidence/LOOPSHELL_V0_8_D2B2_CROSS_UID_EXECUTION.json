@@ -1,0 +1,177 @@
+{
+  "provenance": "operator_supplied_terminal_output",
+  "result": "partial",
+  "security_violation_observed": false,
+  "run_id": "a4336395664c0954",
+  "source": {
+    "preflight_pr": 42,
+    "main_squash_commit": "c90056b430bbd251f74fc28dd1172c8ecaf23cc7",
+    "approved_commit": "aed93a79bcdb5e212607443310124f7da3fa6c20",
+    "identical_git_tree": "6a1561100f7a206697ca1d72edf5347e708a5f17",
+    "archive_command": "git -c tar.umask=0022 archive",
+    "tar_sha256": "b1398475031faf7fa2ee7ff2d7686bc7a0ffb50ad2ad198407455af78bfe4545",
+    "tar_sha256_verified_at": ["original_commit_export", "original_lab_stored_tar", "clone_inherited_tar"],
+    "transfer": "inherited_by_full_clone",
+    "iso_used": false
+  },
+  "environment": {
+    "hypervisor": "VirtualBox",
+    "os": "Debian GNU/Linux 13.7 (trixie)",
+    "hostname": "looplab-d1c3",
+    "clone": "new_independent_full_clone_of_original_lab",
+    "previous_d1c4_clone_discarded": true,
+    "snapshot_before_run": "D2B1 - Baseline antes do ensaio cross-UID",
+    "machine_identity_regenerated_and_systemd_dbus_consistent": true,
+    "boot_identity_verified_before_approval": true,
+    "isolation_confirmed_by_operator": true,
+    "dependencies_present": true,
+    "desktop": {"account": "vboxuser", "uid": 1000, "gid": 1000},
+    "service": {"account": "loopbridge-svc", "uid": 980, "gid": 980},
+    "installed_unit_before_run": {
+      "name": "loopbridge.service",
+      "ActiveState": "inactive",
+      "UnitFileState": "disabled"
+    },
+    "explicit_fixture_approval": {"duration_minutes": 20, "clocks": ["utc", "monotonic"]}
+  },
+  "fixture": {
+    "root": {"path": "/run/loop-supervision-d2b1-a4336395664c0954", "mode": "0755", "uid": 0, "gid": 0},
+    "private_directory": {"mode": "0700", "uid": 980, "gid": 980},
+    "ingress_directory": {"mode": "0710", "uid": 980, "gid": 980, "traverse_acl": "user:1000:--x"},
+    "rpc_socket": {"mode": "0620"},
+    "source_root_owned": true,
+    "source_group_or_other_writable": false
+  },
+  "phases": {
+    "A": {
+      "result": "experimental_go",
+      "broker_pids": [2837, 3019],
+      "broker_uid": 980,
+      "broker_gid": 980,
+      "client_uid": 1000,
+      "so_peercred_expected_identities_both_instances": true,
+      "invalid_credential_denied_both_instances": true,
+      "ungranted_principal_denied_both_instances": true,
+      "ancillary_data_observed": false,
+      "sentinel_fd_both_instances": 4,
+      "direct_access": {
+        "checks_per_instance": [
+          "private_traversal",
+          "private_listing",
+          "sqlite_read",
+          "manifest_read",
+          "sentinel_socket_connect",
+          "sentinel_descriptor_open"
+        ],
+        "outcome_for_each_check": "denied",
+        "error": "EACCES",
+        "errno": 13,
+        "total_denied": 12
+      }
+    },
+    "B": {
+      "result": "experimental_go",
+      "registration_confirmation_offer_accept_completed": true,
+      "attempts_admitted_with_separate_execution_authority": 9,
+      "supervision_grants_explicitly_armed": true,
+      "integer_result": 5,
+      "observer_control_denied": true
+    },
+    "C": {
+      "result": "experimental_go",
+      "computations_by_case": {
+        "flow": 2,
+        "before_dispatch": 0,
+        "pause_running": 2,
+        "step_race": 1,
+        "revoked": 1,
+        "advance_expired": 1,
+        "cancelled": 1,
+        "attempt_expired": 0,
+        "interrupted": 1
+      },
+      "computations_total": 9,
+      "all_computations_matched_expected_counts": true,
+      "untracked_computations": 0,
+      "step_receipt_retained": true,
+      "virtual_harness_deadlines_exercised": true,
+      "terminal_audit_reference_sha256": "647b2b120690bb9144f2b575e1a501658270b0e3f3fe681c631e0eea59ccb4ec",
+      "initial_broker_stop_reason": "interrupted_pending_dispatch",
+      "sockets_removed": true,
+      "sentinel_closed": true,
+      "database_retained": true
+    },
+    "D": {
+      "result": "experimental_go",
+      "broker_pid": 3019,
+      "original_and_reopened_database_pin": "24:2195:24:2198",
+      "direct_access_denials_repeated": 6,
+      "audit_and_control_denied_before_regrant": true,
+      "audit_and_historical_receipt_grants_explicitly_reissued": true,
+      "terminal_history_preserved": true,
+      "integer_result": 5,
+      "step_receipt_reconciled": true,
+      "interrupted_dispatch_recovered_as": "uncertain",
+      "expiry_reasons_preserved": ["advance_expired", "attempt_expired"],
+      "computations_after_restart": 0,
+      "untracked_computations": 0,
+      "recovery_broker_stop_reason": "requested"
+    },
+    "E": {
+      "cleanup_result": "go",
+      "installed_unit_baseline_preserved": true,
+      "graphics_baseline_preservation": "inconclusive",
+      "precleanup_helper_processes_terminated": true,
+      "expected_fixture_root_contents_verified": true,
+      "new_root_session_used_only_for_cleanup": true,
+      "vm_and_boot_identity_reverified": true,
+      "fixture_root_owner_and_mode_verified": true,
+      "broker_pids_absent_before_removal": [2837, 3019],
+      "sockets_absent_before_removal": true,
+      "no_internal_mounts_identified": true,
+      "removal_command": "rm -r --one-file-system",
+      "removal_limited_to_exact_fixture_root": true,
+      "final_output": ["FIXTURE REMOVIDA", "BASELINE DA UNIDADE PRESERVADO", "CLEANUP GO"],
+      "broker_restarted_during_cleanup": false,
+      "approval_renewed_during_cleanup": false,
+      "database_pin_replaced": false
+    }
+  },
+  "graphics_baseline": {
+    "result": "inconclusive",
+    "aggregate_sha256_before": "868ad6cc1597f64bb98e9a46b77e2728164db5865d8aa9840314140e3b2dcab2",
+    "aggregate_sha256_after": [
+      "d68e6b92af7136e389925a56e8ce1b1577ac0a9a857498adda1f48684a4c58e6",
+      "862adb9b81ced81b2c99e4b97b29fad5aa69fe8ddabf560f2ef53b2a15e3da0c"
+    ],
+    "individual_components_captured_before_run": false,
+    "post_run_observations": {
+      "compositor": "Sway 1.10.1",
+      "pid": 1571,
+      "uid": 1000,
+      "start_time_local": "05:28:30",
+      "provisioning_started_local": "05:34",
+      "ipc_socket_compatible_with_pid_and_uid": true,
+      "loaded_configuration_path_as_expected": true,
+      "output_name": "Virtual-1",
+      "output_dimensions": [1640, 670],
+      "workspace": "1",
+      "foot_terminal_count": 2,
+      "workspace_representation": "H[foot foot]"
+    },
+    "operator_switched_terminals_during_procedure": true,
+    "hypothesis": "legitimate_dynamic_change_plausible_unproven",
+    "configuration_bytewise_preservation": "unknown",
+    "retroactive_reclassification": false
+  },
+  "gates": {
+    "d2b1_preflight": "incorporated_in_main",
+    "d2b2_phases_a_to_d": "experimental_go",
+    "fixture_cleanup": "go",
+    "aggregate_graphics_baseline_preservation": "inconclusive",
+    "d2b2_global": "partial",
+    "real_private_graphical_resources": "not_run",
+    "d5": "partial",
+    "m1_3b": "independent"
+  }
+}
