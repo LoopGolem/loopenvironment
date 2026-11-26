@@ -197,26 +197,10 @@ def process_record(pid):
 
 
 def check_descriptors(pid):
+    # The parent inspects the waiting child, so opening procfs cannot add a
+    # descriptor to the process being checked.
     directory = Path(f'/proc/{pid}/fd')
-    own_scan_fd = 0
-    with os.scandir(directory) as entries:
-        for entry in entries:
-            fd = int(entry.name)
-            try:
-                target = os.readlink(entry.path)
-            except FileNotFoundError:
-                continue
-            if fd <= 2:
-                require(target.startswith('pipe:['), f'private_pipe_required_{fd}', result='no_go')
-                continue
-            if pid == os.getpid() and target == str(directory):
-                # scandir holds one descriptor for this enumeration.
-                own_scan_fd += 1
-                require(own_scan_fd == 1, 'duplicate_descriptor_enumeration_fd', result='no_go')
-                continue
-            kind = ('socket' if target.startswith('socket:[') else 'pipe' if target.startswith('pipe:[')
-                    else 'anonymous' if target.startswith('anon_inode:') else 'path')
-            raise QualificationError(f'unexpected_extra_descriptor_{fd}_{kind}', 'no_go')
+    require(set(os.listdir(directory)) == {'0', '1', '2'}, 'unexpected_worker_descriptors', result='no_go')
     for fd in (0, 1, 2):
         require(os.readlink(directory / str(fd)).startswith('pipe:['),
                 f'private_pipe_required_{fd}', result='no_go')
@@ -224,7 +208,6 @@ def check_descriptors(pid):
 
 def check_worker_identity(role, real):
     require(not any(os.environ.get(key) for key in registry.GRAPHICAL_ENV), 'graphical_environment_inherited')
-    check_descriptors(os.getpid())
     record = process_record(os.getpid())
     require(record['no_new_privileges'] and record['zero_capabilities'], 'worker_privileges', result='no_go')
     if real:
@@ -274,10 +257,12 @@ def worker_main(role, run_id, root, bounds):
         layout = Layout(root)
         window = Window(*bounds)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    protect_process()
     channel = Pipe(0, 1, window)
     try:
         channel.reply(identity=check_worker_identity(role, real))
+        require(channel.receive() == {'op': 'seal'}, 'invalid_bootstrap_handshake', result='no_go')
+        protect_process()
+        channel.reply(sealed=True)
         startup = channel.receive()
         if role == 'broker':
             serve_control(layout, channel, window, DESKTOP[0] if real else os.geteuid(),
@@ -318,11 +303,12 @@ class Worker:
         self.pipe = Pipe(self.process.stdout.fileno(), self.process.stdin.fileno(), session.window)
         self.identity = self.receive()['identity']
         require(self.identity == process_record(self.process.pid), 'worker_identity_mismatch', result='no_go')
+        check_descriptors(self.process.pid)
         if session.real:
-            check_descriptors(self.process.pid)
             uid, gid = identity_pair(role)
             require(self.identity['uids'] == [uid] * 4 and self.identity['gids'] == [gid] * 4
                     and self.identity['groups'] == [], 'worker_identity_mismatch', result='no_go')
+        require(self.call(op='seal') == {'sealed': True}, 'worker_seal_unverified', result='no_go')
         session.emit('process_started', role=role, **self.identity)
 
     def send(self, **data):
