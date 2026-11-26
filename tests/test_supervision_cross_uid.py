@@ -1,19 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
 """Non-privileged rehearsal. The actual two-UID proof belongs to the clone."""
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from concurrent.futures import Future
+from contextlib import closing, contextmanager, redirect_stderr, redirect_stdout
 from io import StringIO
 from hashlib import sha256
 import json
 import multiprocessing
 import os
 from pathlib import Path
+import shutil
+import sqlite3
 from tempfile import TemporaryDirectory
 from time import time
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from experiments.objective_registry import RegistryError
+from experiments.objective_registry import Error, RegistryError
+from experiments.supervision_storage import SupervisionTransaction
+from loopbridge.protocol import Fault
 from experiments.registry_operational import POLICY_FILE, PolicyPin
+from experiments.registry_storage import PrivateRegistryDirectory
 from experiments.supervision_operational import (DATABASE, initialize_supervision_database,
                                                  serve_operational_supervision)
 from loopbridge.service_ingress import CrossUIDIngress, PeerAdmission, bound_listener, path_inode
@@ -178,6 +185,44 @@ class SupervisionPreflightTests(unittest.TestCase):
                 driver.parse_attempts(json.dumps(changed))
 
 
+    def test_step_race_timeout_is_partial_and_two_confirmed_steps_are_no_go(self):
+        client = workflow.DesktopFlow(None, None, None, {})
+        attempt = workflow.CASE_IDS['step_race']
+        for completed, outcome in ((False, 'partial'), (True, 'no_go')):
+            with self.subTest(completed=completed):
+                futures = (Future(), Future())
+                if completed:
+                    for future, revision in zip(futures, (3, 4)):
+                        future.set_result(dict(id=attempt, revision=revision, kind='step'))
+                observed = (set(futures), set()) if completed else (set(), set(futures))
+                with patch.object(workflow, 'wait', return_value=observed), \
+                        patch.object(client, 'wait_boundary'), self.assertRaises(previous.QualificationError) as caught:
+                    client._paired_step(Mock(submit=Mock(side_effect=futures)), attempt)
+                self.assertEqual(caught.exception.result, outcome)
+
+    def test_missing_dispatch_evidence_is_partial_and_extra_dispatch_is_no_go(self):
+        window = driver.Window(1100, monotonic_deadline=100, wall=lambda: 1000, elapsed=lambda: 0)
+        gates = driver.Gates(window)
+        with self.assertRaises(previous.QualificationError) as caught:
+            driver.check_dispatch_counts(gates, restart=False, reason='interrupted_pending_dispatch')
+        self.assertEqual((caught.exception.check, caught.exception.result), ('dispatch_evidence_incomplete', 'partial'))
+        gates.count('before_dispatch')
+        with self.assertRaises(previous.QualificationError) as caught:
+            driver.check_dispatch_counts(gates, restart=False, reason='requested')
+        self.assertEqual((caught.exception.check, caught.exception.result), ('unexpected_dispatch_count', 'no_go'))
+
+    def test_restart_counter_detects_computation_without_an_armed_attempt(self):
+        window = driver.Window(1100, monotonic_deadline=100, wall=lambda: 1000, elapsed=lambda: 0)
+        gates = driver.Gates(window)
+        execution = driver.broker_class(gates)._execution_type(None, None)
+        attempt = SimpleNamespace(id=workflow.CASE_IDS['interrupted'])
+        self.assertEqual(execution._run_stage(attempt, 1, None), 2)
+        self.assertEqual(gates.untracked_calls, 1)
+        with self.assertRaises(previous.QualificationError) as caught:
+            driver.check_dispatch_counts(gates, restart=True, reason='requested')
+        self.assertEqual((caught.exception.check, caught.exception.result), ('dispatch_during_recovery', 'no_go'))
+
+
 class OperationalSupervisionTests(unittest.TestCase):
     def setUp(self):
         if LOCAL[0] == 0:
@@ -264,6 +309,151 @@ class OperationalSupervisionTests(unittest.TestCase):
                 reference_client([*base, '--service-uid', str(LOCAL[0]), *action])
 
     @contextmanager
+    def decision_fixture(self):
+        self.database_pin, self.policy_pin = self._initialize()
+        with local_ingress_checks(), serve_operational_supervision(
+                self._ingress(), database_pin=self.database_pin, policy_pin=self.policy_pin) as (_, _, control):
+            broker = control._broker
+            driver.grant_base(broker, self.approval.expires)
+            with redirect_stdout(StringIO()):
+                previous.initial_flow(self.layout, LOCAL, os.getpid(), self.credentials)
+            yield workflow.DesktopFlow(self.layout, LOCAL, os.getpid(), self.credentials), broker
+
+    def admit_flow(self, client):
+        return client.call(previous.ISSUER, 'authorize', executor_id=previous.TARGET,
+                           objective_id=previous.OBJECTIVE, accepted_revision=3,
+                           request_id=workflow.CASE_IDS['flow'], operation=driver.PLAN, ttl_seconds=300)
+
+    def paused_flow(self, client, broker):
+        attempt = self.admit_flow(client)['id']
+        client.control('start', attempt, 1, 300)
+        broker.execution.grant(workflow.SUPERVISOR, driver.Control.STEP, driver.SCOPE,
+                               expires_at=self.approval.expires, attempt_id=attempt)
+        broker.execution.grant(workflow.OBSERVER, driver.Control.PROGRESS, driver.SCOPE,
+                               expires_at=self.approval.expires, attempt_id=attempt)
+        return attempt
+
+    @contextmanager
+    def fail_after_preparing_commit(self, *, last_kind=None):
+        prepare = SupervisionTransaction.prepare_commit
+        check = PrivateRegistryDirectory.check_database
+        invalid = False
+
+        def prepare_and_invalidate(tx):
+            nonlocal invalid
+            prepare(tx)
+            if last_kind is None or tx._db.execute(
+                    'SELECT kind FROM supervision_events ORDER BY revision DESC LIMIT 1').fetchone() == (last_kind,):
+                invalid = True
+
+        def validate(directory, *args, **kwargs):
+            check(directory, *args, **kwargs)
+            if invalid:
+                raise RegistryError(Error.STORAGE_UNAVAILABLE)
+
+        with patch.object(SupervisionTransaction, 'prepare_commit', prepare_and_invalidate), \
+                patch.object(PrivateRegistryDirectory, 'check_database', validate):
+            yield
+
+    def test_precommit_admission_failure_rolls_back_without_receipt(self):
+        with self.decision_fixture() as (client, _):
+            with self.fail_after_preparing_commit(), self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                self.admit_flow(client)
+            with closing(sqlite3.connect(self.layout.private / DATABASE)) as db:
+                self.assertEqual(db.execute('SELECT count(*) FROM execution_attempts').fetchone(), (0,))
+            self.assertEqual(self.admit_flow(client)['kind'], 'admitted')
+
+    def test_precommit_advance_failure_does_not_commit_authorization(self):
+        with self.decision_fixture() as (client, broker):
+            attempt = self.paused_flow(client, broker)
+            with patch('experiments.supervision_lab._calculate_stage') as stage:
+                with self.fail_after_preparing_commit(last_kind='step'), \
+                        self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                    client.control('step', attempt, 2, 61)
+                stage.assert_not_called()
+            self.assertEqual([event['kind'] for event in client.audit(attempt)['events']], ['admitted', 'running'])
+            self.assertEqual(client.control('step', attempt, 2, 61)['kind'], 'step')
+            self.assertEqual(client.status(attempt)['completed_stages'], 1)
+
+    def test_precommit_dispatch_failure_leaves_no_dispatch_or_computation(self):
+        with self.decision_fixture() as (client, broker):
+            attempt = self.paused_flow(client, broker)
+            with patch('experiments.supervision_lab._calculate_stage') as stage:
+                with self.fail_after_preparing_commit(last_kind='dispatched'), \
+                        self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                    client.control('step', attempt, 2, 61)
+                stage.assert_not_called()
+                self.assertEqual(client.control('step', attempt, 2, 61)['kind'], 'step')
+                stage.assert_not_called()
+            trail = client.audit(attempt)
+            self.assertEqual([event['kind'] for event in trail['events']], ['admitted', 'running', 'step'])
+            self.assertIsNone(trail['current_stage'])
+
+    def test_precommit_publication_failure_does_not_publish_result(self):
+        with self.decision_fixture() as (client, broker):
+            attempt = self.paused_flow(client, broker)
+            client.control('step', attempt, 2, 61)
+            revision = client.status(attempt)['revision']
+            with patch('experiments.supervision_lab._calculate_stage', return_value=5) as stage:
+                with self.fail_after_preparing_commit(last_kind='completed'), \
+                        self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                    client.control('step', attempt, revision, 62)
+                stage.assert_called_once_with(2, 2)
+                self.assertEqual(client.control('step', attempt, revision, 62)['kind'], 'step')
+                stage.assert_called_once_with(2, 2)
+            trail = client.audit(attempt)
+            self.assertEqual((trail['state'], trail['completed_stages'], trail['current_stage'], trail['result']),
+                             ('running', 1, 2, None))
+            self.assertEqual(trail['events'][-1]['kind'], 'dispatched')
+
+    def test_audit_fails_if_database_pin_changes_after_connection_opens(self):
+        with self.decision_fixture() as (client, broker):
+            attempt = self.paused_flow(client, broker)
+            expected = client.audit(attempt)
+            database = self.layout.private / DATABASE
+            saved, replacement = (self.layout.private / filename for filename in ('retained.sqlite3', 'new.sqlite3'))
+            shutil.copyfile(database, replacement)
+            replacement.chmod(0o600)
+            prepare = SupervisionTransaction.prepare_commit
+
+            def swap_after_prepare(tx):
+                prepare(tx)
+                database.rename(saved)
+                replacement.rename(database)
+
+            try:
+                with patch.object(SupervisionTransaction, 'prepare_commit', swap_after_prepare), \
+                        self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                    client.audit(attempt)
+                with self.assertRaisesRegex(Fault, '^storage_unavailable$'):
+                    client.audit(attempt)
+            finally:
+                if saved.is_file():
+                    saved.replace(database)
+            self.assertEqual(client.audit(attempt), expected)
+
+    def test_storage_failure_aborts_recovery_before_publishing_listener(self):
+        with self.decision_fixture() as (client, broker):
+            attempt = self.paused_flow(client, broker)
+        database = self.layout.private / DATABASE
+        pin, policy_pin = self.database_pin, self.policy_pin
+        with local_ingress_checks():
+            with self.fail_after_preparing_commit(last_kind='revoked'), \
+                    self.assertRaisesRegex(RegistryError, '^storage_unavailable$'):
+                with serve_operational_supervision(self._ingress(), database_pin=pin, policy_pin=policy_pin):
+                    self.fail('published listener after storage validation failed')
+            self.assertFalse(self.layout.endpoint.exists())
+            with closing(sqlite3.connect(database)) as db:
+                self.assertEqual(db.execute('SELECT state FROM execution_events WHERE attempt_id=? ORDER BY revision',
+                                            (attempt,)).fetchall(), [('admitted',), ('running',)])
+            with serve_operational_supervision(self._ingress(), database_pin=pin,
+                                               policy_pin=policy_pin) as (_, execution, _):
+                execution.grant(workflow.AUDITOR, driver.Permission.AUDIT, driver.SCOPE,
+                                expires_at=self.approval.expires)
+                self.assertEqual([event['kind'] for event in client.audit(attempt)['events']],
+                                 ['admitted', 'running', 'revoked'])
+
+    @contextmanager
     def service_process(self, *, restart=False, original_pin=None):
         context = multiprocessing.get_context('spawn')
         parent, child = context.Pipe()
@@ -336,6 +526,7 @@ class OperationalSupervisionTests(unittest.TestCase):
             stopped = self.event(channel, 'broker_stopped')
             self.assertTrue(stopped['sockets_removed'])
             self.assertFalse(any(stopped['dispatch_calls'].values()))
+            self.assertEqual(stopped['untracked_dispatch_calls'], 0)
         self.assertTrue(any(row['event'] == 'desktop_recovered' for row in emitted))
         serialized = json.dumps(emitted)
         for secret in (SEED.hex(), *self.credentials.values(),

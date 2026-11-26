@@ -117,12 +117,15 @@ class Gates:
         self.arrived = {case: Event() for case in CASES[1:]}
         self.release = {case: Event() for case in CASES[1:]}
         self.calls = dict.fromkeys(CASES, 0)
+        self.untracked_calls = 0
         self.case_by_attempt = {}
         self.lock = Lock()
 
     def count(self, case):
-        if case is not None:
-            with self.lock:
+        with self.lock:
+            if case is None:
+                self.untracked_calls += 1
+            else:
                 self.calls[case] += 1
 
     def wait(self, case):
@@ -151,9 +154,9 @@ def broker_class(gates):
         def _run_stage(self, attempt, index, previous_value):
             if gates.stopping.is_set() or not gates.window.remaining():
                 raise AbandonStage
-            result = super()._run_stage(attempt, index, previous_value)
             case = gates.case_by_attempt.get(attempt.id)
             gates.count(case)
+            result = super()._run_stage(attempt, index, previous_value)
             if index == 1 and case in gates.release and case not in BEFORE_DISPATCH:
                 gates.wait(case)
             return result
@@ -268,6 +271,17 @@ def broker_control(channel, broker, gates, clock, expires, *, restart):
     return 'approval_expired'
 
 
+def check_dispatch_counts(gates, *, restart, reason):
+    if restart:
+        require(not gates.untracked_calls and not any(gates.calls.values()),
+                'dispatch_during_recovery', result='no_go')
+        return
+    require(not gates.untracked_calls and all(gates.calls[case] <= count for case, count in EXPECTED_CALLS.items()),
+            'unexpected_dispatch_count', result='no_go')
+    if reason == 'interrupted_pending_dispatch':
+        require(gates.calls == EXPECTED_CALLS, 'dispatch_evidence_incomplete')
+
+
 def serve(layout, approval, channel, credentials, *, restart, original_pin, window):
     require(not any(layout.ingress.iterdir()), 'ingress_not_fresh')
     clock, gates = LabClock(approval.expires, restart=restart), Gates(window)
@@ -306,10 +320,9 @@ def serve(layout, approval, channel, credentials, *, restart, original_pin, wind
                 gates.abort()
     require(not os.path.lexists(layout.endpoint) and not os.path.lexists(layout.private / registry.PRIVATE_SOCKET),
             'socket_cleanup_failed')
-    require(reason != 'interrupted_pending_dispatch' or gates.calls == EXPECTED_CALLS,
-            'unexpected_dispatch_count', result='no_go')
-    require(not restart or not any(gates.calls.values()), 'dispatch_during_recovery', result='no_go')
+    check_dispatch_counts(gates, restart=restart, reason=reason)
     emit('broker_stopped', reason=reason, run_id=approval.run_id, dispatch_calls=gates.calls,
+         untracked_dispatch_calls=gates.untracked_calls,
          sockets_removed=True, sentinel_closed=True, database_retained=True)
 
 

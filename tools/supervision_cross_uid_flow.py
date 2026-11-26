@@ -77,18 +77,24 @@ class DesktopFlow:
         deadline = monotonic() + WAIT
         while monotonic() < deadline:
             view = self.status(attempt)
+            require(view['state'] != 'completed', 'completed_at_held_boundary', result='no_go')
+            require(view['state'] == 'running', 'boundary_lost')
             if (view['supervision'], view['current_stage']) == (mode, stage):
                 return view
-            require(view['state'] == 'running', 'boundary_lost', result='no_go')
             Event().wait(min(0.02, max(0, deadline - monotonic())))
         raise QualificationError('boundary_not_observed')
 
     def expect(self, attempt, state, completed, *, reason=None):
         trail = self.audit(attempt)
         result = 5 if state == 'completed' else None
-        require(result is None or type(trail['result']) is int, 'result_is_not_integer', result='no_go')
+        if trail['state'] == 'completed':
+            require(state == 'completed' and type(trail['result']) is int and trail['result'] == 5,
+                    'unexpected_success', result='no_go')
+        else:
+            require(trail['result'] is None, 'result_without_completion', result='no_go')
+        require(trail['completed_stages'] <= completed, 'unexpected_stage_progress', result='no_go')
         require((trail['state'], trail['completed_stages'], trail['result'], trail['reason'])
-                == (state, completed, result, reason), 'unexpected_execution_outcome', result='no_go')
+                == (state, completed, result, reason), 'unexpected_execution_outcome')
         require([event['revision'] for event in trail['events']] == list(range(1, trail['revision'] + 1)),
                 'non_contiguous_audit', result='no_go')
         return trail
@@ -103,13 +109,16 @@ class DesktopFlow:
         requests = {pool.submit(run, request): request for request in (61, 62)}
         self.wait_boundary(attempt, mode='stepping', stage=1)
         finished, pending = wait(requests, timeout=WAIT, return_when=FIRST_COMPLETED)
-        require(len(finished) == len(pending) == 1, 'step_race_not_serialized', result='no_go')
+        accepted = sum(not future.cancelled() and future.exception() is None
+                       and future.result().get('kind') == 'step' for future in finished)
+        require(accepted < 2, 'duplicate_step_admitted', result='no_go')
+        require(len(finished) == len(pending) == 1, 'step_race_evidence_incomplete')
         try:
             finished.pop().result()
         except Fault as error:
             require(error.message == 'stale_revision', 'unexpected_step_race_refusal')
         else:
-            raise QualificationError('duplicate_step_admitted', 'no_go')
+            raise QualificationError('step_race_evidence_incomplete')
         winner = pending.pop()
         replay = self.control('step', attempt, 2, requests[winner])
         require(replay == dict(id=attempt, revision=3, kind='step'), 'live_step_replay_invalid')
@@ -117,7 +126,7 @@ class DesktopFlow:
         require(winner.result(WAIT) == replay, 'step_replay_changed')
         view = self.status(attempt)
         require((view['state'], view['completed_stages'], view['supervision']) == ('running', 1, 'paused'),
-                'step_did_not_return_to_pause', result='no_go')
+                'step_did_not_return_to_pause')
 
     def _controlled_case(self, pool, case, attempt):
         action = 'step' if case == 'interrupted' else 'continue'
@@ -126,12 +135,15 @@ class DesktopFlow:
         view = self.wait_boundary(attempt, mode='stepping' if action == 'step' else 'flowing', stage=stage)
         if case in ('before_dispatch', 'pause_running'):
             pause = self.control('pause', attempt, view['revision'], 62)
-            require(pause['kind'] == ('paused' if stage is None else 'pause_requested'),
+            require(stage is None or pause['kind'] != 'paused',
                     'false_pause_acknowledgement', result='no_go')
+            require(pause['kind'] == ('paused' if stage is None else 'pause_requested'),
+                    'pause_acknowledgement_missing')
             if stage is not None:
                 paused = self.status(attempt)
+                require(paused['supervision'] != 'paused', 'false_pause_acknowledgement', result='no_go')
                 require(paused['supervision'] == 'pause_requested' and paused['current_stage'] == stage,
-                        'pause_boundary_not_pending', result='no_go')
+                        'pause_boundary_not_pending')
         elif case == 'cancelled':
             require(self.control('cancel', attempt, view['revision'], 62)['kind'] == 'cancelled',
                     'cancel_not_confirmed')
@@ -147,15 +159,16 @@ class DesktopFlow:
             view = self.status(attempt)
             expected = 0 if stage is None else 1
             require((view['state'], view['supervision'], view['completed_stages'], view['current_stage'])
-                    == ('running', 'paused', expected, None), 'pause_not_drained', result='no_go')
+                    == ('running', 'paused', expected, None), 'pause_not_drained')
             if case == 'pause_running':
                 self.control('continue', attempt, view['revision'], 63)
 
     def active(self, attempts):
         for attempt in attempts.values():
             view = self.status(attempt)
-            require((view['state'], view['supervision'], view['completed_stages'], view['current_stage'])
-                    == ('running', 'paused', 0, None), 'nonzero_initial_progress', result='no_go')
+            require(view['completed_stages'] == 0 and view['current_stage'] is None,
+                    'nonzero_initial_progress', result='no_go')
+            require((view['state'], view['supervision']) == ('running', 'paused'), 'initial_pause_not_observed')
 
         flow = attempts['flow']
         with self.rpc(OBSERVER) as rpc:
@@ -166,7 +179,7 @@ class DesktopFlow:
         receipt = self.control('step', flow, 2, 61)
         view = self.status(flow)
         require((view['state'], view['supervision'], view['completed_stages'], view['current_stage'])
-                == ('running', 'paused', 1, None), 'step_progress_invalid', result='no_go')
+                == ('running', 'paused', 1, None), 'step_progress_invalid')
         require(self.control('step', flow, 2, 61) == receipt, 'step_replay_changed')
         self.control('continue', flow, view['revision'], 62)
         self.expect(flow, 'completed', 2)

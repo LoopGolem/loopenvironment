@@ -30,10 +30,10 @@ de isolamento D.2B.1 com UIDs distintos estão **NOT RUN**.
 | Comando | Resultado |
 | --- | --- |
 | `/usr/bin/python3 -B -m tools.supervision_cross_uid --run-id 0123456789abcdef plan` | PREPARED / NOT EXECUTED. Sem escrita. |
-| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervision_cross_uid.py'` | 13 testes aprovados. |
+| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervision_cross_uid.py'` | 22 testes aprovados. |
 | Mesmo comando com `test_execution_d2a.py`, `test_supervised_execution.py` e `*registry*.py` | 33 D.2A, 29 D.2B e 88 testes do Registry aprovados. |
-| `/usr/bin/python3 -B -m unittest discover -s tests` | 516 no total, com 508 aprovados e 8 GTK omitidos por opt-in. |
-| Mesmo comando com `LOOPSHELL_TEST_GTK=1` em Sway headless e D-Bus descartáveis | 516 testes aprovados, incluindo as 8 regressões GTK. |
+| `/usr/bin/python3 -B -m unittest discover -s tests` | 525 no total, com 517 aprovados e 8 GTK omitidos por opt-in. |
+| Mesmo comando com `LOOPSHELL_TEST_GTK=1` em Sway headless e D-Bus descartáveis | 525 testes aprovados, incluindo as 8 regressões GTK. |
 | Schemas, links, blocos Bash e `git diff --check` | Aprovados. Os blocos futuros foram verificados com `bash -n`. |
 
 O perfil e cliente estão em [supervision_operational.py](../../experiments/supervision_operational.py)
@@ -42,6 +42,44 @@ O [driver](../../tools/supervision_cross_uid.py),
 o [fluxo desktop](../../tools/supervision_cross_uid_flow.py) e
 os [testes](../../tests/test_supervision_cross_uid.py) definem o ensaio.
 A [CI](../../.github/workflows/regression.yml) executa as regressões no PR.
+
+## Revisão independente do PR #42
+
+No commit `c602d43`, Execution validava o pin ao abrir SQLite.
+Registry também o revalidava antes da decisão de commit. As seis
+reproduções abaixo falharam antes da correção. Cinco injetaram falha
+no verificador após preparar o commit. A auditoria usou uma troca
+real do arquivo por outra cópia com inode diferente depois de abrir
+a conexão. Todos os testes usaram SQLite e o RPC da fixture local.
+
+```sh
+/usr/bin/python3 -B -m unittest discover -s tests -p 'test_supervision_cross_uid.py' \
+  -v -k precommit -k pin_changes -k storage_failure
+```
+
+| Fronteira | Antes da correção | Depois da correção |
+| --- | --- | --- |
+| Admissão | Retornou recibo. | Recusada com `storage_unavailable`, sem tentativa persistida. |
+| Autorização de avanço | A próxima transação recusou o armazenamento, mas o avanço já estava no histórico. | A autorização foi revertida e o mesmo pedido pôde ser executado após restaurar a validação. |
+| Despacho | A etapa foi chamada uma vez antes da recusa na próxima transação. | O despacho ficou ausente do histórico e o contador ficou em zero, inclusive no replay do recibo anterior. |
+| Publicação | O RPC retornou com a falha de validação armada após preparar a conclusão. | A etapa já despachada pôde calcular. A conclusão e o resultado foram revertidos, e o replay preservou o despacho pendente. |
+| Auditoria | Respondeu depois da troca do inode pinado. | Recusou tanto a transação em curso quanto uma nova conexão ao caminho substituído. O histórico voltou a ser legível ao restaurar explicitamente o arquivo original. |
+| Recuperação na partida | Publicou o listener apesar da falha de revalidação. | Abortou sem expor o socket e sem gravar a transição de recuperação. A partida posterior usou o pin original. |
+
+A checagem comum roda depois de preparar o commit de Execution e
+antes de sinalizar commit ambíguo. O teste de troca de arquivo operou
+sob o UID dono da fixture. Isso demonstra a falha de armazenamento
+entre as duas checagens, com isolamento cross-UID ainda NOT RUN.
+Os testes de regressão preservaram os schemas, os contratos RPC,
+o piso temporal e o comportamento de `commit_unknown`.
+
+A revisão do driver manteve a aprovação vinculada à VM, boot, janela
+UTC e monotônica, e verificou PID, UID e GID, perda do controle, ausência
+de descritores auxiliares e reemissão explícita dos grants voláteis.
+O contador passou a incluir computações sem tentativa armada, em
+particular na instância de recuperação. Os testes separam timeout ou
+contagem faltante de confirmação duplicada ou computação indevida.
+A evidência continua sanitizada e a revisão não usou o clone.
 
 ## Matriz para a prova futura
 
@@ -60,6 +98,8 @@ falha de ambiente ou evidência faltante sem violação observada.
 bypass de autoridade, identidade de peer inesperada no ingresso
 qualificado, duplicação, falso acknowledgement ou sucesso tardio.
 A ausência de um arquivo sentinela, `ENOENT` ou timeout não prova negação.
+Respeite o campo `result` de `qualification_failed` quando emitido. Uma
+rodada interrompida sem evidência suficiente permanece PARTIAL.
 Divergência de identidade, pin, byte de arquivo, aprovação de execução
 expirada ou falha de limpeza interrompem o procedimento.
 
@@ -83,8 +123,8 @@ A aprovação deve identificar o TAR e a janela. Os comandos abaixo
 são para execução **posterior** pelo operador.
 
 ```bash
-test -n "$D2B1_COMMIT" && git rev-parse --verify "$D2B1_COMMIT^{commit}"
-test "$(git rev-parse "$D2B1_COMMIT")" = "$D2B1_COMMIT"
+[[ "${D2B1_COMMIT:?commit aprovado}" =~ ^[0-9a-f]{40}$ ]]
+test "$(git rev-parse --verify "$D2B1_COMMIT^{commit}")" = "$D2B1_COMMIT"
 git archive --format=tar --output "$D2B1_ARCHIVE" "$D2B1_COMMIT"
 sha256sum -- "$D2B1_ARCHIVE"
 ```
@@ -126,9 +166,10 @@ umask 022
 test "$(id -u):$(id -g)" = 0:0
 test "$(hostname)" = looplab-d1c3
 test "$(cat /etc/machine-id)" = "${D2B1_EXPECTED_MACHINE_ID:?ID do clone aprovado}"
+test "$(cat /proc/sys/kernel/random/boot_id)" = "${D2B1_EXPECTED_BOOT_ID:?boot do clone aprovado}"
 test "$(id -u vboxuser):$(id -g vboxuser)" = 1000:1000
 test "$(id -u loopbridge-svc):$(id -g loopbridge-svc)" = 980:980
-for tool in setpriv setfacl getfacl findmnt sha256sum tar python3; do
+for tool in setpriv setfacl getfacl findmnt awk sha256sum tar python3; do
   command -v "$tool" >/dev/null
 done
 test "$(systemctl show loopbridge.service -p ActiveState --value)" = inactive
@@ -245,6 +286,7 @@ d2b1_desktop() {
 d2b1_stopped() {
   d2b1_read broker_stopped
   test "$(d2b1_field reason <<<"$D2B1_EVENT")" = "$1"
+  test "$(d2b1_field untracked_dispatch_calls <<<"$D2B1_EVENT")" = 0
   wait "$D2B1_CHILD"
   exec {D2B1_OUT}<&-
   exec {D2B1_IN}>&-
@@ -282,6 +324,9 @@ while IFS= read -r -t 15 line <&"$D2B1_DESKTOP_OUT"; do
       D2B1_AUDIT_SHA=$(d2b1_field audit_sha256 <<<"$line")
       [[ "$D2B1_AUDIT_SHA" =~ ^[0-9a-f]{64}$ ]] ;;
     desktop_active_complete) D2B1_ACTIVE_COMPLETE=yes ;;
+    qualification_failed)
+      if test "$(d2b1_field result <<<"$line")" = no_go; then exit 2; fi
+      exit 1 ;;
     *) exit 1 ;;
   esac
 done
@@ -333,15 +378,25 @@ e o conteúdo da raiz exclusiva antes da remoção autorizada.
 ```bash
 unset D2B1_SEED
 cd /run
-[[ "$D2B1_ROOT" =~ ^/run/loop-supervision-d2b1-[0-9a-f]{16}$ ]]
-test -d "$D2B1_ROOT" && test ! -L "$D2B1_ROOT"
-test "$(stat -c '%a:%u:%g' "$D2B1_ROOT")" = 755:0:0
-for socket in ingress/supervised.sock private/registry-sentinel.sock; do
-  test ! -e "$D2B1_ROOT/$socket" && test ! -L "$D2B1_ROOT/$socket"
-done
-D2B1_MOUNTS=$(findmnt -rn -o TARGET)
-if awk -v root="$D2B1_ROOT" '$0 == root || index($0, root "/") == 1 { found=1 } END { exit !found }' \
-  <<<"$D2B1_MOUNTS"; then exit 1; fi
+d2b1_check_cleanup() {
+  local pid endpoint mounts attached
+  [[ "$D2B1_ROOT" =~ ^/run/loop-supervision-d2b1-[0-9a-f]{16}$ ]] || return 1
+  test -d "$D2B1_ROOT" && test ! -L "$D2B1_ROOT" || return 1
+  test "$(stat -c '%a:%u:%g' "$D2B1_ROOT")" = 755:0:0 || return 1
+  for pid in "${D2B1_ORIGINAL_PID:-}" "${D2B1_CHILD:-}" "${D2B1_DESKTOP_CHILD:-}"; do
+    if [[ -n "$pid" ]]; then
+      [[ "$pid" =~ ^[0-9]+$ ]] && test ! -e "/proc/$pid" || return 1
+    fi
+  done
+  for endpoint in ingress/supervised.sock private/registry-sentinel.sock; do
+    test ! -e "$D2B1_ROOT/$endpoint" && test ! -L "$D2B1_ROOT/$endpoint" || return 1
+  done
+  mounts=$(findmnt -rn -o TARGET) || return 1
+  attached=$(awk -v root="$D2B1_ROOT" '$0 == root || index($0, root "/") == 1 { print; exit }' \
+    <<<"$mounts") || return 1
+  test -z "$attached"
+}
+d2b1_check_cleanup
 find -P "$D2B1_ROOT" -xdev -print
 test "$(d2b1_unit)" = "$D2B1_UNIT_BEFORE"
 ```
@@ -350,7 +405,7 @@ Depois de revisar a listagem e repetir a baseline de Sway na sessão
 desktop, autorize a remoção exclusivamente da raiz confirmada.
 
 ```bash
-[[ "$D2B1_ROOT" =~ ^/run/loop-supervision-d2b1-[0-9a-f]{16}$ ]]
+d2b1_check_cleanup
 rm -r --one-file-system -- "$D2B1_ROOT"
 test ! -e "$D2B1_ROOT"
 test "$(d2b1_unit)" = "$D2B1_UNIT_BEFORE"

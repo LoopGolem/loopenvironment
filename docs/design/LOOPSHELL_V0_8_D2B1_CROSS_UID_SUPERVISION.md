@@ -45,8 +45,20 @@ A inicialização explícita usa criação exclusiva em diretório privado
 apresenta esse pin. Banco ausente, substituído, com modos inválidos
 ou com schema histórico é recusado. O pin protege a identidade do
 arquivo e diretório, com confiança no dispositivo e no sistema de
-arquivos. Sobrescrita por ator privilegiado no mesmo inode e rollback
-integral da VM ficam fora da garantia.
+arquivos. Registry e Execution passam pela mesma verificação do
+armazenamento ao abrir a conexão e antes do commit. Execution repete
+a verificação após preparar o commit e antes de entrar na região
+de confirmação ambígua. A ordem dos locks e as verificações de
+autoridade e do piso temporal continuam válidas. Uma falha nesse
+ponto retorna `storage_unavailable`, aborta a transação e impede
+recibo ou efeito decorrente de autorização ainda não confirmada.
+Na recuperação, a mesma falha antecede a publicação do listener.
+
+O check é pontual. Uma troca por root ou por código confiável entre
+a revalidação e o commit, sobrescrita no mesmo inode e rollback
+integral da VM ficam fora da garantia. A troca reproduzida na revisão
+foi feita pelo harness sob o UID dono da fixture. A capacidade de
+um desktop separado substituir o banco privado continua NOT RUN.
 
 O manifesto `policy.json` contém verificadores individuais e grants
 de **entrega** do Registry. A implementação reutiliza a validação de
@@ -82,8 +94,12 @@ emissor previstas no ensaio. Os grants novos fixam o escopo e os IDs
 resolvidos pelo serviço. O pipe só aceita liberações por caso, em ordem
 fixa. Cada liberação espera a barreira do worker correspondente.
 O cliente usa apenas RPCs existentes para ler progresso ou pedir
-controle. Os contadores são incrementados na chamada efetiva ao
-cálculo em memória. Ao encerrar o broker com despacho pendente, o
+controle. O harness conta cada chamada ao cálculo em memória,
+inclusive quando não encontra uma tentativa armada. Essa contagem
+cobre a instância de recuperação antes de qualquer `arm`. Timeout,
+perda do pipe ou contagem faltante deixam a prova PARTIAL. Admissões
+duplicadas ou despachos indevidos efetivamente observados resultam
+em NO-GO. Ao encerrar o broker com despacho pendente, o
 harness descarta o retorno dessa chamada antes de confirmar uma
 conclusão. A instância seguinte registra `uncertain`.
 
