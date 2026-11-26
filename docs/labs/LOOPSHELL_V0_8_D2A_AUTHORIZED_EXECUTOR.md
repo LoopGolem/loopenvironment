@@ -20,7 +20,7 @@ entrega do Registry.
 | --- | --- |
 | [execution_lab.py](../../experiments/execution_lab.py) | Perfil opt-in, RPC `execution/1`, grants exatos, cálculo e decisões do ciclo. |
 | [execution_storage.py](../../experiments/execution_storage.py) | Esquema, consulta ao alvo confiável, eventos duráveis e recuperação. |
-| [durable_objective_registry.py](../../experiments/durable_objective_registry.py) e [registry_lab.py](../../experiments/registry_lab.py) | Reuso experimental de autenticação, SQLite e locks com os valores históricos preservados por padrão. |
+| [durable_objective_registry.py](../../experiments/durable_objective_registry.py), [objective_registry_policy.py](../../experiments/objective_registry_policy.py) e [registry_lab.py](../../experiments/registry_lab.py) | Reuso experimental de autenticação, SQLite e locks. A preparação do commit e a revalidação do grant aceitam a amostra compartilhada do perfil D.2A. Os perfis históricos mantêm o comportamento anterior. |
 | [test_execution_d2a.py](../../tests/test_execution_d2a.py) | Provas em sockets Unix e SQLite temporários, com relógio controlado, eventos e barreiras. |
 | [Contrato D.2A](../design/LOOPSHELL_V0_8_D2A_EXECUTOR.md), este relatório e [roadmap](../ROADMAP.md#v08--loopshell-and-session-supervisor) | Decisões, qualificação e escopo do marco. |
 
@@ -48,6 +48,31 @@ texto do objetivo.
 | Idempotência e falhas | Pedidos simultâneos retornaram o mesmo ID. Divergências foram recusadas. Inícios simultâneos despacharam uma soma. Falha de cálculo ou retorno inválido gravaram `failed` sanitizado. Revogar com erro de commit removeu a autoridade, e reemitir o grant não reativou a tentativa. |
 | Banco e recuperação | O esquema histórico foi recusado no perfil D.2A. Uma trilha sem início durável falhou na validação da reabertura. Após commit ambíguo ou parada abrupta, um início durável sem resultado passou a `uncertain`, e uma admissão pendente foi revogada. A conclusão confirmada com resposta perdida foi reconciliada. Uma nova execução após a interrupção exigiu nova autorização. |
 
+## Revisão independente do PR #40
+
+Os testes de reprodução foram executados primeiro com o código
+`83922ae`, antes das correções. Os cinco casos falharam conforme as
+observações abaixo. O relógio foi injetado na fixture e os testes
+usaram RPC autenticado e SQLite real.
+
+```sh
+/usr/bin/python3 -B -m unittest discover -s tests -p 'test_execution_d2a.py' -v \
+    -k rollback_below -k last_sample -k hides_idempotency
+```
+
+| Diagnóstico | Reprodução antes da correção | Correção e evidência |
+| --- | --- | --- |
+| Piso temporal assimétrico | O Registry confirmou em T1. Execution confirmou em T1 + 20 s. Em T1 + 10 s, `execution.audit` retornou `clock_uncertain` e `objective.status` respondeu normalmente. | Ambos os protocolos consultam o maior marcador confirmado. Retrocessos foram testados depois de commits dos dois protocolos, em leitura de auditoria, na reabertura e após perda de resposta de commit. |
+| Diferença entre amostra e marca | Um evento foi escrito em T1 + 10 s, a decisão amostrou T1 + 20 s antes do commit e `execution_clock` ficou em T1 + 10 s. | A amostra final validada é gravada na mesma transação. Os testes distinguem a hora do evento da marca, revalidam grant no limite do prazo e verificam que uma transação abortada não avança o marcador. A repetição interna preserva somente para aquela decisão a amostra que observou a expiração. |
+| Informação de idempotência antecipada | Um pedido divergente com ID já usado retornou `request_conflict` mesmo com grant de autorização revogado, grant do executor vencido ou alvo fora do escopo. O ID inexistente recebeu o erro de autoridade aplicável. | O pedido precisa passar pelos grants e pelo alvo antes da consulta idempotente. IDs existentes e inexistentes recebem a mesma recusa sob as mesmas condições inelegíveis. O teste antigo de executor fora do escopo agora espera `denied`. Um TTL divergente em pedido elegível ainda retorna `request_conflict`. A cobertura inclui expiração durante a consulta, namespaces entre principais, repetição idêntica e imutabilidade terminal. |
+
+A rodada reexecutou as provas de reemissão de grant, rotação durante
+`running`, mudança de estado e revisão do executor, perda de confirmação
+de commit, despacho único, integridade das transições e inércia do
+texto. Na injeção de falha de publicação, o evento de conclusão e a
+marca temporal só ficaram duráveis quando a transação SQLite confirmou.
+O resultado da única operação continuou sendo o inteiro `5`.
+
 ## Reprodução e regressões
 
 Ambiente local com Python 3.13.5, SQLite 3.46.1 e Sway 1.10.1. O
@@ -60,11 +85,11 @@ do [procedimento D.1C.1](LOOPSHELL_V0_8_D1C1_TRUSTED_REGISTRY.md#reprodução).
 
 | Comando | Resultado |
 | --- | --- |
-| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_execution_d2a.py' -v` | 21 testes aprovados. |
+| `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_execution_d2a.py' -v` | 32 testes aprovados. |
 | `/usr/bin/python3 -B -m unittest discover -s tests -p '*registry*.py'` | 88 testes aprovados. |
 | `/usr/bin/python3 -B -m unittest discover -s tests -p 'test_loopbridge*.py'` | 62 testes aprovados. |
-| `/usr/bin/python3 -B -m unittest discover -s tests` | 462 testes, com 454 aprovados e 8 GTK omitidos por opt-in. |
-| `/usr/bin/python3 -B -m unittest discover -s tests` na fixture GTK acima | 462 testes aprovados, incluindo as 8 regressões GTK. |
+| `/usr/bin/python3 -B -m unittest discover -s tests` | 473 testes, com 465 aprovados e 8 GTK omitidos por opt-in. |
+| `/usr/bin/python3 -B -m unittest discover -s tests` na fixture GTK acima | 473 testes aprovados, incluindo as 8 regressões GTK. |
 | `git diff --check`, links locais e correspondência entre contrato e schema RPC | Aprovados. A prova de armazenamento verificou também integridade SQLite e chaves estrangeiras. |
 
 A [CI existente](../../.github/workflows/regression.yml) inclui os
@@ -86,11 +111,13 @@ A política de execução é volátil, o armazenamento tem capacidade fixa
 de 256 tentativas e a materialização de expiração é sob demanda. Após
 uma interrupção, recuperar depende do banco preservado e da verificação
 da parada da instância anterior. Esses limites são adequados ao cálculo
-puro. Efeitos externos, armazenamento adulterado, revogação distribuída
-e garantias de execução exatamente uma vez para outros tipos de
-operação estão fora da qualificação.
+puro. O piso temporal depende do relógio UTC e dos commits no banco
+preservado. Adulteração privilegiada do relógio, rollback da VM inteira,
+efeitos externos, revogação distribuída e garantias de execução
+exatamente uma vez para outros tipos de operação estão fora da
+qualificação.
 
-Próximo marco recomendado é a revisão independente da fronteira D.2A e
-da evidência do PR. Se essa revisão exigir prova cross-UID da execução,
-a prova deve ter plano e autorização próprios. D.2B, D.2C e integração
+Recomendação é aprovar o merge manual do PR #40 após a revisão do
+diff corretivo e a confirmação da CI. Uma eventual prova cross-UID
+da execução exige plano e autorização próprios. D.2B, D.2C e integração
 de agente de IA dependem de decisão posterior.

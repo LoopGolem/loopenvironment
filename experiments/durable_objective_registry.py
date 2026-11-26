@@ -336,6 +336,14 @@ class SQLiteRegistry(Registry):
                            ((self._decision_time, *change) for change in changes))
             db.execute('DELETE FROM audit WHERE sequence <= (SELECT max(sequence) - ? FROM audit)', (MAX_AUDIT,))
 
+    @staticmethod
+    def _write_watermark(db, now):
+        db.execute('UPDATE registry_clock SET last_wall=? WHERE id=1', (now,))
+
+    def _prepare_commit(self, db, revalidate):
+        self._write_watermark(db, self._wall(self._decision_time))
+        revalidate()
+
     def _commit(self, db):
         db.commit()
 
@@ -365,8 +373,7 @@ class SQLiteRegistry(Registry):
                     self._save(db, before_executors, before_objectives, previous_receipts, actor.principal)
                     if self._storage_check is not None:
                         self._storage_check()
-                    db.execute('UPDATE registry_clock SET last_wall=? WHERE id=1', (self._wall(self._decision_time),))
-                    revalidate()
+                    self._prepare_commit(db, revalidate)
                     committing = True
                     self._commit(db)
             except sqlite3.Error as error:

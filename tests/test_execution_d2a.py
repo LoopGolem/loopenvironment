@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 from experiments.execution_lab import Permission, VERSION, serve_execution_lab
-from experiments.execution_storage import ExecutionTransaction, OPERATION, Scope
+from experiments.execution_storage import DeadlinePassed, ExecutionTransaction, OPERATION, Scope
 from experiments.objective_registry import ExecutorAction, Permission as Delivery, RegistryError
 from experiments.registry_lab import serve_registry
 from experiments.registry_rpc import RegistryRequest, VERSION as REGISTRY
@@ -164,6 +164,210 @@ class AuthorizedExecution(unittest.TestCase):
         with closing(sqlite3.connect(self.database)) as db:
             return db.execute('SELECT count(*) FROM execution_attempts').fetchone()[0]
 
+    def registry_status(self, endpoint):
+        with self.client(endpoint, ISSUER, version=REGISTRY) as rpc:
+            return rpc.call('objective.status', objective_id=OBJECTIVE)
+
+    def watermarks(self):
+        with closing(sqlite3.connect(self.database)) as db:
+            registry, = db.execute('SELECT last_wall FROM registry_clock WHERE id=1').fetchone()
+            execution = db.execute('SELECT last_wall FROM execution_clock WHERE id=1').fetchone()
+        return registry, execution[0] if execution else None
+
+    def test_registry_rejects_rollback_below_last_execution_commit(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            self.clock = WALL + 20
+            attempt = self.admit(endpoint)
+            self.assertEqual(self.watermarks(), (WALL, WALL + 20))
+            self.clock = WALL + 10
+            self.expect_error('clock_uncertain', self.audit, endpoint, attempt)
+            self.expect_error('clock_uncertain', self.registry_status, endpoint)
+
+    def test_registry_commit_is_seen_by_execution_and_reopen(self):
+        with self.service() as (endpoint, broker):
+            self.delivery(endpoint)
+            attempt = self.admit(endpoint)
+            broker.access.policy.grant(ISSUER, Delivery.READ_OBJECTIVE, EXECUTOR_ID, expires_at=WALL + 20)
+            self.clock = WALL + 25
+            with self.client(endpoint, EXECUTOR, version=REGISTRY) as rpc:
+                # A retry under a different still-valid Registry grant advances its clock.
+                rpc.call('objective.respond', request_id=opaque(24), objective_id=OBJECTIVE,
+                         expected_revision=2, decision='accept')
+            self.assertEqual(self.watermarks(), (WALL + 25, WALL))
+            self.clock = WALL + 10
+            self.expect_error('clock_uncertain', self.audit, endpoint, attempt)
+            self.expect_error('clock_uncertain', self.registry_status, endpoint)
+        with self.assertRaisesRegex(RegistryError, 'clock_uncertain'):
+            with self.service(create=False):
+                self.fail('reopened below the last Registry commit')
+        self.clock = WALL + 25
+        with self.service(create=False) as (endpoint, _):
+            self.assert_audit(endpoint, attempt, 'admitted revoked')
+
+    def test_execution_read_commit_advances_shared_floor_and_survives_reopen(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            attempt = self.admit(endpoint)
+            self.start(endpoint, attempt)
+            self.clock = WALL + 10
+            terminal = self.assert_audit(endpoint, attempt, 'admitted running completed')
+            self.assertEqual(self.watermarks(), (WALL, WALL + 10))
+        self.clock = WALL + 5
+        with self.assertRaisesRegex(RegistryError, 'clock_uncertain'):
+            with self.service(create=False):
+                self.fail('reopened below the last Execution commit')
+        self.clock = WALL + 10
+        with self.service(create=False) as (endpoint, _):
+            self.assertEqual(self.audit(endpoint, attempt), terminal)
+            self.assertEqual(self.registry_status(endpoint)['state'], 'accepted')
+
+    def test_execution_persists_last_sample_used_for_commit(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            self.clock = WALL + 10
+            admit = ExecutionTransaction.admit
+
+            def advance_after_event(tx, attempt):
+                event = admit(tx, attempt)
+                self.clock = WALL + 20
+                return event
+
+            with patch.object(ExecutionTransaction, 'admit', advance_after_event):
+                attempt = self.admit(endpoint)
+            self.assertEqual(self.watermarks(), (WALL, WALL + 20))
+            self.clock = WALL + 15
+            self.expect_error('clock_uncertain', self.audit, endpoint, attempt)
+            self.expect_error('clock_uncertain', self.registry_status, endpoint)
+            self.clock = WALL + 20
+            record = self.assert_audit(endpoint, attempt, 'admitted')
+            self.assertEqual(record['events'][0]['at_unix_ms'], (WALL + 10) * 1000)
+
+    def test_registry_persists_one_shared_sample_after_revalidating_grants(self):
+        with self.service() as (endpoint, broker):
+            self.delivery(endpoint)
+            broker.access.policy.grant(ISSUER, Delivery.READ_OBJECTIVE, EXECUTOR_ID, expires_at=WALL + 20)
+            self.clock = WALL + 15
+            with patch.object(broker.registry, '_wall_clock',
+                              side_effect=(WALL + 15, WALL + 20)):
+                self.expect_error('denied', self.registry_status, endpoint)
+            self.assertEqual(self.watermarks(), (WALL, WALL))
+
+            with patch.object(broker.registry, '_wall_clock',
+                              side_effect=(WALL + 15, WALL + 19)) as sample:
+                self.assertEqual(self.registry_status(endpoint)['state'], 'accepted')
+                self.assertEqual(sample.call_count, 2)
+            self.assertEqual(self.watermarks(), (WALL + 19, WALL))
+            self.expect_error('clock_uncertain', self.authorize, endpoint)
+
+    def test_registry_commit_failure_does_not_advance_floor_unless_commit_landed(self):
+        with self.service() as (endpoint, broker):
+            self.delivery(endpoint)
+            commit = broker.registry._commit
+            self.clock = WALL + 10
+            with patch.object(broker.registry, '_commit', side_effect=sqlite3.OperationalError):
+                self.expect_error('commit_unknown', self.registry_status, endpoint)
+            self.assertEqual(self.watermarks(), (WALL, WALL))
+
+            self.clock = WALL + 5
+            attempt = self.admit(endpoint)
+
+            def lose_reply(db):
+                commit(db)
+                raise sqlite3.OperationalError
+
+            self.clock = WALL + 20
+            with patch.object(broker.registry, '_commit', side_effect=lose_reply):
+                self.expect_error('commit_unknown', self.registry_status, endpoint)
+            self.assertEqual(self.watermarks(), (WALL + 20, WALL + 5))
+            self.clock = WALL + 10
+            self.expect_error('clock_uncertain', self.audit, endpoint, attempt)
+
+    def test_unauthorized_target_hides_idempotency_information(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            self.admit(endpoint)
+            for field in ('executor_id', 'objective_id'):
+                for request_id in (REQUEST, opaque(170)):
+                    with self.subTest(field=field, request_id=request_id):
+                        self.expect_error('denied', self.authorize, endpoint,
+                                          request_id=request_id, **{field: opaque(99)})
+
+    def test_revoked_authorization_hides_idempotency_information(self):
+        with self.service() as (endpoint, broker):
+            self.delivery(endpoint)
+            attempt = self.admit(endpoint)
+            self.start(endpoint, attempt)
+            broker.execution.revoke(ISSUER, Permission.AUTHORIZE, SCOPE)
+            for request_id in (REQUEST, opaque(170)):
+                for ttl in (60, 61):
+                    with self.subTest(request_id=request_id, ttl=ttl):
+                        self.expect_error('denied', self.authorize, endpoint,
+                                          request_id=request_id, ttl_seconds=ttl)
+            self.assert_audit(endpoint, attempt, 'admitted running completed')
+
+    def test_expired_perform_grant_hides_idempotency_information(self):
+        grants = tuple(grant for grant in EXECUTION_GRANTS if grant[1] is not Permission.PERFORM)
+        with self.service(grants=grants) as (endpoint, broker):
+            self.delivery(endpoint)
+            broker.execution.grant(EXECUTOR, Permission.PERFORM, SCOPE, expires_at=WALL + 10)
+            self.admit(endpoint)
+            self.clock = WALL + 10
+            for request_id in (REQUEST, opaque(170)):
+                for ttl in (60, 61):
+                    with self.subTest(request_id=request_id, ttl=ttl):
+                        self.expect_error('authorization_expired', self.authorize, endpoint,
+                                          request_id=request_id, ttl_seconds=ttl)
+
+    def test_grant_expiry_during_conflict_detection_hides_the_conflict(self):
+        grants = tuple(grant for grant in EXECUTION_GRANTS if grant[1] is not Permission.AUTHORIZE)
+        with self.service(grants=grants) as (endpoint, broker):
+            self.delivery(endpoint)
+            broker.execution.grant(ISSUER, Permission.AUTHORIZE, SCOPE, expires_at=WALL + 10)
+            attempt = self.admit(endpoint)
+            find_request = ExecutionTransaction.find_request
+
+            def expire_after_lookup(tx, authorizer, request_id):
+                previous = find_request(tx, authorizer, request_id)
+                self.clock = WALL + 10
+                return previous
+
+            self.clock = WALL + 5
+            with patch.object(ExecutionTransaction, 'find_request', expire_after_lookup):
+                self.expect_error('authorization_expired', self.authorize, endpoint, ttl_seconds=61)
+            self.assertEqual(self.watermarks(), (WALL, WALL))
+            self.assert_audit(endpoint, attempt, 'admitted')
+
+    def test_expired_precommit_observation_is_retained_only_for_the_same_decision(self):
+        with self.service() as (endpoint, _):
+            self.delivery(endpoint)
+            attempt = self.admit(endpoint, ttl_seconds=10)
+            append = ExecutionTransaction.append
+            check_deadline = ExecutionTransaction.check_deadline
+
+            def advance_after_start(tx, attempt, previous, state, **kwargs):
+                event = append(tx, attempt, previous, state, **kwargs)
+                if state == 'running':
+                    self.clock = WALL + 10
+                return event
+
+            def rewind_after_expiry(tx):
+                try:
+                    return check_deadline(tx)
+                except DeadlinePassed:
+                    self.clock = WALL + 6
+                    raise
+
+            self.clock = WALL + 5
+            with patch.object(ExecutionTransaction, 'append', advance_after_start), \
+                    patch.object(ExecutionTransaction, 'check_deadline', rewind_after_expiry), \
+                    patch('experiments.execution_lab._add_fixed_constants') as add:
+                self.expect_error('clock_uncertain', self.start, endpoint, attempt)
+                add.assert_not_called()
+            self.assertEqual(self.watermarks(), (WALL, WALL))
+            self.assertEqual(self.clock, WALL + 6)
+            self.assert_audit(endpoint, attempt, 'admitted')
+
     def test_acceptance_authorization_start_verified_result_and_scoped_audit(self):
         with self.service() as (endpoint, broker):
             text = self.delivery(endpoint)
@@ -241,6 +445,12 @@ class AuthorizedExecution(unittest.TestCase):
             attempt = receipt['id']
             self.assertEqual(self.start(endpoint, attempt)['state'], 'completed')
             self.assertEqual(self.audit(endpoint, attempt)['authorizer'], OTHER)
+            broker.execution.grant(ISSUER, Permission.AUTHORIZE, SCOPE, expires_at=WALL + 300)
+            issuer_attempt = self.admit(endpoint)
+            self.assertNotEqual(issuer_attempt, attempt)
+            self.assertEqual(self.audit(endpoint, issuer_attempt)['authorizer'], ISSUER)
+            self.assertEqual(self.admit(endpoint), issuer_attempt)
+            self.assertEqual(self.call(endpoint, OTHER, 'execution.authorize', **self.auth_params())['id'], attempt)
 
     def test_typed_payload_unknown_methods_versions_and_duplicate_keys(self):
         with self.service() as (endpoint, _):
@@ -295,7 +505,7 @@ class AuthorizedExecution(unittest.TestCase):
             attempt = replies[0]['id']
             self.assertEqual(self.count_attempts(), 1)
             self.expect_error('request_conflict', self.authorize, endpoint, ttl_seconds=61)
-            self.expect_error('request_conflict', self.authorize, endpoint, executor_id=opaque(93))
+            self.expect_error('denied', self.authorize, endpoint, executor_id=opaque(93))
             began, release = Event(), Event()
 
             def operation():
@@ -547,17 +757,30 @@ class AuthorizedExecution(unittest.TestCase):
             commit = broker.registry._commit
             for index, active in enumerate((attempt, lost_reply)):
                 calls = 0
+                started_at = WALL + index * 10 + 1
+                published_at = started_at + 5
+                self.clock = started_at
 
                 def fail_publication(db):
                     nonlocal calls
                     calls += 1
                     if calls == 1 or index == 1:
                         commit(db)
+                    if calls == 1:
+                        self.clock = published_at
                     if calls == 2:
                         raise sqlite3.OperationalError('internal failure')
 
                 with patch.object(broker.registry, '_commit', side_effect=fail_publication):
                     self.expect_error('commit_unknown', self.start, endpoint, active)
+                self.assertEqual(self.watermarks(), (WALL + 2 if index else WALL,
+                                                     published_at if index else started_at))
+                self.clock = started_at + 1
+                if index:
+                    self.expect_error('clock_uncertain', self.registry_status, endpoint)
+                    self.clock = published_at
+                else:
+                    self.assertEqual(self.registry_status(endpoint)['state'], 'accepted')
             self.assert_audit(endpoint, attempt, 'admitted running')
             self.assert_audit(endpoint, lost_reply, 'admitted running completed')
         with self.service(create=False) as (endpoint, _):

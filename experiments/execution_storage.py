@@ -127,14 +127,17 @@ class Target:
 class DeadlinePassed(Exception):
     """The last clock check lost to a deadline before committing."""
 
+    def __init__(self, observed_at):
+        super().__init__()
+        self.observed_at = observed_at
+
 
 class ExecutionTransaction:
-    def __init__(self, db, clock, floor):
+    def __init__(self, db, clock, now):
         self._db = db
         self._clock = clock
-        self.now = floor
+        self.now = now
         self._cutoff = float('inf')
-        self._changed = False
 
     def sample_time(self):
         self.now = self._clock(self.now)
@@ -143,12 +146,16 @@ class ExecutionTransaction:
     def require_before(self, deadline):
         self._cutoff = min(self._cutoff, deadline)
 
+    def check_deadline(self):
+        now = self.sample_time()
+        if now >= self._cutoff:
+            raise DeadlinePassed(now)
+        return now
+
     def prepare_commit(self):
-        if self._changed:
-            self._db.execute('INSERT INTO execution_clock VALUES (1, ?) '
-                             'ON CONFLICT(id) DO UPDATE SET last_wall=excluded.last_wall', (self.now,))
-        if self.sample_time() >= self._cutoff:
-            raise DeadlinePassed
+        now = self.check_deadline()
+        self._db.execute('INSERT INTO execution_clock VALUES (1, ?) '
+                         'ON CONFLICT(id) DO UPDATE SET last_wall=excluded.last_wall', (now,))
 
     def target(self, objective_id):
         row = self._db.execute(
@@ -193,7 +200,6 @@ class ExecutionTransaction:
         event = Event(revision, state, self.now, actor, result, reason)
         self._db.execute('INSERT INTO execution_events VALUES (?, ?, ?, ?, ?, ?, ?)',
                          (attempt.id, revision, state, self.now, actor, result, reason))
-        self._changed = True
         return event
 
 
@@ -201,8 +207,23 @@ class ExecutionRegistry(_BoundRegistry):
     application_id = 0x4C4F4558
     schema = {**_BoundRegistry.schema, **SCHEMA}
 
+    def _watermark(self, db):
+        registry = super()._watermark(db)
+        row = db.execute('SELECT last_wall FROM execution_clock WHERE id=1').fetchone()
+        if row is None:
+            return registry
+        if not _valid_wall(row[0]):
+            raise RegistryError(Error.INVALID_STORAGE)
+        return max(registry, row[0])
+
+    def _prepare_commit(self, db, revalidate):
+        # Registry grants in this profile use the same UTC clock as the database.
+        now = self._wall(self._decision_time)
+        revalidate(now=now)
+        self._write_watermark(db, now)
+
     @contextmanager
-    def execution_transaction(self):
+    def execution_transaction(self, *, observed_floor=0):
         """The caller holds the ingress/policy mutex through this transaction."""
         committing = False
         with self._lock:
@@ -210,10 +231,7 @@ class ExecutionRegistry(_BoundRegistry):
                 with closing(self._connect()) as db:
                     db.execute('BEGIN IMMEDIATE')
                     self._check_schema(db)
-                    row = db.execute('SELECT last_wall FROM execution_clock WHERE id=1').fetchone()
-                    if row is not None and not _valid_wall(row[0]):
-                        raise RegistryError(Error.INVALID_STORAGE)
-                    floor = max(self._watermark(db), row[0] if row else 0)
+                    floor = max(self._watermark(db), observed_floor)
                     tx = ExecutionTransaction(db, self._wall, self._wall(floor))
                     yield tx
                     tx.prepare_commit()

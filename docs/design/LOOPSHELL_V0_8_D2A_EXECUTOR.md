@@ -103,11 +103,12 @@ revogado. A geração impede que uma nova concessão reative a anterior.
 Revogação ou cancelamento após a publicação preservam a conclusão. O
 relógio UTC é conferido no ingresso da decisão e antes do commit. Se o
 prazo usado na decisão vencer antes do commit, a decisão é refeita sob o
-mesmo mutex e com a hora atual. O prazo é exclusivo. Expiração sem
-atividade é observável pelo prazo registrado e materializada em uma
-transição quando a tentativa volta a um caminho de execução ou
-cancelamento. Um alvo fora do estado ou da revisão exigidos impede início e
-publicação. A auditoria é uma leitura.
+mesmo mutex e com a hora atual. Uma amostra menor que o instante observado
+na tentativa anterior da mesma decisão retorna `clock_uncertain`. O
+prazo é exclusivo. Expiração sem atividade é observável pelo prazo
+registrado e materializada em uma transição quando a tentativa volta a
+um caminho de execução ou cancelamento. Um alvo fora do estado ou da
+revisão exigidos impede início e publicação.
 
 | Disputa | Decisão observável |
 | --- | --- |
@@ -115,7 +116,7 @@ publicação. A auditoria é uma leitura.
 | Início e cancelamento | Cancelamento confirmado em `admitted` impede o início. Se `running` confirmar primeiro, o cancelamento pode vencer a publicação. |
 | Início e expiração | O prazo deve permanecer vigente na última amostragem antes do commit do início. Uma expiração posterior impede a publicação. |
 | Publicação e revogação ou cancelamento | A remoção do grant ou o cancelamento que ganha a região crítica impede `completed`. Uma publicação já confirmada permanece no histórico. |
-| Solicitações idempotentes simultâneas | A primeira admissão que confirma fixa a tupla do pedido. O mesmo pedido lê essa tentativa e qualquer divergência é recusada. |
+| Solicitações idempotentes simultâneas | A primeira admissão que confirma fixa a tupla do pedido. Um pedido elegível com a mesma tupla reconcilia a tentativa. Um pedido elegível divergente recebe `request_conflict`. |
 
 ## Persistência e recuperação
 
@@ -130,13 +131,36 @@ reutiliza o SQLite estrito, journal de rollback `DELETE`, sustentação
 d'água. O esquema histórico permanece idêntico no seu perfil. Não há
 migração nem abertura desses bancos no perfil alternativo.
 
-O par de principal autorizador e `request_id` é único. Repetições
-simultâneas são ordenadas na mesma região crítica. Com autoridade atual
-e a janela original ainda válida, parâmetros idênticos retornam o recibo
-durável anterior. Qualquer divergência na tupla solicitada é erro. A
-fixture retém tentativas e eventos para auditoria e recusa nova admissão
-ao atingir a capacidade. O histórico não contém bearer tokens, hashes
-de credencial, labels nem texto do objetivo.
+No perfil D.2A, os dois protocolos e a abertura do banco consultam o
+maior marcador confirmado entre `registry_clock` e `execution_clock`.
+Um relógio abaixo desse piso retorna `clock_uncertain`. A última amostra
+UTC validada antes do commit é usada para verificar os grants
+consultados no Registry ou os prazos aplicáveis em Execution. A
+transação confirma a própria marca junto com eventuais mudanças de
+estado e auditoria. Uma consulta de auditoria pode avançar a marca
+temporal sem alterar a tentativa ou seus eventos. O timestamp de um
+evento identifica o momento da decisão. A marca identifica a última
+amostra validada da transação confirmada.
+
+Uma amostra só observada antes de uma transação abortada não avança o
+piso compartilhado. Quando o prazo observado força a repetição interna
+da decisão, a amostra vale como limite em memória para essa decisão.
+Em caso de `commit_unknown`, o banco preservado determina se a marca e
+as alterações da transação foram confirmadas. Os perfis históricos
+mantêm sua validação temporal e esquema.
+
+O par de principal autorizador e `request_id` é único. O LoopBridge
+verifica os grants atuais do autorizador e do executor e a elegibilidade
+do alvo solicitado antes de consultar esse par. Um pedido inelegível
+recebe o erro de autorização ou do alvo independentemente do uso anterior
+do ID. Pedidos elegíveis com a tupla idêntica reconciliam a tentativa na
+janela original. Pedidos elegíveis divergentes recebem apenas
+`request_conflict`, sem o recibo anterior. Os prazos são revalidados
+antes de comunicar o conflito. Cada principal tem seu próprio namespace
+e a reserva do ID permanece após o desfecho. A fixture retém tentativas
+e eventos para auditoria e recusa nova admissão ao atingir a capacidade.
+O histórico não contém bearer tokens, hashes de credencial, labels nem
+texto do objetivo.
 
 Na reabertura, uma tentativa admitida torna-se `revoked` porque a política
 de execução anterior não é recuperada. Uma tentativa em execução torna-se
@@ -154,3 +178,6 @@ anterior terminou e remove o socket residual da própria fixture antes
 de reabrir o banco preservado. O ensaio assume controle desse diretório
 e do processo confiável. A trilha SQLite não atesta integridade diante
 de adulteração pelo mesmo UID do serviço ou por um ator privilegiado.
+O piso temporal assume uma fonte UTC confiável e a preservação do
+banco ativo. Alteração privilegiada do relógio e restauração integral
+da VM estão fora dessa garantia.

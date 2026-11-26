@@ -111,12 +111,13 @@ class Execution:
     def _decide(self, decision):
         # If a checked bound expires during SQLite work, discard the uncommitted
         # decision and observe the expired authority under the same policy mutex.
+        observed_floor = 0
         for _ in range(2):
             try:
-                with self._registry.execution_transaction() as tx:
+                with self._registry.execution_transaction(observed_floor=observed_floor) as tx:
                     return decision(tx)
-            except DeadlinePassed:
-                continue
+            except DeadlinePassed as error:
+                observed_floor = error.observed_at
         _expired()
 
     def dispatch(self, connection, method, params):
@@ -166,9 +167,6 @@ class Execution:
             fail(message, code)
 
     def _authorize(self, tx, principal, enrolled, scope, request_id, ttl):
-        previous = tx.find_request(principal, request_id)
-        if previous is not None and (previous.scope, previous.ttl_seconds) != (scope, ttl):
-            raise RegistryError(Error.REQUEST_CONFLICT)
         authority = self._require_grant(tx, principal, Permission.AUTHORIZE, scope)
         target = tx.target(scope.objective_id)
         if target is None or target.executor_id != scope.executor_id or not enrolled(target.principal):
@@ -182,7 +180,13 @@ class Execution:
             raise RegistryError(Error.INVALID_STATE)
         if target.objective_revision != scope.accepted_revision:
             raise RegistryError(Error.STALE_REVISION)
+        tx.require_before(target.deadline)
+        # Only an eligible request may consult this principal's namespace.
+        previous = tx.find_request(principal, request_id)
         if previous is not None:
+            if (previous.scope, previous.ttl_seconds) != (scope, ttl):
+                tx.check_deadline()
+                raise RegistryError(Error.REQUEST_CONFLICT)
             if tx.now >= previous.deadline:
                 _expired()
             tx.require_before(previous.deadline)
