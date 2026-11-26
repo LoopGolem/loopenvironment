@@ -144,18 +144,19 @@ class RegistryControl:
 
 
 @contextmanager
-def _prepared_registry(root, admission, database_pin, policy_pin, *, wall_clock, clock):
+def _prepared_registry(root, admission, database_pin, policy_pin, *, wall_clock, clock,
+                       broker_type=_RegistryOnlyBroker, database_name=DATABASE):
     if type(database_pin) is not DatabasePin:
         raise ValueError('registry_database_pin_required')
     with private_registry_directory(root) as directory:
         fcntl.flock(directory.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        with directory.hold_database(database_pin):
+        with directory.hold_database(database_pin, name=database_name):
             policy = _load_policy(directory, policy_pin)
-            broker = _RegistryOnlyBroker(
+            broker = broker_type(
                 Identities(), {}, admission.service_uid, Journal(root), verifiers=policy.verifiers,
-                database=root / DATABASE, wall_clock=wall_clock, clock=clock, create=False,
+                database=root / database_name, wall_clock=wall_clock, clock=clock, create=False,
                 ingress_policy=admission, grant_clock=wall_clock,
-                storage_check=lambda: directory.check_database(database_pin))
+                storage_check=lambda: directory.check_database(database_pin, name=database_name))
             broker.access.replace(policy.verifiers, policy.grants, retired=policy.retired)
             control = RegistryControl(broker, directory, policy_pin, policy)
             try:
@@ -167,15 +168,27 @@ def _prepared_registry(root, admission, database_pin, policy_pin, *, wall_clock,
 @contextmanager
 def serve_operational_registry(ingress, *, database_pin, policy_pin, wall_clock=time, clock=monotonic):
     """Opt-in. The caller supplies a preprovisioned CrossUIDIngress and trusted pins."""
+    with _serve_profile(ingress, database_pin, policy_pin, endpoint_name='registry.sock',
+                        database_name=DATABASE, broker_type=_RegistryOnlyBroker,
+                        wall_clock=wall_clock, clock=clock) as (endpoint, _, control):
+        yield endpoint, control
+
+
+@contextmanager
+def _serve_profile(ingress, database_pin, policy_pin, *, endpoint_name, database_name, broker_type,
+                   wall_clock, clock, prepare=None):
     if type(ingress) is not CrossUIDIngress or os.getuid() != os.geteuid():
         raise ValueError('registry_cross_uid_profile_required')
-    endpoint = ingress.directory / 'registry.sock'
+    endpoint = ingress.directory / endpoint_name
     with trusted_directory(ingress.directory) as fd:
         if path_inode(os.fstat(fd)) != ingress.validate():
             raise ValueError('registry_ingress_replaced')
         with _prepared_registry(ingress.private_root, ingress.policy, database_pin, policy_pin,
-                                wall_clock=wall_clock, clock=clock) as (broker, control):
+                                wall_clock=wall_clock, clock=clock, broker_type=broker_type,
+                                database_name=database_name) as (broker, control):
+            if prepare is not None:
+                prepare(broker)
             if path_inode(os.fstat(fd)) != ingress.validate():
                 raise ValueError('registry_ingress_replaced')
             with ingress.listen(endpoint) as listener, Server(broker, listener, allow_owner=False):
-                yield endpoint, control
+                yield endpoint, broker, control

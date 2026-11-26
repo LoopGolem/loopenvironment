@@ -161,9 +161,12 @@ class SQLiteRegistry(Registry):
         except sqlite3.Error as error:
             raise _storage_error(error) from None
 
-    def _connect(self):
+    def _check_storage(self):
         if self._storage_check is not None:
             self._storage_check()
+
+    def _connect(self):
+        self._check_storage()
         _private_file(self.path)
         # mode=rw prevents silent creation if the evidence database disappears.
         db = sqlite3.connect(self.path.as_uri() + '?mode=rw', uri=True, timeout=2, isolation_level=None)
@@ -203,8 +206,7 @@ class SQLiteRegistry(Registry):
         now = self._wall(self._watermark(db))
         self._load(db, now)
         self._executors, self._objectives, self._receipts = {}, {}, {}
-        if self._storage_check is not None:
-            self._storage_check()
+        self._check_storage()
         db.commit()
 
     def _check_schema(self, db):
@@ -371,8 +373,7 @@ class SQLiteRegistry(Registry):
                         # The clock transition is legitimate even when the request expired.
                         outcome = error
                     self._save(db, before_executors, before_objectives, previous_receipts, actor.principal)
-                    if self._storage_check is not None:
-                        self._storage_check()
+                    self._check_storage()
                     self._prepare_commit(db, revalidate)
                     committing = True
                     self._commit(db)

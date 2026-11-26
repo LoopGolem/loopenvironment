@@ -146,7 +146,7 @@ class SupervisedExecution(Execution):
                 return
             index, previous_value = stage
             try:
-                result = _calculate_stage(index, previous_value)
+                result = self._run_stage(attempt, index, previous_value)
             except Exception:
                 result = None
             with self._access.identity_snapshot() as (resolve, enrolled):
@@ -154,6 +154,9 @@ class SupervisedExecution(Execution):
                     tx, attempt, driver, resolve(connection), enrolled, index, result))
             if not keep_going:
                 return
+
+    def _run_stage(self, attempt, index, previous_value):
+        return _calculate_stage(index, previous_value)
 
     def _valid_driver(self, tx, attempt, driver, principal, enrolled, previous):
         active = self._retire_if_inactive(tx, attempt, previous, enrolled)

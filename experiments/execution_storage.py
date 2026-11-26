@@ -243,6 +243,7 @@ class ExecutionRegistry(_BoundRegistry):
                     tx = self._transaction_type(db, self._wall, self._wall(floor))
                     yield tx
                     tx.prepare_commit()
+                    self._check_storage()
                     committing = True
                     self._commit(db)
             except sqlite3.Error as error:
