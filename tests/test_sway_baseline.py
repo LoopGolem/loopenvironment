@@ -118,6 +118,15 @@ class SwayBaselineTests(unittest.TestCase):
         ])
         self.assertNotIn('private diagnostic', json.dumps(after))
 
+    def test_malformed_ipc_version_reply_is_insufficient(self):
+        before = self.complete_capture()
+        self.replies['version'] = None
+        review = baseline.compare(before, self.capture())
+        self.assertEqual(review['result'], 'insufficient_evidence')
+        self.assertEqual(review['missing_components'], [
+            'version', 'config_file_identity', 'config_file_content',
+        ])
+
     def test_identity_race_invalidates_capture(self):
         with patch.object(baseline, 'session_identity',
                           side_effect=[(self.identity, self.socket_identity),

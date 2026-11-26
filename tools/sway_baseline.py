@@ -22,7 +22,7 @@ OUTPUT_IDENTITY = ('name', 'make', 'model', 'serial')
 OUTPUT_GEOMETRY = ('modes', 'current_mode', 'rect', 'scale', 'transform')
 IPC_HEADER = struct.Struct('=6sII')
 QUERY_TYPES = {'workspaces': 1, 'outputs': 3, 'tree': 4, 'version': 7, 'config': 9}
-CAPTURE_ERRORS = (OSError, ValueError, TypeError, LookupError, struct.error, RecursionError)
+CAPTURE_ERRORS = (OSError, ValueError, TypeError, LookupError, struct.error, RuntimeError)
 
 
 def digest(value):
@@ -142,6 +142,8 @@ def capture(pid, socket_path):
 
     try:
         version = query(socket_path, pid, 'version')
+        if not isinstance(version, dict):
+            raise ValueError('invalid compositor version reply')
         config_path = version.pop('loaded_config_file_name')
         if (not isinstance(version['human_readable'], str) or not version['human_readable']
                 or any(type(version[key]) is not int for key in ('major', 'minor', 'patch'))):
