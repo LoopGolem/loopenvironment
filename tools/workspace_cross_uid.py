@@ -52,7 +52,10 @@ EVIDENCE = 'evidence.jsonl'
 INSPECTION = 'inspection.json'
 LIFECYCLE = 'lifecycle.json'
 SCHEMA = 'workspace-cross-uid/1'
-BOOTSTRAP = ('import sys; sys.path.insert(0, sys.argv.pop(1)); '
+# Close anything the launcher/runtime opened after Popen's close_fds step.
+# This runs before importing fixture code or receiving any bootstrap data.
+BOOTSTRAP = ('import os, sys; os.closerange(3, os.sysconf("SC_OPEN_MAX")); '
+             'sys.path.insert(0, sys.argv.pop(1)); '
              'from tools.workspace_cross_uid import main; raise SystemExit(main())')
 # Required fields per event. Alternatives carry the same schema version.
 EVENT_FIELDS = {
@@ -284,7 +287,7 @@ class Worker:
         if session.real:
             uid, gid = identity_pair(role)
             args += [f'--reuid={uid}', f'--regid={gid}', '--clear-groups', '--bounding-set=-all']
-        args += ['/usr/bin/python3', '-I', '-B', '-c', BOOTSTRAP, str(SOURCE),
+        args += ['/usr/bin/python3', '-I', '-S', '-B', '-c', BOOTSTRAP, str(SOURCE),
                  '--run-id', session.run_id, '_worker', role]
         if not session.real:
             args += ['--root', str(session.layout.root), '--bounds', str(session.window.wall_end),

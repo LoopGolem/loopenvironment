@@ -150,12 +150,15 @@ D1, D2 and D3 use separate resources. At each gate the controller opens pinned S
 In the **desktop shell**, capture `d2c2_capture before-cleanup` at a stable point. Preserve the interaction log and note deviations. In the **root console** preserve and inspect the run while all data still exists:
 
 ```bash
-test -f "$d2c2_root/evidence.jsonl" && test ! -L "$d2c2_root/evidence.jsonl"
-install -m 0600 -- "$d2c2_root/evidence.jsonl" "$d2c2_records/evidence.jsonl"
+for d2c2_record in approval.json execution.json lifecycle.json evidence.jsonl; do
+  test -f "$d2c2_root/$d2c2_record" && test ! -L "$d2c2_root/$d2c2_record"
+  install -m 0600 -- "$d2c2_root/$d2c2_record" "$d2c2_records/$d2c2_record"
+done
 install -m 0600 -- "$D2C2_SWAY_DIR/before-cleanup.json" "$d2c2_records/sway-before-cleanup.json"
 d2c2 inspect | tee "$d2c2_records/inspection-summary.json"
 install -m 0600 -- "$d2c2_root/inspection.json" "$d2c2_records/inspection.json"
-sha256sum -- "$d2c2_records/evidence.jsonl" "$d2c2_records/inspection.json"
+sha256sum -- "$d2c2_records/approval.json" "$d2c2_records/execution.json" \
+  "$d2c2_records/lifecycle.json" "$d2c2_records/evidence.jsonl" "$d2c2_records/inspection.json"
 ```
 
 Inspection requires observed exits for all identified workers, empty ingress directories, no visible live endpoint under the fixture, no fixture mount, exact inventory, resource and fixture pins, and the unchanged installed unit baseline. The process startup records and traced lifecycles account for inherited pipes, the broker's known private descriptor and the accepted connections. Unexpected paths, ownership, mounts, descriptors, or incomplete lifecycles block cleanup. Retain the clone/fixture for review if inspection fails. For an unexpected stale socket, retain it pending proof of the exact endpoint and terminated owner. The automated stale removal is limited to the planned SIGKILL/restart transitions. Avoid generic process matching and recursive fixture removal.
