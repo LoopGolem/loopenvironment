@@ -165,7 +165,8 @@ class ActivityTests(unittest.TestCase):
     def test_timeout_clears_authorization(self):
         with self.wire(AUTH, {'result': SNAPSHOT}, None) as (client, _):
             client.begin(TOKEN)
-            with patch.object(DeadlineChannel, 'receive', side_effect=TimeoutError):
+            # The fake server also uses DeadlineChannel. Keep its receive live.
+            with patch.object(client._channel, 'receive', side_effect=TimeoutError):
                 self.assert_fault(Error.TIMEOUT, client.poll)
             self.assertIsNone(client.principal)
 

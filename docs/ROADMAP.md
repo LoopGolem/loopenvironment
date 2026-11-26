@@ -117,17 +117,25 @@ The next hardening milestone is the [D5 qualification matrix](design/TRUSTED_SER
   - [D.2B](labs/LOOPSHELL_V0_8_D2B_SUPERVISED_EXECUTION.md) records **experimental GO** for supervised local execution of a fixed two-stage plan. The [contract](design/LOOPSHELL_V0_8_D2B_SUPERVISED_EXECUTION.md) defines cooperative pause acknowledgement, a single authorized step, continue, cancellation and durable progress. The reference client uses the opt-in RPC. That local run used one UID.
   - [D.2B.1](labs/LOOPSHELL_V0_8_D2B1_CROSS_UID_PREFLIGHT.md) is the preflight **incorporated into `main`** by [PR #42](https://github.com/LoopGolem/loopenvironment/pull/42). The opt-in [supervision profile](design/LOOPSHELL_V0_8_D2B1_CROSS_UID_SUPERVISION.md) combines pinned private state and explicit cross-UID ingress with the D.2B plan. The local rehearsal used one UID and covered RPC and recovery.
   - [D.2B.2](labs/LOOPSHELL_V0_8_D2B2_CROSS_UID_EXECUTION.md) is **PARTIAL overall**. Operator-supplied terminal output from an independent Debian Lab clone supports **experimental GO** for phases A–D and **GO** for fixture cleanup. The installed unit baseline was preserved. Aggregate graphical baseline preservation is **INCONCLUSIVE** under the original criteria. No security violation was observed. Real private graphical resources remain **NOT RUN**. The [revised graphical baseline](labs/LOOPSHELL_V0_8_D2B1_CROSS_UID_PREFLIGHT.md#baseline-gráfico-para-qualificações-futuras) applies to future runs.
-  - [D.2C](#v08-d2c--first-mediated-capability) is the proposed next experiment.
+  - [D.2C.1](labs/LOOPSHELL_V0_8_D2C1_MEDIATED_WORKSPACE.md) qualifies the first mediated workspace document in the disposable local profile. The [D.2C.2 cross-UID matrix](design/LOOPSHELL_V0_8_D2C2_ACCEPTANCE.md) is proposed and **NOT RUN**.
 
 Mission, session, controller lease, observation surface and event stream have distinct lifecycles. An operator's biological nature grants no authority; API or physical input is not proof of a human. Handoff remains a **separate future qualification**. D5 host security remains **PARTIAL**. The M1.3B trusted input and semantic barriers remain independent.
 
 #### V0.8-D.2C — First mediated capability
 
-**Proposed.** Start with one observable effect on a disposable workspace resource. Require a specific grant for the operation and resource, mandatory mediation by LoopBridge, and a direct-access denial under the executor UID. Verify an authorized effect through an independent observation and verify denial for a caller without that grant.
+[D.2C.1](design/LOOPSHELL_V0_8_D2C1_MEDIATED_WORKSPACE.md) adds opt-in
+`workspace-effect/1` and the creation-only `workspace.document.create`
+capability. The local profile uses independent resource observation and
+records filesystem confirmation separately from durable dispatch. The
+[local evidence](labs/LOOPSHELL_V0_8_D2C1_MEDIATED_WORKSPACE.md) covers
+the no-replace link, both sides of the authority fence and conservative
+reconciliation after broker loss.
 
-Define and test each boundary separately. Pure computation can finish in memory. Authorized dispatch establishes that the service may attempt the operation. An external effect can occur before its confirmation is durable, including when the worker or broker stops or a reply is lost. Define confirmation by independent evidence specific to the resource. On recovery, reconcile using durable operation identity and evidence of the effect where available. Preserve an uncertain result when evidence is insufficient and prevent automatic replay that could duplicate the effect. Qualify failure before the effect and interruption between the effect and its confirmation. Resource selection and the reconciliation mechanism remain open.
-
-D.2B.2 phases A–D support this experiment. D.2C requires its own acceptance criteria and does not qualify D5.
+[D.2C.2](design/LOOPSHELL_V0_8_D2C2_ACCEPTANCE.md) proposes distinct-UID
+ingress, direct workspace access denial, the real effect and recovery
+with independent verification and fixture cleanup. Cross-UID workspace
+isolation and real private graphical resource isolation remain **NOT RUN**.
+D5 remains **PARTIAL**. M1.3B and V0.8 presentation retain their own gates.
 
 ### V0.9 — Observable Actuation
 
